@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { StoreAccount, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -13,6 +14,14 @@ const saving = shallowRef(false)
 const stores = shallowRef<StoreAccount[]>([])
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedStores,
+} = useClientPagination(stores)
 
 const form = reactive<StorePayload>({
   storeCode: '',
@@ -148,7 +157,7 @@ async function removeStore(row: StoreAccount) {
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="650">
+      <el-table v-loading="loading" :data="pagedStores" empty-text="暂无店铺" height="650">
         <el-table-column prop="ownerUsername" label="租户编码" width="140" />
         <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
@@ -184,6 +193,15 @@ async function removeStore(row: StoreAccount) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
 
     <el-dialog v-model="dialogOpen" :title="editingId ? '编辑店铺信息' : '新增店铺信息'" width="760px">

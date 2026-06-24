@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { CrawlSource, CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -12,6 +13,14 @@ const loading = shallowRef(false)
 const creating = shallowRef(false)
 const sources = shallowRef<CrawlSource[]>([])
 const tasks = shallowRef<CrawlTask[]>([])
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedTasks,
+} = useClientPagination(tasks)
 
 const form = reactive({
   sourceId: null as number | null,
@@ -168,7 +177,7 @@ function statusType(status: string) {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="tasks" empty-text="暂无任务" height="560">
+      <el-table v-loading="loading" :data="pagedTasks" empty-text="暂无任务" height="560">
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column label="类型" width="110">
           <template #default="{ row }">
@@ -189,6 +198,15 @@ function statusType(status: string) {
         <el-table-column prop="message" label="说明" min-width="190" show-overflow-tooltip />
         <el-table-column prop="errorDetail" label="错误" min-width="180" show-overflow-tooltip />
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
   </section>
 </template>

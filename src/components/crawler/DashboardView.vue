@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { CircleCheck, Connection, Key, List, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { AuthSession, CrawlSource, CrawlTask, ListingTask, ProductItem, SecretProfile, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -37,7 +38,14 @@ const pendingProductCount = computed(() => products.value.filter((product) => pr
 const approvedProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'approved').length)
 const errorProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'error').length)
 const listingTaskCount = computed(() => listingTasks.value.length)
-const latestTasks = computed(() => tasks.value.slice(0, 6))
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedTasks,
+} = useClientPagination(tasks)
 
 onMounted(() => {
   void refreshDashboard()
@@ -180,9 +188,9 @@ function statusType(status: string) {
       </div>
       <el-table
         v-loading="loading"
-        :data="latestTasks"
+        :data="pagedTasks"
         empty-text="暂无任务"
-        height="320"
+        height="520"
       >
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="sourceType" label="类型" width="120" />
@@ -197,6 +205,15 @@ function statusType(status: string) {
         <el-table-column prop="successCount" label="保存" width="90" />
         <el-table-column prop="message" label="说明" min-width="180" show-overflow-tooltip />
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
   </section>
 </template>

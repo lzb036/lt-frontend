@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Delete, Plus, Refresh, Search, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -29,6 +30,14 @@ const filteredTasks = computed(() => tasks.value.filter((task) => {
   const typeMatched = !filters.sourceType || task.sourceType === filters.sourceType
   return targetMatched && statusMatched && typeMatched
 }))
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedTasks,
+} = useClientPagination(filteredTasks)
 
 const sourceTypeOptions: Array<{ label: string; value: SourceType }> = [
   { label: '乐天搜索', value: 'keyword' },
@@ -171,7 +180,7 @@ function statusType(status: string) {
         </el-button>
       </div>
 
-      <el-table v-loading="loading" :data="filteredTasks" empty-text="暂无手动采集任务" height="620">
+      <el-table v-loading="loading" :data="pagedTasks" empty-text="暂无手动采集任务" height="620">
         <el-table-column prop="ownerUsername" label="租户编码" width="140" />
         <el-table-column label="采集内容" min-width="260" show-overflow-tooltip>
           <template #default="{ row }">
@@ -203,6 +212,15 @@ function statusType(status: string) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
   </section>
 </template>

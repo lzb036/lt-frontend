@@ -4,12 +4,21 @@ import { ElMessage } from 'element-plus'
 import { Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { ListingTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const tasks = shallowRef<ListingTask[]>([])
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedTasks,
+} = useClientPagination(tasks)
 
 onMounted(() => {
   void loadTasks()
@@ -77,7 +86,7 @@ function statusType(status: string) {
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="tasks" empty-text="暂无上架任务" height="650">
+      <el-table v-loading="loading" :data="pagedTasks" empty-text="暂无上架任务" height="650">
         <el-table-column prop="taskName" label="任务名称" min-width="220" show-overflow-tooltip />
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
@@ -101,6 +110,15 @@ function statusType(status: string) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
   </section>
 </template>

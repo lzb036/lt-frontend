@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleCheck, Lock, Plus, Refresh, User } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { AuthSession, UserAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -15,6 +16,14 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const users = shallowRef<UserAccount[]>([])
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedUsers,
+} = useClientPagination(users)
 
 const createForm = reactive({
   username: '',
@@ -148,7 +157,7 @@ async function resetPassword(row: UserAccount) {
           <p>账号启停不影响各用户已保存的独立配置。</p>
         </div>
       </div>
-      <el-table v-loading="loading" :data="users" empty-text="暂无用户" height="520">
+      <el-table v-loading="loading" :data="pagedUsers" empty-text="暂无用户" height="520">
         <el-table-column prop="username" label="用户名" min-width="150" />
         <el-table-column prop="displayName" label="显示名称" min-width="160" />
         <el-table-column label="角色" width="130">
@@ -178,6 +187,15 @@ async function resetPassword(row: UserAccount) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
   </section>
 </template>

@@ -723,6 +723,20 @@ a {
   background: rgba(34, 100, 209, 0.16);
 }
 
+.shell-brand em,
+.header-copy,
+.user-name,
+.eyebrow,
+.page-head h1,
+.page-head > .el-button,
+.page-head .head-actions > .el-button:first-child {
+  display: none !important;
+}
+
+.shell-header .header-user {
+  margin-left: auto;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -808,6 +822,66 @@ a {
 .el-pagination .el-pager li.is-active {
   border-color: var(--accent-border);
   background: var(--accent-soft);
+}
+
+.pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  min-height: 48px;
+  box-sizing: border-box;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border), transparent 30%);
+  background: color-mix(in srgb, var(--panel-bg), var(--panel-muted) 52%);
+  padding: 8px 12px;
+}
+
+.pagination-row .el-pagination {
+  --el-pagination-button-width: 28px;
+  --el-pagination-button-height: 28px;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.pagination-row .el-pagination button,
+.pagination-row .el-pager li {
+  min-width: 28px;
+  height: 28px;
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.pagination-row .el-pagination__total {
+  height: 28px;
+  margin-right: 8px;
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.pagination-row .el-pagination__sizes {
+  margin-right: 8px;
+}
+
+.pagination-row .el-pagination__jump {
+  height: 28px;
+  margin-left: 8px;
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.pagination-row .el-pagination__editor.el-input {
+  width: 42px;
+}
+
+.pagination-row .el-select__wrapper {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.pagination-row .el-select__placeholder {
+  font-size: 12px;
 }
 
 .el-alert {
@@ -901,4 +975,11 @@ a {
 
 [data-theme-mode="dark"] .el-loading-mask {
   background-color: color-mix(in srgb, var(--panel-bg), transparent 18%);
+}
+
+@media (max-width: 760px) {
+  .pagination-row {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
 }

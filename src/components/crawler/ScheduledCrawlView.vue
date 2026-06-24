@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus, Refresh, Search, Timer, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { CrawlSource, ScheduledCrawl, ScheduledCrawlPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -14,6 +15,14 @@ const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
 const schedules = shallowRef<ScheduledCrawl[]>([])
 const sources = shallowRef<CrawlSource[]>([])
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedSchedules,
+} = useClientPagination(schedules)
 
 const form = reactive<ScheduledCrawlPayload>({
   sourceId: null,
@@ -183,7 +192,7 @@ function statusLabel(row: ScheduledCrawl) {
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="schedules" empty-text="暂无定时采集" height="650">
+      <el-table v-loading="loading" :data="pagedSchedules" empty-text="暂无定时采集" height="650">
         <el-table-column prop="ownerUsername" label="租户编码" width="140" />
         <el-table-column prop="name" label="任务名称" min-width="170" show-overflow-tooltip />
         <el-table-column prop="crawlContent" label="采集内容" min-width="230" show-overflow-tooltip />
@@ -216,6 +225,15 @@ function statusLabel(row: ScheduledCrawl) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
 
     <el-dialog v-model="dialogOpen" :title="editingId ? '编辑定时采集' : '新增定时采集'" width="680px">

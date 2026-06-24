@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, EditPen, Finished, Plus, Refresh, Search, Upload, View } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { ProductItem, ReviewStatus, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -19,6 +20,15 @@ const operating = shallowRef(false)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedProducts,
+  resetPage,
+} = useClientPagination(products)
 
 const filters = reactive({
   keyword: '',
@@ -40,7 +50,7 @@ const statusCopy = computed(() => {
   return map[props.status]
 })
 
-const totalValue = computed(() => products.value.reduce((sum, product) => sum + (product.price || 0), 0))
+const totalValue = computed(() => pagedProducts.value.reduce((sum, product) => sum + (product.price || 0), 0))
 const selectedCount = computed(() => selectedIds.value.length)
 
 onMounted(() => {
@@ -51,6 +61,7 @@ watch(
   () => props.status,
   () => {
     selectedIds.value = []
+    resetPage()
     void refreshAll()
   },
 )
@@ -73,6 +84,12 @@ async function refreshAll() {
 
 function resetFilters() {
   filters.keyword = ''
+  resetPage()
+  void refreshAll()
+}
+
+function searchProducts() {
+  resetPage()
   void refreshAll()
 }
 
@@ -201,8 +218,8 @@ function priceText(product: ProductItem) {
 
     <section class="work-panel">
       <div class="filter-row">
-        <el-input v-model="filters.keyword" :prefix-icon="Search" clearable placeholder="商品标题、编号关键词" @keydown.enter="refreshAll" />
-        <el-button type="primary" :icon="Search" @click="refreshAll">
+        <el-input v-model="filters.keyword" :prefix-icon="Search" clearable placeholder="商品标题、编号关键词" @keydown.enter="searchProducts" />
+        <el-button type="primary" :icon="Search" @click="searchProducts">
           搜索
         </el-button>
         <el-button @click="resetFilters">
@@ -240,7 +257,7 @@ function priceText(product: ProductItem) {
 
       <el-table
         v-loading="loading"
-        :data="products"
+        :data="pagedProducts"
         :empty-text="statusCopy.empty"
         height="620"
         @selection-change="handleSelectionChange"
@@ -285,6 +302,15 @@ function priceText(product: ProductItem) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
   </section>
 </template>

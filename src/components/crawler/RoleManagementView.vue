@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { AuthSession, RoleDefinition, RolePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -17,6 +18,14 @@ const saving = shallowRef(false)
 const roles = shallowRef<RoleDefinition[]>([])
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedRoles,
+} = useClientPagination(roles)
 
 const canManageRoles = computed(() => props.session?.role === 'superadmin')
 
@@ -144,7 +153,7 @@ function scopeLabel(scope: string) {
     <el-alert v-if="!canManageRoles" type="warning" :closable="false" show-icon title="当前账号没有角色管理权限。" />
 
     <section v-else class="work-panel">
-      <el-table v-loading="loading" :data="roles" empty-text="暂无角色" height="650">
+      <el-table v-loading="loading" :data="pagedRoles" empty-text="暂无角色" height="650">
         <el-table-column prop="id" label="角色编号" width="100" />
         <el-table-column prop="name" label="角色名称" min-width="160" />
         <el-table-column prop="code" label="权限字符" min-width="160" />
@@ -179,6 +188,15 @@ function scopeLabel(scope: string) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
 
     <el-dialog v-model="dialogOpen" :title="editingId ? '编辑角色' : '新增角色'" width="620px">

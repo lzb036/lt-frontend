@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useClientPagination } from '../../composables/useClientPagination'
 import type { CrawlSource, CrawlSourcePayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -13,6 +14,14 @@ const saving = shallowRef(false)
 const dialogVisible = shallowRef(false)
 const editingId = shallowRef<number | null>(null)
 const sources = shallowRef<CrawlSource[]>([])
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  pagedItems: pagedSources,
+} = useClientPagination(sources)
 
 const form = reactive<CrawlSourcePayload>({
   name: '',
@@ -145,7 +154,7 @@ function sourceTypeLabel(value: SourceType) {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="sources" empty-text="暂无采集源" height="560">
+      <el-table v-loading="loading" :data="pagedSources" empty-text="暂无采集源" height="560">
         <el-table-column prop="name" label="名称" min-width="160" />
         <el-table-column label="类型" width="120">
           <template #default="{ row }">
@@ -177,6 +186,15 @@ function sourceTypeLabel(value: SourceType) {
           </template>
         </el-table-column>
       </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="pageSizes"
+          :total="total"
+          :layout="paginationLayout"
+        />
+      </div>
     </section>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="680px">
