@@ -384,12 +384,12 @@ function priceText(product: ProductItem) {
 
 .filter-row {
   margin-bottom: 12px;
-  grid-template-columns: minmax(260px, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
 }
 
 .listing-row {
   margin-bottom: 12px;
-  grid-template-columns: minmax(220px, 0.6fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(180px, 0.6fr) minmax(0, 1fr);
 }
 
 .action-bar {
@@ -418,7 +418,7 @@ function priceText(product: ProductItem) {
   font-size: 12px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .filter-row,
   .listing-row,
   .metric-row {

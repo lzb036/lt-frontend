@@ -264,13 +264,22 @@ function statusType(status: string) {
 .task-form {
   display: grid;
   margin-top: 16px;
-  grid-template-columns: minmax(180px, 0.9fr) 140px minmax(260px, 1.4fr) auto;
+  grid-template-columns: minmax(170px, 0.8fr) minmax(130px, 140px) minmax(0, 1.4fr) max-content;
   gap: 12px;
 }
 
 @media (max-width: 1080px) {
   .task-form {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 160px);
+  }
+
+  .task-form .el-input,
+  .task-form .el-button {
+    grid-column: 1 / -1;
+  }
+
+  .task-form .el-button {
+    justify-self: flex-end;
   }
 }
 
@@ -283,6 +292,10 @@ function statusType(status: string) {
 
   .task-form {
     grid-template-columns: 1fr;
+  }
+
+  .task-form .el-button {
+    justify-self: stretch;
   }
 }
 </style>

@@ -41,7 +41,7 @@ const form = reactive<RolePayload>({
 const permissionOptions = [
   { label: '用户管理', value: 'users.manage' },
   { label: '角色管理', value: 'roles.manage' },
-  { label: '密钥配置', value: 'secrets.manage' },
+  { label: '店铺密钥', value: 'secrets.manage' },
   { label: '任务管理', value: 'crawler.manage' },
   { label: '商品管理', value: 'products.manage' },
   { label: '店铺管理', value: 'stores.manage' },

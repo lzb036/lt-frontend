@@ -148,7 +148,6 @@ function statusType(status: string) {
       <div class="panel-head">
         <div>
           <h2>新增采集任务</h2>
-          <p>支持乐天搜索、店铺、排行榜和单个商品地址采集，采集完成后进入待审核商品。</p>
         </div>
       </div>
       <div class="create-row">
@@ -283,18 +282,44 @@ function statusType(status: string) {
 
 .create-row {
   margin-top: 16px;
-  grid-template-columns: 220px minmax(280px, 1fr) auto;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) max-content;
 }
 
 .filter-row {
   margin-bottom: 14px;
-  grid-template-columns: minmax(240px, 1fr) 170px 190px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 170px) minmax(160px, 190px) max-content;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1120px) {
+  .create-row {
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  }
+
+  .create-row .el-button {
+    grid-column: 1 / -1;
+    justify-self: flex-end;
+  }
+
+  .filter-row {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 170px) minmax(160px, 190px);
+  }
+
+  .filter-row .el-button {
+    grid-column: 1 / -1;
+    justify-self: flex-end;
+  }
+}
+
+@media (max-width: 760px) {
   .create-row,
   .filter-row {
     grid-template-columns: 1fr;
+  }
+
+  .create-row .el-button,
+  .filter-row .el-button {
+    grid-column: auto;
+    justify-self: stretch;
   }
 
   .page-head,

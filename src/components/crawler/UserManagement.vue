@@ -253,13 +253,29 @@ async function resetPassword(row: UserAccount) {
 .create-row {
   display: grid;
   margin-top: 16px;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) max-content;
   gap: 12px;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1120px) {
+  .create-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .create-row .el-button {
+    grid-column: 1 / -1;
+    justify-self: flex-end;
+  }
+}
+
+@media (max-width: 760px) {
   .create-row {
     grid-template-columns: 1fr;
+  }
+
+  .create-row .el-button {
+    grid-column: auto;
+    justify-self: stretch;
   }
 
   .page-head,

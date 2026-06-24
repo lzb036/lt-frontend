@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Box, Connection, Goods, Key, Lock, Refresh, Search, User } from '@element-plus/icons-vue'
+import { Box, Connection, Goods, Key, Lock, Refresh, User } from '@element-plus/icons-vue'
 
 const props = defineProps<{
   loading: boolean
@@ -142,7 +142,7 @@ function restoreRememberedLogin() {
       <aside class="login-visual" aria-label="系统概览">
         <div class="brand-row">
           <span class="brand-mark">
-            <el-icon><Search /></el-icon>
+            <img src="/favicon.svg" alt="" />
           </span>
           <span class="brand-copy">
             <strong>商品采集系统</strong>
@@ -152,18 +152,18 @@ function restoreRememberedLogin() {
 
         <div class="visual-copy">
           <p class="visual-eyebrow">按用户隔离的采集工作台</p>
-          <h1>密钥、采集源、商品结果按账号独立管理</h1>
-          <p>超级管理员只建账号，具体店铺、1688、物流、OSS 与代理配置由用户自行维护。</p>
+          <h1>店铺、商品结果按账号独立管理</h1>
+          <p>超级管理员只建账号，具体店铺与乐天 API 密钥由用户自行维护。</p>
         </div>
 
         <div class="feature-grid">
           <div class="feature-item">
             <el-icon><Key /></el-icon>
-            <span>独立密钥</span>
+            <span>店铺密钥</span>
           </div>
           <div class="feature-item">
             <el-icon><Connection /></el-icon>
-            <span>采集源配置</span>
+            <span>店铺配置</span>
           </div>
           <div class="feature-item">
             <el-icon><Goods /></el-icon>
@@ -179,7 +179,7 @@ function restoreRememberedLogin() {
       <section class="login-card" aria-labelledby="login-title">
         <div class="login-header">
           <span class="login-icon">
-            <el-icon><Search /></el-icon>
+            <img src="/favicon.svg" alt="" />
           </span>
           <p class="login-eyebrow">运营后台登录</p>
           <h2 id="login-title" class="login-title">商品采集系统</h2>
@@ -316,7 +316,12 @@ function restoreRememberedLogin() {
   justify-content: space-between;
   padding: 42px 50px;
   background:
-    linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(23, 61, 89, 0.93) 58%, rgba(14, 98, 93, 0.9)),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent-active), #111827 72%),
+      color-mix(in srgb, var(--accent), #173d59 66%) 58%,
+      color-mix(in srgb, var(--accent), #0f766e 48%)
+    ),
     linear-gradient(45deg, rgba(255, 255, 255, 0.08), transparent);
   color: #ffffff;
   overflow: hidden;
@@ -354,6 +359,12 @@ function restoreRememberedLogin() {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.12);
+}
+
+.brand-mark img {
+  display: block;
+  width: 34px;
+  height: 34px;
 }
 
 .brand-copy {
@@ -416,7 +427,7 @@ function restoreRememberedLogin() {
 }
 
 .feature-item .el-icon {
-  color: #8bd8ff;
+  color: color-mix(in srgb, var(--accent-border), #ffffff 32%);
   font-size: 22px;
 }
 
@@ -456,6 +467,12 @@ function restoreRememberedLogin() {
   border-radius: 8px;
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.login-icon img {
+  display: block;
+  width: 36px;
+  height: 36px;
 }
 
 .login-eyebrow {

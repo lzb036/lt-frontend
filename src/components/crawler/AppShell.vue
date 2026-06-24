@@ -1,22 +1,30 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import {
-  Calendar,
-  DataBoard,
-  Goods,
-  Key,
-  List,
-  Management,
-  Operation,
-  Search,
+  Aim,
+  AlarmClock,
+  Document,
+  Expand,
+  Finished,
+  Fold,
+  House,
+  OfficeBuilding,
+  Postcard,
+  Sell,
   Setting,
   Shop,
+  ShoppingBag,
+  ShoppingCartFull,
   SwitchButton,
-  Upload,
-  User,
+  Tickets,
+  Tools,
+  UserFilled,
+  Warning,
 } from '@element-plus/icons-vue'
 
+import { useTheme } from '../../composables/useTheme'
 import type { AuthSession } from '../../types/crawler'
 
 const props = defineProps<{
@@ -36,159 +44,55 @@ const activePath = computed(() => {
   return path === '/' ? '/dashboard' : path
 })
 const displayName = computed(() => props.session?.displayName || props.session?.username || '未登录')
-
-type ThemeMode = 'system' | 'light' | 'dark'
-type ThemePresetKey = 'default' | 'anthropic' | 'large-simple' | 'night' | 'rose-garden' | 'lagoon' | 'sunset' | 'forest' | 'sea-breeze' | 'wisteria'
-type ThemeFontMode = 'auto' | 'sans' | 'microsoft' | 'pingfang' | 'noto' | 'serif' | 'japanese' | 'mono'
-type ThemeRadiusMode = 'auto' | '0' | '0.3' | '0.5' | '0.75' | '1.0'
-type ThemeDensityMode = 'compact' | 'default' | 'relaxed' | 'large'
-type ThemeSurfaceMode = 'standard' | 'soft' | 'glass' | 'line'
-
-interface ThemeSettings {
-  mode: ThemeMode
-  preset: ThemePresetKey
-  font: ThemeFontMode
-  radius: ThemeRadiusMode
-  density: ThemeDensityMode
-  surface: ThemeSurfaceMode
-}
-
-interface ThemeOption<T extends string> {
-  key: T
-  label: string
-}
-
-interface ThemePresetOption extends ThemeOption<ThemePresetKey> {
-  primary: string
-  accent: string
-  surface: string
-}
-
-const THEME_SETTINGS_STORAGE_KEY = 'lt_product_collector_theme_settings'
-
-const defaultThemeSettings: ThemeSettings = {
-  mode: 'light',
-  preset: 'default',
-  font: 'sans',
-  radius: '0.5',
-  density: 'default',
-  surface: 'standard',
-}
-
-const themeModeOptions: ThemeOption<ThemeMode>[] = [
-  { key: 'system', label: '跟随系统' },
-  { key: 'light', label: '浅色' },
-  { key: 'dark', label: '深色' },
-]
-
-const themePresetOptions: ThemePresetOption[] = [
-  { key: 'default', label: '默认', primary: '#4f5df7', accent: '#c7d2fe', surface: '#f4f7ff' },
-  { key: 'anthropic', label: '陶土', primary: '#d97757', accent: '#f2c5b2', surface: '#f8f4f1' },
-  { key: 'large-simple', label: '简洁', primary: '#111827', accent: '#cbd5e1', surface: '#f5f6f8' },
-  { key: 'night', label: '夜航', primary: '#3f7ee8', accent: '#1c2f4b', surface: '#0f1b2d' },
-  { key: 'rose-garden', label: '玫瑰', primary: '#e83f74', accent: '#ffc1d2', surface: '#fbf4f7' },
-  { key: 'lagoon', label: '湖光', primary: '#0f9f8b', accent: '#a9e8dd', surface: '#f1fbfa' },
-  { key: 'sunset', label: '日落', primary: '#df5f47', accent: '#ffc3aa', surface: '#fbf5ef' },
-  { key: 'forest', label: '森林', primary: '#2f7a67', accent: '#b5dcd0', surface: '#f2f8f5' },
-  { key: 'sea-breeze', label: '海风', primary: '#4f5df7', accent: '#c5d0ff', surface: '#f1f6ff' },
-  { key: 'wisteria', label: '藤紫', primary: '#8b5fd3', accent: '#d6c6f6', surface: '#f7f4fc' },
-]
-
-const themeFontOptions: ThemeOption<ThemeFontMode>[] = [
-  { key: 'sans', label: '系统黑体' },
-  { key: 'microsoft', label: '微软雅黑' },
-  { key: 'pingfang', label: '苹方' },
-  { key: 'noto', label: '思源黑体' },
-  { key: 'serif', label: '宋体' },
-  { key: 'mono', label: '等宽' },
-]
-
-const themeRadiusOptions: ThemeOption<ThemeRadiusMode>[] = [
-  { key: '0', label: '0' },
-  { key: '0.3', label: '0.3' },
-  { key: '0.5', label: '0.5' },
-  { key: '0.75', label: '0.75' },
-  { key: '1.0', label: '1.0' },
-]
-
-const themeDensityOptions: ThemeOption<ThemeDensityMode>[] = [
-  { key: 'compact', label: '紧凑' },
-  { key: 'default', label: '默认' },
-  { key: 'relaxed', label: '宽松' },
-  { key: 'large', label: '大号' },
-]
-
-const themeSurfaceOptions: ThemeOption<ThemeSurfaceMode>[] = [
-  { key: 'standard', label: '标准' },
-  { key: 'soft', label: '柔和' },
-  { key: 'glass', label: '透亮' },
-  { key: 'line', label: '细线' },
-]
-
-const themeStorageKey = computed(() => {
-  const identity = props.session?.username || 'guest'
-  return `${THEME_SETTINGS_STORAGE_KEY}:${identity}`
-})
 const themeDrawerOpen = ref(false)
-const systemPrefersDark = ref(false)
-const themeSettings = reactive<ThemeSettings>(readStoredThemeSettings())
-const themeModeSegmentOptions = themeModeOptions.map((option) => ({
-  label: option.label,
-  value: option.key,
-}))
-
-let themeMediaQuery: MediaQueryList | null = null
-
-const effectiveThemeMode = computed<'light' | 'dark'>(() => {
-  if (themeSettings.mode === 'system') {
-    return systemPrefersDark.value ? 'dark' : 'light'
-  }
-  return themeSettings.mode
-})
+const sidebarCollapsed = ref(false)
+const systemNow = ref(new Date())
+const {
+  themeSettings,
+  themeModeSegmentOptions,
+  themePresetOptions,
+  themeFontOptions,
+  themeRadiusOptions,
+  themeDensityOptions,
+  themeSurfaceOptions,
+  updateThemeSetting,
+  resetThemeSettings,
+} = useTheme()
 
 const menuGroups = computed(() => {
   const groups = [
     {
       path: '/dashboard',
-      label: '首页',
-      icon: DataBoard,
+      label: '仪表盘',
+      icon: House,
     },
     {
       key: 'jobs',
       label: '任务管理',
-      icon: List,
+      icon: Tickets,
       children: [
-        { path: '/ltJobs/wjJobs', label: '手动采集', icon: Search },
-        { path: '/ltJobs/upGoodsJob', label: '上架任务', icon: Upload },
-        { path: '/ltJobs/wjProductJob', label: '定时采集', icon: Calendar },
+        { path: '/ltJobs/wjJobs', label: '手动采集', icon: Aim },
+        { path: '/ltJobs/upGoodsJob', label: '上架任务', icon: ShoppingCartFull },
+        { path: '/ltJobs/wjProductJob', label: '定时采集', icon: AlarmClock },
       ],
     },
     {
       key: 'rakuten-shop',
       label: '乐天店铺管理',
-      icon: Goods,
+      icon: ShoppingBag,
       children: [
-        { path: '/ltShop/wjMerchantGoods', label: '待审核商品', icon: Goods },
-        { path: '/ltShop/wjMerchantGoodsTrue', label: '已审核商品', icon: Operation },
-        { path: '/ltShop/wjMerchantGoodsError', label: '异常商品', icon: Setting },
-        { path: '/ltShop/GoodsUp', label: '上架商品', icon: Upload },
+        { path: '/ltShop/wjMerchantGoods', label: '待审核商品', icon: Document },
+        { path: '/ltShop/wjMerchantGoodsTrue', label: '已审核商品', icon: Finished },
+        { path: '/ltShop/wjMerchantGoodsError', label: '异常商品', icon: Warning },
+        { path: '/ltShop/GoodsUp', label: '上架商品', icon: Sell },
       ],
     },
     {
       key: 'stores',
       label: '店铺管理',
-      icon: Shop,
+      icon: OfficeBuilding,
       children: [
         { path: '/ltHj/wjMerchant', label: '店铺信息', icon: Shop },
-      ],
-    },
-    {
-      key: 'profile',
-      label: '个人中心',
-      icon: Key,
-      children: [
-        { path: '/user/profile', label: '密钥配置', icon: Key },
-        { path: '/sources', label: '采集源配置', icon: Management },
       ],
     },
   ]
@@ -196,14 +100,32 @@ const menuGroups = computed(() => {
     groups.push({
       key: 'system',
       label: '系统管理',
-      icon: User,
+      icon: Tools,
       children: [
-        { path: '/system/user', label: '用户管理', icon: User },
-        { path: '/system/role', label: '角色管理', icon: Management },
+        { path: '/system/user', label: '用户管理', icon: UserFilled },
+        { path: '/system/role', label: '角色管理', icon: Postcard },
       ],
     })
   }
   return groups
+})
+
+const sidebarCollapseIcon = computed(() => (sidebarCollapsed.value ? Expand : Fold))
+const formattedSystemTime = computed(() => formatSystemDateTime(systemNow.value))
+
+let systemClockTimer: number | undefined
+
+onMounted(() => {
+  systemNow.value = new Date()
+  systemClockTimer = window.setInterval(() => {
+    systemNow.value = new Date()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (systemClockTimer !== undefined) {
+    window.clearInterval(systemClockTimer)
+  }
 })
 
 async function handleMenuSelect(path: string) {
@@ -212,106 +134,53 @@ async function handleMenuSelect(path: string) {
   }
 }
 
-function optionExists<T extends string>(options: ThemeOption<T>[], value: unknown): value is T {
-  return typeof value === 'string' && options.some((option) => option.key === value)
+function toggleSidebarCollapsed() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
-function presetExists(value: unknown): value is ThemePresetKey {
-  return typeof value === 'string' && themePresetOptions.some((option) => option.key === value)
+function formatSystemDateTime(value: Date) {
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const year = value.getFullYear()
+  const month = padDatePart(value.getMonth() + 1)
+  const day = padDatePart(value.getDate())
+  const hours = padDatePart(value.getHours())
+  const minutes = padDatePart(value.getMinutes())
+  const seconds = padDatePart(value.getSeconds())
+  return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds} ${weekdays[value.getDay()]}`
 }
 
-function readStoredThemeSettings(storageKey = themeStorageKey.value): ThemeSettings {
-  if (typeof window === 'undefined') {
-    return { ...defaultThemeSettings }
-  }
+function padDatePart(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+async function confirmLogout() {
   try {
-    const rawValue = window.localStorage.getItem(storageKey)
-    if (!rawValue) {
-      return { ...defaultThemeSettings }
-    }
-    const stored = JSON.parse(rawValue) as Partial<ThemeSettings>
-    return {
-      mode: optionExists(themeModeOptions, stored.mode) ? stored.mode : defaultThemeSettings.mode,
-      preset: presetExists(stored.preset) ? stored.preset : defaultThemeSettings.preset,
-      font: optionExists(themeFontOptions, stored.font) ? stored.font : defaultThemeSettings.font,
-      radius: optionExists(themeRadiusOptions, stored.radius) ? stored.radius : defaultThemeSettings.radius,
-      density: optionExists(themeDensityOptions, stored.density) ? stored.density : defaultThemeSettings.density,
-      surface: optionExists(themeSurfaceOptions, stored.surface) ? stored.surface : defaultThemeSettings.surface,
-    }
+    await ElMessageBox.confirm('确认退出当前账号？', '退出登录', {
+      confirmButtonText: '退出登录',
+      cancelButtonText: '取消',
+      type: 'warning',
+      distinguishCancelAndClose: true,
+    })
+    emit('logout')
   } catch {
-    return { ...defaultThemeSettings }
   }
 }
-
-function persistThemeSettings() {
-  if (typeof window === 'undefined') {
-    return
-  }
-  window.localStorage.setItem(themeStorageKey.value, JSON.stringify({ ...themeSettings }))
-}
-
-function applyThemeSettings() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const root = document.documentElement
-  root.dataset.themeMode = effectiveThemeMode.value
-  root.dataset.themePreset = themeSettings.preset
-  root.dataset.themeFont = themeSettings.font
-  root.dataset.themeRadius = themeSettings.radius
-  root.dataset.themeDensity = themeSettings.density
-  root.dataset.themeSurface = themeSettings.surface
-}
-
-function updateThemeSetting<K extends keyof ThemeSettings>(key: K, value: ThemeSettings[K]) {
-  themeSettings[key] = value
-}
-
-function resetThemeSettings() {
-  Object.assign(themeSettings, defaultThemeSettings)
-}
-
-function handleThemeMediaChange(event: MediaQueryListEvent) {
-  systemPrefersDark.value = event.matches
-}
-
-onMounted(() => {
-  themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  systemPrefersDark.value = themeMediaQuery.matches
-  themeMediaQuery.addEventListener('change', handleThemeMediaChange)
-  applyThemeSettings()
-})
-
-onUnmounted(() => {
-  themeMediaQuery?.removeEventListener('change', handleThemeMediaChange)
-})
-
-watch(themeStorageKey, (storageKey) => {
-  Object.assign(themeSettings, readStoredThemeSettings(storageKey))
-})
-
-watch(
-  themeSettings,
-  () => {
-    persistThemeSettings()
-    applyThemeSettings()
-  },
-  { deep: true },
-)
-
-watch(effectiveThemeMode, () => {
-  applyThemeSettings()
-})
 </script>
 
 <template>
-  <div class="app-shell">
-    <aside class="shell-sidebar">
+  <div
+    class="app-shell"
+    :class="{ 'app-shell-sidebar-collapsed': sidebarCollapsed }"
+  >
+    <aside
+      class="shell-sidebar"
+      :class="{ 'shell-sidebar-collapsed': sidebarCollapsed }"
+    >
       <div class="shell-brand">
         <span class="brand-mark">
-          <el-icon><Search /></el-icon>
+          <img src="/favicon.svg" alt="" />
         </span>
-        <span>
+        <span class="brand-copy">
           <strong>商品采集系统</strong>
           <em>Product Collector</em>
         </span>
@@ -319,6 +188,8 @@ watch(effectiveThemeMode, () => {
 
       <el-menu
         class="shell-menu"
+        :collapse="sidebarCollapsed"
+        :collapse-transition="false"
         :default-active="activePath"
         @select="handleMenuSelect"
       >
@@ -352,13 +223,27 @@ watch(effectiveThemeMode, () => {
           </el-sub-menu>
         </template>
       </el-menu>
+
+      <footer class="shell-sidebar-footer">
+        <button
+          type="button"
+          class="sidebar-collapse-button"
+          :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+          :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+          @click="toggleSidebarCollapsed"
+        >
+          <el-icon class="sidebar-collapse-icon">
+            <component :is="sidebarCollapseIcon" />
+          </el-icon>
+          <span class="sidebar-collapse-label">{{ sidebarCollapsed ? '展开' : '收起' }}</span>
+        </button>
+      </footer>
     </aside>
 
     <div class="shell-main">
       <header class="shell-header">
-        <div class="header-copy">
-          <strong>{{ route.meta.title || '采集工作台' }}</strong>
-          <span>用户隔离配置与商品采集任务管理</span>
+        <div class="header-left">
+          <span class="system-clock">{{ formattedSystemTime }}</span>
         </div>
         <div class="header-user">
           <span class="role-tag">{{ isSuperadmin ? '超级管理员' : '运营用户' }}</span>
@@ -376,7 +261,7 @@ watch(effectiveThemeMode, () => {
           <el-button
             :icon="SwitchButton"
             plain
-            @click="emit('logout')"
+            @click="confirmLogout"
           >
             退出
           </el-button>
@@ -514,6 +399,11 @@ watch(effectiveThemeMode, () => {
   grid-template-columns: 238px minmax(0, 1fr);
   background: linear-gradient(180deg, var(--page-bg) 0%, var(--page-bg-strong) 100%);
   overflow: hidden;
+  transition: grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell-sidebar-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
 }
 
 .shell-sidebar {
@@ -524,6 +414,7 @@ watch(effectiveThemeMode, () => {
   border-right: 1px solid var(--panel-border);
   background: var(--sidebar-bg);
   overflow: hidden;
+  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .shell-brand {
@@ -533,6 +424,8 @@ watch(effectiveThemeMode, () => {
   min-height: 72px;
   padding: 0 18px;
   border-bottom: 1px solid var(--panel-border);
+  overflow: hidden;
+  transition: justify-content 220ms ease, padding 220ms ease;
 }
 
 .brand-mark {
@@ -544,6 +437,23 @@ watch(effectiveThemeMode, () => {
   border-radius: 8px;
   background: var(--accent-soft);
   color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.brand-mark img {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+
+.brand-copy {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 1;
+  max-width: 150px;
+  transform: translateX(0);
+  transition: opacity 180ms ease, max-width 220ms ease, transform 220ms ease;
 }
 
 .shell-brand strong {
@@ -560,6 +470,17 @@ watch(effectiveThemeMode, () => {
   font-style: normal;
 }
 
+.shell-sidebar-collapsed .shell-brand {
+  justify-content: center;
+  padding: 0 10px;
+}
+
+.shell-sidebar-collapsed .brand-copy {
+  opacity: 0;
+  max-width: 0;
+  transform: translateX(-6px);
+}
+
 .shell-menu {
   flex: 1;
   min-height: 0;
@@ -569,12 +490,22 @@ watch(effectiveThemeMode, () => {
   overflow: hidden;
 }
 
+.shell-sidebar-collapsed .shell-menu {
+  width: auto;
+  padding: 12px 8px;
+}
+
 .shell-menu :deep(.el-menu-item) {
   height: 42px;
   margin: 2px 0;
   border-radius: 6px;
   color: var(--sidebar-text);
   font-weight: 700;
+}
+
+.shell-menu :deep(.el-menu-item .el-icon),
+.shell-menu :deep(.el-sub-menu__title .el-icon) {
+  flex: 0 0 auto;
 }
 
 .shell-menu :deep(.el-sub-menu__title) {
@@ -600,6 +531,86 @@ watch(effectiveThemeMode, () => {
 .shell-menu :deep(.el-menu-item.is-active) {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-active-text);
+}
+
+.shell-sidebar-collapsed .shell-menu :deep(.el-menu-item),
+.shell-sidebar-collapsed .shell-menu :deep(.el-sub-menu__title) {
+  justify-content: center;
+  padding: 0 !important;
+}
+
+.shell-sidebar-collapsed .shell-menu :deep(.el-menu-item span),
+.shell-sidebar-collapsed .shell-menu :deep(.el-sub-menu__title span),
+.shell-sidebar-collapsed .shell-menu :deep(.el-sub-menu__icon-arrow) {
+  display: none;
+}
+
+.shell-sidebar-collapsed .shell-menu :deep(.el-sub-menu .el-menu-item) {
+  padding: 0 !important;
+}
+
+.shell-sidebar-footer {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--panel-border);
+  padding: 12px 10px 14px;
+}
+
+.sidebar-collapse-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  font: inherit;
+  padding: 0 10px;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.sidebar-collapse-button:hover,
+.sidebar-collapse-button:focus-visible {
+  border-color: var(--panel-border);
+  background: var(--panel-muted);
+  color: var(--text-main);
+  outline: none;
+}
+
+.sidebar-collapse-icon {
+  flex: 0 0 auto;
+  font-size: 18px;
+}
+
+.sidebar-collapse-label {
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  max-width: 80px;
+  opacity: 1;
+  text-overflow: ellipsis;
+  transform: translateX(0);
+  transition: opacity 180ms ease, max-width 220ms ease, transform 220ms ease;
+  white-space: nowrap;
+}
+
+.shell-sidebar-collapsed .shell-sidebar-footer {
+  padding: 12px 8px 14px;
+}
+
+.shell-sidebar-collapsed .sidebar-collapse-button {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.shell-sidebar-collapsed .sidebar-collapse-label {
+  opacity: 0;
+  max-width: 0;
+  transform: translateX(-6px);
 }
 
 .shell-main {
@@ -640,12 +651,34 @@ watch(effectiveThemeMode, () => {
   font-size: 13px;
 }
 
+.header-left {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+}
+
 .header-user {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.system-clock {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel-muted);
+  color: var(--text-main);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 
 .role-tag {
@@ -769,6 +802,10 @@ watch(effectiveThemeMode, () => {
     grid-template-columns: 72px minmax(0, 1fr);
   }
 
+  .app-shell-sidebar-collapsed {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
   .shell-sidebar {
     height: 100%;
   }
@@ -806,10 +843,27 @@ watch(effectiveThemeMode, () => {
     padding: 0 !important;
   }
 
+  .shell-sidebar-footer {
+    padding: 12px 8px 14px;
+  }
+
+  .sidebar-collapse-button {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .sidebar-collapse-label {
+    display: none;
+  }
+
   .shell-header {
     align-items: stretch;
     flex-direction: column;
     padding: 14px 16px;
+  }
+
+  .header-left {
+    justify-content: flex-start;
   }
 
   .header-user {

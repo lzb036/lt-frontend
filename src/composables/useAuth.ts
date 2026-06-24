@@ -1,4 +1,5 @@
 import { computed, readonly, shallowRef } from 'vue'
+import axios from 'axios'
 
 import type { AuthSession } from '../types/crawler'
 import { apiClient, toApiErrorMessage } from '../utils/api'
@@ -22,7 +23,7 @@ export function useAuth() {
       return response.data
     } catch (error) {
       session.value = null
-      authError.value = toApiErrorMessage(error, '登录状态检查失败')
+      authError.value = isUnauthorizedSessionCheck(error) ? '' : toApiErrorMessage(error, '登录状态检查失败')
       throw error
     } finally {
       checkingSession.value = false
@@ -48,6 +49,10 @@ export function useAuth() {
   async function logout() {
     await apiClient.post('/auth/logout')
     session.value = null
+  }
+
+  function isUnauthorizedSessionCheck(error: unknown) {
+    return axios.isAxiosError(error) && error.response?.status === 401
   }
 
   return {

@@ -1,51 +1,43 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CircleCheck, Connection, Key, List, Refresh } from '@element-plus/icons-vue'
+import { AlarmClock, CircleCheck, Connection, Document, Finished, OfficeBuilding, Refresh, ShoppingCartFull, Warning } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
-import type { AuthSession, CrawlSource, CrawlTask, ListingTask, ProductItem, SecretProfile, StoreAccount } from '../../types/crawler'
+import type { AuthSession, CrawlTask, ListingTask, ProductItem, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
-const props = defineProps<{
+defineProps<{
   session: AuthSession | null
 }>()
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
-const profile = shallowRef<SecretProfile | null>(null)
-const sources = shallowRef<CrawlSource[]>([])
 const tasks = shallowRef<CrawlTask[]>([])
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const listingTasks = shallowRef<ListingTask[]>([])
+const todayReference = shallowRef(new Date())
 
-const isConfigured = computed(() => {
-  if (!profile.value) {
-    return false
-  }
-  return Boolean(
-    profile.value.rakutenShopUrl
-    || profile.value.masked.rakutenServiceSecret
-    || profile.value.masked.rakutenLicenseKey,
-  )
-})
-const enabledSourceCount = computed(() => sources.value.filter((source) => source.enabled).length)
-const runningTaskCount = computed(() => tasks.value.filter((task) => task.status === 'running' || task.status === 'queued').length)
-const successTaskCount = computed(() => tasks.value.filter((task) => task.status === 'success').length)
-const pendingProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'pending').length)
-const approvedProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'approved').length)
-const errorProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'error').length)
-const listingTaskCount = computed(() => listingTasks.value.length)
-const {
-  currentPage,
-  pageSize,
-  pageSizes,
-  paginationLayout,
-  total,
-  pagedItems: pagedTasks,
-} = useClientPagination(tasks)
+const todayTasks = computed(() => tasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt)))
+const todayProducts = computed(() => products.value.filter((product) => hasTodayTimestamp(product.createdAt, product.updatedAt)))
+const todayStores = computed(() => stores.value.filter((store) => hasTodayTimestamp(store.createdAt, store.updatedAt, store.lastSyncedAt)))
+const todayListingTasks = computed(() => listingTasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt, task.updatedAt)))
+
+const queuedTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'queued').length)
+const runningTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'running').length)
+const totalStoreCount = computed(() => todayStores.value.length)
+const enabledStoreCount = computed(() => todayStores.value.filter((store) => store.enabled).length)
+const errorStoreCount = computed(() => todayStores.value.filter((store) => Boolean(store.lastError?.trim())).length)
+const successTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'success').length)
+const failedTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'failed').length)
+const pendingProductCount = computed(() => todayProducts.value.filter((product) => product.reviewStatus === 'pending').length)
+const approvedProductCount = computed(() => todayProducts.value.filter((product) => product.reviewStatus === 'approved').length)
+const errorProductCount = computed(() => todayProducts.value.filter((product) => product.reviewStatus === 'error').length)
+const queuedListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'queued').length)
+const runningListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'running').length)
+const successListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'success').length)
+const failedListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'failed').length)
 
 onMounted(() => {
   void refreshDashboard()
@@ -53,17 +45,14 @@ onMounted(() => {
 
 async function refreshDashboard() {
   loading.value = true
+  todayReference.value = new Date()
   try {
-    const [profileValue, sourceValues, taskValues, productValues, storeValues, listingTaskValues] = await Promise.all([
-      api.getSecretProfile(),
-      api.listSources(),
+    const [taskValues, productValues, storeValues, listingTaskValues] = await Promise.all([
       api.listTasks(),
       api.listProducts({}),
       api.listStores(),
       api.listListingTasks(),
     ])
-    profile.value = profileValue
-    sources.value = sourceValues
     tasks.value = taskValues
     products.value = productValues
     stores.value = storeValues
@@ -75,28 +64,29 @@ async function refreshDashboard() {
   }
 }
 
-function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    queued: '排队中',
-    running: '运行中',
-    success: '成功',
-    partial: '部分成功',
-    failed: '失败',
-  }
-  return labels[status] || status
+function hasTodayTimestamp(...values: Array<string | null | undefined>) {
+  return values.some((value) => isTodayTimestamp(value))
 }
 
-function statusType(status: string) {
-  if (status === 'success') {
-    return 'success'
+function isTodayTimestamp(value: string | null | undefined) {
+  const date = parseDateValue(value)
+  if (!date) {
+    return false
   }
-  if (status === 'failed') {
-    return 'danger'
+  const reference = todayReference.value
+  return date.getFullYear() === reference.getFullYear()
+    && date.getMonth() === reference.getMonth()
+    && date.getDate() === reference.getDate()
+}
+
+function parseDateValue(value: string | null | undefined) {
+  const rawValue = value?.trim()
+  if (!rawValue) {
+    return null
   }
-  if (status === 'partial') {
-    return 'warning'
-  }
-  return 'info'
+  const normalizedValue = (rawValue.includes('T') ? rawValue : rawValue.replace(' ', 'T')).replace(/(\.\d{3})\d+/, '$1')
+  const date = new Date(normalizedValue)
+  return Number.isNaN(date.getTime()) ? null : date
 }
 </script>
 
@@ -105,115 +95,167 @@ function statusType(status: string) {
     <div class="page-head">
       <div>
         <p class="eyebrow">Product Collector</p>
-        <h1>采集概览</h1>
+        <h1 class="dashboard-title">今日系统数据统计</h1>
       </div>
       <el-button
         :icon="Refresh"
         :loading="loading"
         @click="refreshDashboard"
       >
-        刷新
+        重新加载
       </el-button>
     </div>
 
-    <div class="metric-grid">
-      <section class="metric-panel">
-        <span class="metric-icon">
-          <el-icon><Key /></el-icon>
-        </span>
-        <div>
-          <strong>{{ isConfigured ? '已配置' : '待配置' }}</strong>
-          <span>我的密钥状态</span>
+    <section class="dashboard-metric-stack">
+      <section class="metric-section">
+        <div class="metric-section-title">店铺统计</div>
+        <div class="metric-row metric-row-3">
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon">
+              <el-icon><OfficeBuilding /></el-icon>
+            </span>
+            <div>
+              <strong>{{ totalStoreCount }}</strong>
+              <span>总店铺</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon">
+              <el-icon><Connection /></el-icon>
+            </span>
+            <div>
+              <strong>{{ enabledStoreCount }}</strong>
+              <span>启用店铺</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-danger">
+              <el-icon><Warning /></el-icon>
+            </span>
+            <div>
+              <strong>{{ errorStoreCount }}</strong>
+              <span>异常店铺</span>
+            </div>
+          </section>
         </div>
       </section>
-      <section class="metric-panel">
-        <span class="metric-icon">
-          <el-icon><Connection /></el-icon>
-        </span>
-        <div>
-          <strong>{{ enabledSourceCount }}</strong>
-          <span>启用采集源</span>
-        </div>
-      </section>
-      <section class="metric-panel">
-        <span class="metric-icon">
-          <el-icon><List /></el-icon>
-        </span>
-        <div>
-          <strong>{{ runningTaskCount }}</strong>
-          <span>待执行/运行中</span>
-        </div>
-      </section>
-      <section class="metric-panel">
-        <span class="metric-icon">
-          <el-icon><Connection /></el-icon>
-        </span>
-        <div>
-          <strong>{{ stores.length }}</strong>
-          <span>店铺配置</span>
-        </div>
-      </section>
-    </div>
 
-    <section class="work-panel">
-      <div class="panel-head">
-        <div>
-          <h2>当前账号</h2>
-          <p>{{ props.session?.displayName || props.session?.username }} 的独立配置空间</p>
+      <section class="metric-section">
+        <div class="metric-section-title">商品统计</div>
+        <div class="metric-row metric-row-3">
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-warning">
+              <el-icon><Document /></el-icon>
+            </span>
+            <div>
+              <strong>{{ pendingProductCount }}</strong>
+              <span>待审核</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-success">
+              <el-icon><Finished /></el-icon>
+            </span>
+            <div>
+              <strong>{{ approvedProductCount }}</strong>
+              <span>已审核</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-danger">
+              <el-icon><Warning /></el-icon>
+            </span>
+            <div>
+              <strong>{{ errorProductCount }}</strong>
+              <span>异常</span>
+            </div>
+          </section>
         </div>
-        <el-tag :type="props.session?.role === 'superadmin' ? 'warning' : 'info'">
-          {{ props.session?.role === 'superadmin' ? '超级管理员' : '运营用户' }}
-        </el-tag>
-      </div>
-      <div class="status-line">
-        <span>
-          <el-icon><CircleCheck /></el-icon>
-          密钥配置：{{ isConfigured ? '已有配置' : '未填写' }}
-        </span>
-        <span>成功任务：{{ successTaskCount }}</span>
-        <span>自动采集：{{ profile?.autoCrawlEnabled ? '已开启' : '未开启' }}</span>
-        <span>待审核：{{ pendingProductCount }}</span>
-        <span>已审核：{{ approvedProductCount }}</span>
-        <span>异常：{{ errorProductCount }}</span>
-        <span>上架任务：{{ listingTaskCount }}</span>
-      </div>
-    </section>
+      </section>
 
-    <section class="work-panel">
-      <div class="panel-head">
-        <div>
-          <h2>最近采集任务</h2>
-          <p>仅显示当前登录用户自己的任务记录</p>
+      <section class="metric-section">
+        <div class="metric-section-title">采集任务统计</div>
+        <div class="metric-row metric-row-4">
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon">
+              <el-icon><AlarmClock /></el-icon>
+            </span>
+            <div>
+              <strong>{{ queuedTaskCount }}</strong>
+              <span>待执行</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon">
+              <el-icon><Connection /></el-icon>
+            </span>
+            <div>
+              <strong>{{ runningTaskCount }}</strong>
+              <span>执行中</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-success">
+              <el-icon><CircleCheck /></el-icon>
+            </span>
+            <div>
+              <strong>{{ successTaskCount }}</strong>
+              <span>成功</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-danger">
+              <el-icon><Warning /></el-icon>
+            </span>
+            <div>
+              <strong>{{ failedTaskCount }}</strong>
+              <span>失败</span>
+            </div>
+          </section>
         </div>
-      </div>
-      <el-table
-        v-loading="loading"
-        :data="pagedTasks"
-        empty-text="暂无任务"
-        height="520"
-      >
-        <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column prop="sourceType" label="类型" width="120" />
-        <el-table-column prop="target" label="目标" min-width="240" show-overflow-tooltip />
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">
-              {{ statusLabel(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="successCount" label="保存" width="90" />
-        <el-table-column prop="message" label="说明" min-width="180" show-overflow-tooltip />
-      </el-table>
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="pageSizes"
-          :total="total"
-          :layout="paginationLayout"
-        />
-      </div>
+      </section>
+
+      <section class="metric-section">
+        <div class="metric-section-title">上架任务统计</div>
+        <div class="metric-row metric-row-4">
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon">
+              <el-icon><ShoppingCartFull /></el-icon>
+            </span>
+            <div>
+              <strong>{{ runningListingTaskCount }}</strong>
+              <span>执行中</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon">
+              <el-icon><AlarmClock /></el-icon>
+            </span>
+            <div>
+              <strong>{{ queuedListingTaskCount }}</strong>
+              <span>待执行</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-success">
+              <el-icon><CircleCheck /></el-icon>
+            </span>
+            <div>
+              <strong>{{ successListingTaskCount }}</strong>
+              <span>成功</span>
+            </div>
+          </section>
+          <section class="detail-metric-card">
+            <span class="detail-metric-icon detail-metric-icon-danger">
+              <el-icon><Warning /></el-icon>
+            </span>
+            <div>
+              <strong>{{ failedListingTaskCount }}</strong>
+              <span>失败</span>
+            </div>
+          </section>
+        </div>
+      </section>
     </section>
   </section>
 </template>
@@ -224,8 +266,7 @@ function statusType(status: string) {
   gap: 18px;
 }
 
-.page-head,
-.panel-head {
+.page-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -239,52 +280,77 @@ function statusType(status: string) {
   font-weight: 800;
 }
 
-.page-head h1,
-.panel-head h2 {
+.page-head h1 {
   margin: 0;
   color: var(--text-main);
   font-weight: 800;
+  font-size: 30px;
 }
 
-.page-head h1 {
-  font-size: 26px;
+.page-head .dashboard-title {
+  display: block !important;
 }
 
-.panel-head h2 {
-  font-size: 17px;
-}
-
-.panel-head p {
-  margin: 5px 0 0;
-  color: var(--text-soft);
-  font-size: 13px;
-}
-
-.metric-grid {
+.dashboard-metric-stack {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.metric-section {
+  display: grid;
+  gap: 10px;
+}
+
+.metric-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.metric-section-title::before {
+  width: 4px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  content: '';
+}
+
+.metric-row {
+  display: grid;
   gap: 14px;
 }
 
-.metric-panel,
-.work-panel {
+.metric-row-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-row-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.detail-metric-card {
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm);
 }
 
-.metric-panel {
+.detail-metric-card {
   display: flex;
+  min-height: 84px;
   align-items: center;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
 }
 
-.metric-icon {
+.detail-metric-icon {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border: 1px solid var(--accent-border);
   border-radius: 8px;
@@ -292,55 +358,51 @@ function statusType(status: string) {
   color: var(--accent);
 }
 
-.metric-panel strong {
+.detail-metric-icon-success {
+  border-color: color-mix(in srgb, var(--el-color-success), transparent 70%);
+  background: color-mix(in srgb, var(--el-color-success), transparent 90%);
+  color: var(--el-color-success);
+}
+
+.detail-metric-icon-warning {
+  border-color: color-mix(in srgb, var(--el-color-warning), transparent 70%);
+  background: color-mix(in srgb, var(--el-color-warning), transparent 90%);
+  color: var(--el-color-warning);
+}
+
+.detail-metric-icon-danger {
+  border-color: color-mix(in srgb, var(--el-color-danger), transparent 70%);
+  background: color-mix(in srgb, var(--el-color-danger), transparent 90%);
+  color: var(--el-color-danger);
+}
+
+.detail-metric-card strong {
   display: block;
   color: var(--text-main);
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.1;
 }
 
-.metric-panel span:last-child {
+.detail-metric-card span:last-child {
   color: var(--text-soft);
   font-size: 13px;
 }
 
-.work-panel {
-  padding: 18px;
-}
-
-.status-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 16px;
-  color: var(--text-soft);
-  font-weight: 700;
-}
-
-.status-line span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  background: var(--panel-muted);
-  padding: 8px 10px;
-}
-
 @media (max-width: 1180px) {
-  .metric-grid {
+  .metric-row-3,
+  .metric-row-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
-  .page-head,
-  .panel-head {
+  .page-head {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .metric-grid {
+  .metric-row-3,
+  .metric-row-4 {
     grid-template-columns: 1fr;
   }
 }

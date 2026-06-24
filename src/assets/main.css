@@ -719,6 +719,49 @@ a {
   text-decoration: none;
 }
 
+.page-stack,
+.work-panel,
+.metric-row,
+.filter-row,
+.create-row,
+.task-form,
+.form-grid,
+.dialog-form,
+.action-bar,
+.listing-row {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.work-panel > .el-table,
+.page-stack .el-table {
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.el-table__inner-wrapper,
+.el-table__body-wrapper,
+.el-table__header-wrapper,
+.el-table__footer-wrapper,
+.el-table .el-scrollbar,
+.el-table .el-scrollbar__wrap {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.el-table .el-scrollbar__wrap {
+  overflow-x: auto !important;
+}
+
+.el-input,
+.el-select,
+.el-input-number,
+.el-textarea {
+  min-width: 0;
+}
+
 ::selection {
   background: rgba(34, 100, 209, 0.16);
 }
