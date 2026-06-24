@@ -1,0 +1,273 @@
+<script setup lang="ts">
+import { onMounted, reactive, ref, shallowRef } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
+
+import { useCollectorApi } from '../../composables/useCollectorApi'
+import type { StoreAccount, StorePayload } from '../../types/crawler'
+import { toApiErrorMessage } from '../../utils/api'
+
+const api = useCollectorApi()
+const loading = shallowRef(false)
+const saving = shallowRef(false)
+const stores = shallowRef<StoreAccount[]>([])
+const dialogOpen = ref(false)
+const editingId = ref<number | null>(null)
+
+const form = reactive<StorePayload>({
+  storeCode: '',
+  storeName: '',
+  aliasName: '',
+  platform: 'rakuten',
+  storeUrl: '',
+  enabled: true,
+  contactName: '',
+  contactPhone: '',
+  description: '',
+  rakutenServiceSecret: '',
+  rakutenLicenseKey: '',
+  priceMultiplier: '1.00',
+})
+
+onMounted(() => {
+  void loadStores()
+})
+
+async function loadStores() {
+  loading.value = true
+  try {
+    stores.value = await api.listStores()
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载店铺失败'))
+  } finally {
+    loading.value = false
+  }
+}
+
+function resetForm() {
+  editingId.value = null
+  form.storeCode = ''
+  form.storeName = ''
+  form.aliasName = ''
+  form.platform = 'rakuten'
+  form.storeUrl = ''
+  form.enabled = true
+  form.contactName = ''
+  form.contactPhone = ''
+  form.description = ''
+  form.rakutenServiceSecret = ''
+  form.rakutenLicenseKey = ''
+  form.priceMultiplier = '1.00'
+}
+
+function openCreateDialog() {
+  resetForm()
+  dialogOpen.value = true
+}
+
+function openEditDialog(row: StoreAccount) {
+  editingId.value = row.id
+  form.storeCode = row.storeCode
+  form.storeName = row.storeName
+  form.aliasName = row.aliasName
+  form.platform = row.platform
+  form.storeUrl = row.storeUrl
+  form.enabled = row.enabled
+  form.contactName = row.contactName
+  form.contactPhone = row.contactPhone
+  form.description = row.description
+  form.rakutenServiceSecret = ''
+  form.rakutenLicenseKey = ''
+  form.priceMultiplier = row.priceMultiplier || '1.00'
+  dialogOpen.value = true
+}
+
+async function saveStore() {
+  if (!form.storeCode.trim() || !form.storeName.trim()) {
+    ElMessage.warning('店铺编号和店铺名称不能为空')
+    return
+  }
+  saving.value = true
+  try {
+    const result = await api.saveStore({ ...form, storeCode: form.storeCode.trim(), storeName: form.storeName.trim() }, editingId.value ?? undefined)
+    stores.value = result.stores
+    dialogOpen.value = false
+    ElMessage.success('店铺已保存')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '保存店铺失败'))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function syncStore(row: StoreAccount) {
+  loading.value = true
+  try {
+    const result = await api.syncStore(row.id)
+    stores.value = result.stores
+    ElMessage.success('店铺信息已刷新')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '同步店铺失败'))
+  } finally {
+    loading.value = false
+  }
+}
+
+async function removeStore(row: StoreAccount) {
+  try {
+    await ElMessageBox.confirm(`确认删除店铺「${row.storeName}」？`, '删除店铺', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    stores.value = await api.deleteStore(row.id)
+    ElMessage.success('店铺已删除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '删除店铺失败'))
+    }
+  }
+}
+</script>
+
+<template>
+  <section class="page-stack">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Stores</p>
+        <h1>店铺信息</h1>
+      </div>
+      <div class="head-actions">
+        <el-button :icon="Refresh" :loading="loading" @click="loadStores">
+          刷新
+        </el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">
+          新增店铺
+        </el-button>
+      </div>
+    </div>
+
+    <section class="work-panel">
+      <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="650">
+        <el-table-column prop="ownerUsername" label="租户编码" width="140" />
+        <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
+        <el-table-column prop="aliasName" label="店铺别称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="storeUrl" label="店铺URL" min-width="240" show-overflow-tooltip />
+        <el-table-column label="乐天秘钥" min-width="210">
+          <template #default="{ row }">
+            <span>{{ row.masked.rakutenServiceSecret || '未配置' }}</span>
+            <span class="key-separator">/</span>
+            <span>{{ row.masked.rakutenLicenseKey || '未配置' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="priceMultiplier" label="价格系数" width="100" />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.enabled ? 'success' : 'info'">
+              {{ row.enabled ? '启用' : '停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="lastSyncedAt" label="更新时间" min-width="170" />
+        <el-table-column label="操作" width="230" fixed="right">
+          <template #default="{ row }">
+            <el-button :icon="Connection" link type="primary" @click="syncStore(row)">
+              更新商品
+            </el-button>
+            <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
+              编辑
+            </el-button>
+            <el-button :icon="Delete" link type="danger" @click="removeStore(row)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <el-dialog v-model="dialogOpen" :title="editingId ? '编辑店铺信息' : '新增店铺信息'" width="760px">
+      <div class="dialog-form">
+        <el-input v-model="form.storeCode" placeholder="店铺编号" />
+        <el-input v-model="form.storeName" placeholder="店铺名称" />
+        <el-input v-model="form.aliasName" placeholder="店铺别称" />
+        <el-input v-model="form.storeUrl" placeholder="店铺URL" />
+        <el-input v-model="form.contactName" placeholder="联系人" />
+        <el-input v-model="form.contactPhone" placeholder="联系电话" />
+        <el-input v-model="form.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
+        <el-input v-model="form.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
+        <el-input v-model="form.priceMultiplier" placeholder="价格系数，例如 1.20" />
+        <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
+        <el-input v-model="form.description" class="full-row" type="textarea" :rows="3" placeholder="店铺介绍" />
+      </div>
+      <template #footer>
+        <el-button @click="dialogOpen = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="saveStore">保存</el-button>
+      </template>
+    </el-dialog>
+  </section>
+</template>
+
+<style scoped>
+.page-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.page-head,
+.head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.page-head h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.work-panel {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
+}
+
+.key-separator {
+  color: var(--text-faint);
+  padding: 0 6px;
+}
+
+.dialog-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.full-row {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .page-head,
+  .head-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dialog-form {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

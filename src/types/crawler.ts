@@ -1,7 +1,8 @@
 export type UserRole = 'superadmin' | 'operator'
 export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url'
 export type TaskStatus = 'queued' | 'running' | 'success' | 'partial' | 'failed'
-export type ReviewStatus = 'pending' | 'approved' | 'rejected'
+export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listed' | 'rejected'
+export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 
 export interface UserPermissions {
   manageUsers: boolean
@@ -111,6 +112,80 @@ export interface ProductItem {
   updatedAt?: string | null
 }
 
+export interface StoreAccount {
+  id: number
+  ownerUsername: string
+  storeCode: string
+  storeName: string
+  aliasName: string
+  platform: string
+  storeUrl: string
+  enabled: boolean
+  contactName: string
+  contactPhone: string
+  description: string
+  rakutenServiceSecret: string
+  rakutenLicenseKey: string
+  masked: {
+    rakutenServiceSecret: string
+    rakutenLicenseKey: string
+  }
+  priceMultiplier: string
+  lastSyncedAt?: string | null
+  lastError?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface ScheduledCrawl {
+  id: number
+  ownerUsername: string
+  sourceId?: number | null
+  name: string
+  crawlContent: string
+  crawlCondition: string
+  sourceType: SourceType
+  target: string
+  enabled: boolean
+  intervalMinutes: number
+  lastRunAt?: string | null
+  nextRunAt?: string | null
+  status: ScheduleStatus
+  notes: string
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface ListingTask {
+  id: string
+  ownerUsername: string
+  storeId?: number | null
+  taskName: string
+  status: TaskStatus
+  totalCount: number
+  successCount: number
+  failedCount: number
+  productIds: number[]
+  message: string
+  errorDetail?: string | null
+  startedAt?: string | null
+  finishedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface RoleDefinition {
+  id: number
+  name: string
+  code: string
+  scope: string
+  enabled: boolean
+  permissions: string[]
+  notes: string
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 export interface SecretProfilePayload {
   rakutenShopUrl?: string
   rakutenShopName?: string
@@ -147,4 +222,46 @@ export interface CreateTaskPayload {
   sourceType?: SourceType | null
   target?: string | null
   mode?: string
+}
+
+export interface StorePayload {
+  storeCode: string
+  storeName: string
+  aliasName: string
+  platform: string
+  storeUrl: string
+  enabled: boolean
+  contactName: string
+  contactPhone: string
+  description: string
+  rakutenServiceSecret?: string
+  rakutenLicenseKey?: string
+  priceMultiplier: string
+}
+
+export interface ScheduledCrawlPayload {
+  sourceId?: number | null
+  name: string
+  crawlContent: string
+  crawlCondition: string
+  sourceType: SourceType
+  target: string
+  enabled: boolean
+  intervalMinutes: number
+  notes: string
+}
+
+export interface ListingTaskPayload {
+  productIds: number[]
+  storeId?: number | null
+  taskName?: string
+}
+
+export interface RolePayload {
+  name: string
+  code: string
+  scope: string
+  enabled: boolean
+  permissions: string[]
+  notes: string
 }

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CircleCheck, Connection, Goods, Key, List, Refresh } from '@element-plus/icons-vue'
+import { CircleCheck, Connection, Key, List, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import type { AuthSession, CrawlSource, CrawlTask, ProductItem, SecretProfile } from '../../types/crawler'
+import type { AuthSession, CrawlSource, CrawlTask, ListingTask, ProductItem, SecretProfile, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
 const props = defineProps<{
@@ -17,6 +17,8 @@ const profile = shallowRef<SecretProfile | null>(null)
 const sources = shallowRef<CrawlSource[]>([])
 const tasks = shallowRef<CrawlTask[]>([])
 const products = shallowRef<ProductItem[]>([])
+const stores = shallowRef<StoreAccount[]>([])
+const listingTasks = shallowRef<ListingTask[]>([])
 
 const isConfigured = computed(() => {
   if (!profile.value) {
@@ -31,6 +33,10 @@ const isConfigured = computed(() => {
 const enabledSourceCount = computed(() => sources.value.filter((source) => source.enabled).length)
 const runningTaskCount = computed(() => tasks.value.filter((task) => task.status === 'running' || task.status === 'queued').length)
 const successTaskCount = computed(() => tasks.value.filter((task) => task.status === 'success').length)
+const pendingProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'pending').length)
+const approvedProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'approved').length)
+const errorProductCount = computed(() => products.value.filter((product) => product.reviewStatus === 'error').length)
+const listingTaskCount = computed(() => listingTasks.value.length)
 const latestTasks = computed(() => tasks.value.slice(0, 6))
 
 onMounted(() => {
@@ -40,16 +46,20 @@ onMounted(() => {
 async function refreshDashboard() {
   loading.value = true
   try {
-    const [profileValue, sourceValues, taskValues, productValues] = await Promise.all([
+    const [profileValue, sourceValues, taskValues, productValues, storeValues, listingTaskValues] = await Promise.all([
       api.getSecretProfile(),
       api.listSources(),
       api.listTasks(),
       api.listProducts({}),
+      api.listStores(),
+      api.listListingTasks(),
     ])
     profile.value = profileValue
     sources.value = sourceValues
     tasks.value = taskValues
     products.value = productValues
+    stores.value = storeValues
+    listingTasks.value = listingTaskValues
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载概览失败'))
   } finally {
@@ -128,11 +138,11 @@ function statusType(status: string) {
       </section>
       <section class="metric-panel">
         <span class="metric-icon">
-          <el-icon><Goods /></el-icon>
+          <el-icon><Connection /></el-icon>
         </span>
         <div>
-          <strong>{{ products.length }}</strong>
-          <span>最近商品结果</span>
+          <strong>{{ stores.length }}</strong>
+          <span>店铺配置</span>
         </div>
       </section>
     </div>
@@ -154,6 +164,10 @@ function statusType(status: string) {
         </span>
         <span>成功任务：{{ successTaskCount }}</span>
         <span>自动采集：{{ profile?.autoCrawlEnabled ? '已开启' : '未开启' }}</span>
+        <span>待审核：{{ pendingProductCount }}</span>
+        <span>已审核：{{ approvedProductCount }}</span>
+        <span>异常：{{ errorProductCount }}</span>
+        <span>上架任务：{{ listingTaskCount }}</span>
       </div>
     </section>
 
