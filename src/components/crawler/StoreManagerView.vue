@@ -127,6 +127,10 @@ function availabilityTagType(status: AvailabilityStatus) {
   return tagTypes[status] ?? 'info'
 }
 
+function countText(value?: number | null) {
+  return value == null ? '-' : value.toLocaleString()
+}
+
 async function removeStore(row: StoreAccount) {
   try {
     await ElMessageBox.confirm(`确认删除店铺「${row.storeName}」？`, '删除店铺', {
@@ -166,6 +170,16 @@ async function removeStore(row: StoreAccount) {
         <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
         <el-table-column prop="aliasName" label="店铺别称" min-width="150" show-overflow-tooltip />
+        <el-table-column label="已用文件夹数" width="130" align="right">
+          <template #default="{ row }">
+            {{ countText(row.cabinetUsedFolderCount) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="剩余文件夹数" width="130" align="right">
+          <template #default="{ row }">
+            {{ countText(row.cabinetRemainingFolderCount) }}
+          </template>
+        </el-table-column>
         <el-table-column label="可用性状态" width="120">
           <template #default="{ row }">
             <el-tag :type="availabilityTagType(row.availabilityStatus)" :title="row.lastError || ''">

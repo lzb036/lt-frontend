@@ -133,6 +133,9 @@ export interface StoreAccount {
     rakutenServiceSecret: string
     rakutenLicenseKey: string
   }
+  cabinetUsedFolderCount?: number | null
+  cabinetRemainingFolderCount?: number | null
+  cabinetUsageCheckedAt?: string | null
   lastSyncedAt?: string | null
   lastError?: string | null
   availabilityStatus: AvailabilityStatus
