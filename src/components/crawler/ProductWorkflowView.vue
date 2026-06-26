@@ -19,6 +19,7 @@ const loading = shallowRef(false)
 const operating = shallowRef(false)
 const detailLoading = shallowRef(false)
 const priceSaving = shallowRef(false)
+const productTableRef = ref<{ clearSelection: () => void } | null>(null)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
@@ -125,6 +126,42 @@ function handleSelectionChange(rows: ProductItem[]) {
   selectedIds.value = rows.map((row) => row.id)
 }
 
+function clearSelection() {
+  selectedIds.value = []
+  productTableRef.value?.clearSelection()
+}
+
+function currentFiltersMatch(product: ProductItem) {
+  if (props.status !== 'listed') {
+    return true
+  }
+  if (filters.storeId && product.storeId !== filters.storeId) {
+    return false
+  }
+  if (filters.listingStatus && product.rakutenListingStatus !== filters.listingStatus) {
+    return false
+  }
+  return true
+}
+
+function mergeVisibleProducts(nextProducts: ProductItem[]) {
+  if (nextProducts.length < 1) {
+    return
+  }
+  const nextById = new Map(nextProducts.map((product) => [product.id, product]))
+  products.value = products.value
+    .map((product) => nextById.get(product.id) || product)
+    .filter(currentFiltersMatch)
+}
+
+function removeVisibleProducts(productIds: number[]) {
+  if (productIds.length < 1) {
+    return
+  }
+  const ids = new Set(productIds)
+  products.value = products.value.filter((product) => !ids.has(product.id))
+}
+
 async function changeStatus(status: ReviewStatus, message = '') {
   if (selectedIds.value.length < 1) {
     ElMessage.warning('请先选择商品')
@@ -168,16 +205,24 @@ async function removeSelected() {
     return
   }
   try {
-    await ElMessageBox.confirm(`确认删除 ${selectedIds.value.length} 个商品？`, '删除商品', {
+    const deleteMessage = props.status === 'listed'
+      ? `确认删除选中的 ${selectedIds.value.length} 个店铺商品？该操作会同步删除乐天商品，并尝试删除商品关联的 R-Cabinet 图片。`
+      : `确认删除 ${selectedIds.value.length} 个商品？`
+    await ElMessageBox.confirm(deleteMessage, '删除商品', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',
     })
     operating.value = true
-    await api.deleteProducts(selectedIds.value)
-    ElMessage.success('商品已删除')
-    selectedIds.value = []
-    await refreshAll()
+    const result = await api.deleteProducts(selectedIds.value)
+    if (result.summary.failedCount > 0) {
+      ElMessage.warning(result.summary.message)
+    } else {
+      ElMessage.success(result.summary.message)
+    }
+    mergeVisibleProducts(result.products)
+    removeVisibleProducts(result.deletedIds)
+    clearSelection()
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '删除商品失败'))
@@ -213,8 +258,8 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
     } else {
       ElMessage.success(result.summary.message)
     }
-    selectedIds.value = []
-    await refreshAll()
+    mergeVisibleProducts(result.products)
+    clearSelection()
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, `批量${actionText}失败`))
@@ -251,13 +296,6 @@ function priceText(product: ProductItem) {
     return '-'
   }
   return `${product.currency || 'JPY'} ${product.price.toLocaleString()}`
-}
-
-function salesText(product: ProductItem) {
-  if (product.salesCount == null) {
-    return '-'
-  }
-  return product.salesCount.toLocaleString()
 }
 
 function productCode(product: ProductItem) {
@@ -351,12 +389,14 @@ function rawJsonText(product: ProductDetail | null) {
         <h1>{{ title }}</h1>
       </div>
       <div class="head-actions">
-        <el-button v-if="status === 'listed'" type="success" plain :icon="Top" :loading="operating" @click="updateSelectedListingStatus('listed')">
-          批量上架
-        </el-button>
-        <el-button v-if="status === 'listed'" type="warning" plain :icon="Warning" :loading="operating" @click="updateSelectedListingStatus('unlisted')">
-          批量下架
-        </el-button>
+        <div v-if="status === 'listed'" class="batch-action-group">
+          <el-button type="success" plain :icon="Top" :loading="operating" @click="updateSelectedListingStatus('listed')">
+            批量上架
+          </el-button>
+          <el-button type="warning" plain :icon="Warning" :loading="operating" @click="updateSelectedListingStatus('unlisted')">
+            批量下架
+          </el-button>
+        </div>
         <el-button v-if="status === 'listed'" type="danger" plain :icon="Delete" :loading="operating" @click="removeSelected">
           批量删除
         </el-button>
@@ -451,6 +491,7 @@ function rawJsonText(product: ProductDetail | null) {
       </div>
 
       <el-table
+        ref="productTableRef"
         v-loading="loading"
         :data="pagedProducts"
         :empty-text="statusCopy.empty"
@@ -484,11 +525,6 @@ function rawJsonText(product: ProductDetail | null) {
             {{ priceText(row) }}
           </template>
         </el-table-column>
-        <el-table-column v-if="status === 'listed'" label="销量" width="96">
-          <template #default="{ row }">
-            {{ salesText(row) }}
-          </template>
-        </el-table-column>
         <el-table-column v-if="status === 'listed'" label="上架状态" width="120">
           <template #default="{ row }">
             <el-tag :type="listingStatusCopy(row).type">
@@ -511,7 +547,7 @@ function rawJsonText(product: ProductDetail | null) {
             <el-button :icon="View" link type="primary" @click="openProductDetail(row)">
               查看详情
             </el-button>
-            <el-button v-if="status === 'listed'" :icon="EditPen" link type="primary" @click="openPriceDialog(row)">
+            <el-button v-if="status === 'listed'" :icon="EditPen" link type="warning" @click="openPriceDialog(row)">
               修改价格
             </el-button>
           </template>
@@ -551,7 +587,6 @@ function rawJsonText(product: ProductDetail | null) {
                 <span>商品编号：{{ compactText(selectedProductDetail.detail.itemNumber) }}</span>
                 <span>店铺：{{ compactText(selectedProductDetail.detail.shopName) }}</span>
                 <span>价格：{{ priceText(selectedProductDetail) }}</span>
-                <span>销量：{{ salesText(selectedProductDetail) }}</span>
                 <span>上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
                 <span>更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
               </div>
@@ -659,7 +694,19 @@ function rawJsonText(product: ProductDetail | null) {
 .head-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 12px;
+}
+
+.batch-action-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batch-action-group :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 
 .work-panel {

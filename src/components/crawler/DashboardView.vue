@@ -46,15 +46,15 @@ async function refreshDashboard() {
   loading.value = true
   todayReference.value = new Date()
   try {
-    const [storeVerifyResult, taskValues, productValues, listingTaskValues] = await Promise.all([
-      api.verifyStores(),
+    const [storeValues, taskValues, productValues, listingTaskValues] = await Promise.all([
+      api.listStores(),
       api.listTasks(),
       api.listProducts({}),
       api.listListingTasks(),
     ])
     tasks.value = taskValues
     products.value = productValues
-    stores.value = storeVerifyResult.stores
+    stores.value = storeValues
     listingTasks.value = listingTaskValues
     ElMessage.success('仪表盘数据已刷新')
   } catch (error) {
@@ -104,7 +104,7 @@ function parseDateValue(value: string | null | undefined) {
           :loading="loading"
           @click="refreshDashboard"
         >
-          刷新
+          重新加载
         </el-button>
       </div>
     </div>

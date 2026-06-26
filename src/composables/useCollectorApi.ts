@@ -113,8 +113,21 @@ export function useCollectorApi() {
   }
 
   async function deleteProducts(productIds: number[]) {
-    const response = await apiClient.delete<{ products: ProductItem[] }>('/crawler/products', { data: { productIds } })
-    return response.data.products
+    const response = await apiClient.delete<{
+      deletedIds: number[]
+      failedIds: number[]
+      products: ProductItem[]
+      summary: {
+        total: number
+        successCount: number
+        failedCount: number
+        cabinetDeletedCount: number
+        message: string
+        errors: string[]
+        warnings: string[]
+      }
+    }>('/crawler/products', { data: { productIds } })
+    return response.data
   }
 
   async function getProductDetail(productId: number) {

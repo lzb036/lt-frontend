@@ -12,6 +12,7 @@ import { toApiErrorMessage } from '../../utils/api'
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
+const verifying = shallowRef(false)
 const stores = shallowRef<StoreAccount[]>([])
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
@@ -109,6 +110,23 @@ async function syncStore(row: StoreAccount) {
   }
 }
 
+async function checkStoreKeys() {
+  verifying.value = true
+  try {
+    const result = await api.verifyStores()
+    stores.value = result.stores
+    if (result.summary.error > 0) {
+      ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
+    } else {
+      ElMessage.success('密钥检测完成，全部店铺可用')
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '密钥检测失败'))
+  } finally {
+    verifying.value = false
+  }
+}
+
 function availabilityLabel(status: AvailabilityStatus) {
   const labels: Record<AvailabilityStatus, string> = {
     available: '可用',
@@ -158,6 +176,9 @@ async function removeStore(row: StoreAccount) {
       <div class="head-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadStores">
           刷新
+        </el-button>
+        <el-button :icon="Connection" :loading="verifying" @click="checkStoreKeys">
+          密钥检测
         </el-button>
         <el-button type="primary" :icon="Plus" @click="openCreateDialog">
           新增店铺
