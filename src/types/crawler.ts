@@ -5,6 +5,7 @@ export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listed' | 'reject
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
+export type RakutenListingStatus = '' | 'listed' | 'unlisted'
 
 export interface UserPermissions {
   manageUsers: boolean
@@ -102,6 +103,7 @@ export interface ProductItem {
   storeId?: number | null
   rakutenManageNumber?: string | null
   storeProductStatus: StoreProductStatus
+  rakutenListingStatus: RakutenListingStatus
   storeLastSeenAt?: string | null
   title: string
   sourceUrl: string

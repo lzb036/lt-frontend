@@ -195,14 +195,11 @@ function productCode(product: ProductItem) {
   return product.rakutenManageNumber || product.itemNumber || '-'
 }
 
-function storeProductStatusCopy(product: ProductItem) {
-  if (product.storeProductStatus === 'removed') {
-    return { label: '未同步到', type: 'warning' as const }
+function listingStatusCopy(product: ProductItem) {
+  if (product.rakutenListingStatus === 'unlisted') {
+    return { label: '未上架', type: 'info' as const }
   }
-  if (product.storeProductStatus === 'active') {
-    return { label: '后台存在', type: 'success' as const }
-  }
-  return { label: '未检测', type: 'info' as const }
+  return { label: '已上架', type: 'success' as const }
 }
 </script>
 
@@ -306,14 +303,14 @@ function storeProductStatusCopy(product: ProductItem) {
             {{ priceText(row) }}
           </template>
         </el-table-column>
-        <el-table-column v-if="status === 'listed'" label="后台状态" width="120">
+        <el-table-column v-if="status === 'listed'" label="上架状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="storeProductStatusCopy(row).type">
-              {{ storeProductStatusCopy(row).label }}
+            <el-tag :type="listingStatusCopy(row).type">
+              {{ listingStatusCopy(row).label }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="110">
+        <el-table-column v-if="status !== 'listed'" label="状态" width="110">
           <template #default>
             <el-tag :type="statusCopy.tag">
               {{ statusCopy.label }}
