@@ -210,9 +210,21 @@ function listingStatusCopy(product: ProductItem) {
         <p class="eyebrow">{{ eyebrow }}</p>
         <h1>{{ title }}</h1>
       </div>
-      <el-button :icon="Refresh" :loading="loading" @click="refreshAll">
-        刷新
-      </el-button>
+      <div class="head-actions">
+        <el-button
+          v-if="status === 'listed'"
+          type="danger"
+          plain
+          :icon="Delete"
+          :loading="operating"
+          @click="removeSelected"
+        >
+          删除商品
+        </el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="refreshAll">
+          刷新
+        </el-button>
+      </div>
     </div>
 
     <section class="work-panel">
@@ -241,7 +253,7 @@ function listingStatusCopy(product: ProductItem) {
         </el-button>
       </div>
 
-      <div class="action-bar">
+      <div v-if="status !== 'listed'" class="action-bar">
         <el-button v-if="status === 'pending'" type="success" :icon="Finished" :loading="operating" @click="changeStatus('approved')">
           审核通过
         </el-button>
@@ -365,6 +377,12 @@ function listingStatusCopy(product: ProductItem) {
   color: var(--text-main);
   font-size: 26px;
   font-weight: 800;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .work-panel {
