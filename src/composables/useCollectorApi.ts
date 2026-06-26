@@ -6,6 +6,7 @@ import type {
   CreateTaskPayload,
   ListingTask,
   ListingTaskPayload,
+  ProductDetail,
   ProductItem,
   ReviewStatus,
   RoleDefinition,
@@ -99,6 +100,8 @@ export function useCollectorApi() {
     keyword?: string
     storeId?: number | null
     listingStatus?: 'listed' | 'unlisted' | ''
+    listedAtFrom?: string
+    listedAtTo?: string
   }) {
     const response = await apiClient.get<{ products: ProductItem[] }>('/crawler/products', { params })
     return response.data.products
@@ -112,6 +115,33 @@ export function useCollectorApi() {
   async function deleteProducts(productIds: number[]) {
     const response = await apiClient.delete<{ products: ProductItem[] }>('/crawler/products', { data: { productIds } })
     return response.data.products
+  }
+
+  async function getProductDetail(productId: number) {
+    const response = await apiClient.get<{ product: ProductDetail }>(`/crawler/products/${productId}`)
+    return response.data.product
+  }
+
+  async function updateProductPrice(productId: number, price: number) {
+    const response = await apiClient.put<{ product: ProductItem }>(`/crawler/products/${productId}/price`, { price })
+    return response.data.product
+  }
+
+  async function updateProductsListingStatus(payload: {
+    productIds: number[]
+    listingStatus: 'listed' | 'unlisted'
+  }) {
+    const response = await apiClient.put<{
+      products: ProductItem[]
+      summary: {
+        total: number
+        successCount: number
+        failedCount: number
+        message: string
+        errors: string[]
+      }
+    }>('/crawler/products/listing-status', payload)
+    return response.data
   }
 
   async function listStores() {
@@ -235,6 +265,9 @@ export function useCollectorApi() {
     listProducts,
     updateProductStatus,
     deleteProducts,
+    getProductDetail,
+    updateProductPrice,
+    updateProductsListingStatus,
     listStores,
     saveStore,
     deleteStore,

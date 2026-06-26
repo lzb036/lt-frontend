@@ -112,11 +112,56 @@ export interface ProductItem {
   imageUrl: string
   price?: number | null
   currency: string
+  salesCount?: number | null
   genreId: string
   reviewStatus: ReviewStatus
   lastError?: string | null
+  listedAt?: string | null
   createdAt?: string | null
   updatedAt?: string | null
+}
+
+export interface ProductVariant {
+  variantId: string
+  merchantDefinedSkuId: string
+  articleNumber: string
+  standardPrice: string
+  hidden?: boolean | null
+  selectorValues: Record<string, string>
+  specs: Record<string, unknown>[]
+  attributes: Record<string, unknown>[]
+}
+
+export interface ProductVariantSelector {
+  key: string
+  name: string
+  values: unknown[]
+}
+
+export interface ProductDescription {
+  label: string
+  value: string
+}
+
+export interface ProductDetail extends ProductItem {
+  detail: {
+    manageNumber?: string | null
+    itemNumber?: string | null
+    title?: string | null
+    tagline?: string | null
+    genreId?: string | null
+    shopName?: string | null
+    sourceUrl?: string | null
+    listingStatus?: string | null
+    salesCount?: number | null
+    created?: string | null
+    updated?: string | null
+    descriptions: ProductDescription[]
+    images: string[]
+    variantSelectors: ProductVariantSelector[]
+    variants: ProductVariant[]
+    raw: Record<string, unknown>
+  }
 }
 
 export interface StoreAccount {

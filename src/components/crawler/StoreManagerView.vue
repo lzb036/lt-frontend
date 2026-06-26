@@ -194,7 +194,7 @@ async function removeStore(row: StoreAccount) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastSyncedAt" label="更新时间" min-width="170" />
+        <el-table-column prop="lastSyncedAt" label="同步时间" min-width="170" />
         <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <el-button :icon="Connection" link type="primary" @click="syncStore(row)">
