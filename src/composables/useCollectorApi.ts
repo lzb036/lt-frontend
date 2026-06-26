@@ -94,7 +94,12 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function listProducts(params: { status?: ReviewStatus | ''; keyword?: string; storeId?: number | null }) {
+  async function listProducts(params: {
+    status?: ReviewStatus | ''
+    keyword?: string
+    storeId?: number | null
+    listingStatus?: 'listed' | 'unlisted' | ''
+  }) {
     const response = await apiClient.get<{ products: ProductItem[] }>('/crawler/products', { params })
     return response.data.products
   }

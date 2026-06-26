@@ -33,6 +33,7 @@ const {
 const filters = reactive({
   keyword: '',
   storeId: null as number | null,
+  listingStatus: '' as '' | 'listed' | 'unlisted',
 })
 
 const listingForm = reactive({
@@ -67,16 +68,25 @@ watch(
 async function refreshAll() {
   loading.value = true
   try {
-    const [productValues, storeValues] = await Promise.all([
-      api.listProducts({
-        status: props.status,
-        keyword: filters.keyword.trim(),
-        storeId: props.status === 'listed' ? filters.storeId : null,
-      }),
-      api.listStores(),
-    ])
-    products.value = productValues
+    const storeValues = await api.listStores()
     stores.value = storeValues
+    if (props.status === 'listed') {
+      const selectedStoreExists = storeValues.some((store) => store.id === filters.storeId)
+      if ((!filters.storeId || !selectedStoreExists) && storeValues.length > 0) {
+        filters.storeId = storeValues[0].id
+      }
+      if (!filters.storeId) {
+        products.value = []
+        return
+      }
+    }
+    const productValues = await api.listProducts({
+      status: props.status,
+      keyword: filters.keyword.trim(),
+      storeId: props.status === 'listed' ? filters.storeId : null,
+      listingStatus: props.status === 'listed' ? filters.listingStatus : '',
+    })
+    products.value = productValues
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载商品失败'))
   } finally {
@@ -86,7 +96,8 @@ async function refreshAll() {
 
 function resetFilters() {
   filters.keyword = ''
-  filters.storeId = null
+  filters.storeId = props.status === 'listed' ? (stores.value[0]?.id ?? null) : null
+  filters.listingStatus = ''
   resetPage()
   void refreshAll()
 }
@@ -232,7 +243,6 @@ function listingStatusCopy(product: ProductItem) {
         <el-select
           v-if="status === 'listed'"
           v-model="filters.storeId"
-          clearable
           filterable
           placeholder="选择店铺"
           @change="searchProducts"
@@ -243,6 +253,16 @@ function listingStatusCopy(product: ProductItem) {
             :label="store.aliasName || store.storeName"
             :value="store.id"
           />
+        </el-select>
+        <el-select
+          v-if="status === 'listed'"
+          v-model="filters.listingStatus"
+          clearable
+          placeholder="上架状态"
+          @change="searchProducts"
+        >
+          <el-option label="已上架" value="listed" />
+          <el-option label="未上架" value="unlisted" />
         </el-select>
         <el-input v-model="filters.keyword" :prefix-icon="Search" clearable placeholder="商品标题、编号关键词" @keydown.enter="searchProducts" />
         <el-button type="primary" :icon="Search" @click="searchProducts">
@@ -329,7 +349,7 @@ function listingStatusCopy(product: ProductItem) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastError" label="错误原因" min-width="190" show-overflow-tooltip />
+        <el-table-column v-if="status !== 'listed'" prop="lastError" label="错误原因" min-width="190" show-overflow-tooltip />
         <el-table-column prop="updatedAt" label="更新时间" min-width="170" />
         <el-table-column label="来源" width="92" fixed="right">
           <template #default="{ row }">
@@ -408,7 +428,7 @@ function listingStatusCopy(product: ProductItem) {
 }
 
 .filter-row-with-store {
-  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr) max-content max-content;
+  grid-template-columns: minmax(180px, 0.28fr) minmax(140px, 0.18fr) minmax(0, 1fr) max-content max-content;
 }
 
 .listing-row {
