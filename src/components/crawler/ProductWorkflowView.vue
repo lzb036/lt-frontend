@@ -219,7 +219,7 @@ function listingStatusCopy(product: ProductItem) {
           :loading="operating"
           @click="removeSelected"
         >
-          删除商品
+          批量删除
         </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="refreshAll">
           刷新
