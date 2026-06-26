@@ -33,7 +33,6 @@ const form = reactive({
   ossAccessKeySecret: '',
   ossBucket: '',
   ossEndpoint: '',
-  defaultPriceMultiplier: '1.00',
   autoCrawlEnabled: false,
   autoCrawlIntervalMinutes: 60,
 })
@@ -80,7 +79,6 @@ function fillForm(value: SecretProfile) {
   form.ossAccessKeySecret = ''
   form.ossBucket = value.ossBucket || ''
   form.ossEndpoint = value.ossEndpoint || ''
-  form.defaultPriceMultiplier = value.defaultPriceMultiplier || '1.00'
   form.autoCrawlEnabled = value.autoCrawlEnabled
   form.autoCrawlIntervalMinutes = value.autoCrawlIntervalMinutes || 60
 }
@@ -92,7 +90,6 @@ function buildPayload(): SecretProfilePayload {
     logisticsBaseUrl: form.logisticsBaseUrl.trim(),
     ossBucket: form.ossBucket.trim(),
     ossEndpoint: form.ossEndpoint.trim(),
-    defaultPriceMultiplier: form.defaultPriceMultiplier.trim() || '1.00',
     autoCrawlEnabled: form.autoCrawlEnabled,
     autoCrawlIntervalMinutes: form.autoCrawlIntervalMinutes,
   }
@@ -231,9 +228,6 @@ async function verifyProfile() {
         <div class="form-grid">
           <el-form-item label="代理地址">
             <el-input v-model="form.proxyUrl" type="password" show-password :placeholder="masked?.proxyUrl || '可选，用于采集代理'" />
-          </el-form-item>
-          <el-form-item label="默认价格倍率">
-            <el-input v-model="form.defaultPriceMultiplier" placeholder="1.00" />
           </el-form-item>
           <el-form-item label="OSS AccessKey ID">
             <el-input v-model="form.ossAccessKeyId" type="password" show-password :placeholder="masked?.ossAccessKeyId || '未保存'" />

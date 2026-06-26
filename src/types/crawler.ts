@@ -51,7 +51,6 @@ export interface SecretProfile {
   masked: MaskedSecretMap
   ossBucket: string
   ossEndpoint: string
-  defaultPriceMultiplier: string
   autoCrawlEnabled: boolean
   autoCrawlIntervalMinutes: number
   lastVerifiedAt?: string | null
@@ -121,8 +120,6 @@ export interface StoreAccount {
   platform: string
   storeUrl: string
   enabled: boolean
-  contactName: string
-  contactPhone: string
   description: string
   rakutenServiceSecret: string
   rakutenLicenseKey: string
@@ -130,7 +127,6 @@ export interface StoreAccount {
     rakutenServiceSecret: string
     rakutenLicenseKey: string
   }
-  priceMultiplier: string
   lastSyncedAt?: string | null
   lastError?: string | null
   createdAt?: string | null
@@ -202,7 +198,6 @@ export interface SecretProfilePayload {
   ossAccessKeySecret?: string
   ossBucket?: string
   ossEndpoint?: string
-  defaultPriceMultiplier?: string
   autoCrawlEnabled?: boolean
   autoCrawlIntervalMinutes?: number
 }
@@ -225,18 +220,12 @@ export interface CreateTaskPayload {
 }
 
 export interface StorePayload {
-  storeCode: string
-  storeName: string
   aliasName: string
   platform: string
-  storeUrl: string
   enabled: boolean
-  contactName: string
-  contactPhone: string
   description: string
   rakutenServiceSecret?: string
   rakutenLicenseKey?: string
-  priceMultiplier: string
 }
 
 export interface ScheduledCrawlPayload {

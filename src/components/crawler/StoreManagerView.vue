@@ -24,18 +24,12 @@ const {
 } = useClientPagination(stores)
 
 const form = reactive<StorePayload>({
-  storeCode: '',
-  storeName: '',
   aliasName: '',
   platform: 'rakuten',
-  storeUrl: '',
   enabled: true,
-  contactName: '',
-  contactPhone: '',
   description: '',
   rakutenServiceSecret: '',
   rakutenLicenseKey: '',
-  priceMultiplier: '1.00',
 })
 
 onMounted(() => {
@@ -55,18 +49,12 @@ async function loadStores() {
 
 function resetForm() {
   editingId.value = null
-  form.storeCode = ''
-  form.storeName = ''
   form.aliasName = ''
   form.platform = 'rakuten'
-  form.storeUrl = ''
   form.enabled = true
-  form.contactName = ''
-  form.contactPhone = ''
   form.description = ''
   form.rakutenServiceSecret = ''
   form.rakutenLicenseKey = ''
-  form.priceMultiplier = '1.00'
 }
 
 function openCreateDialog() {
@@ -76,29 +64,23 @@ function openCreateDialog() {
 
 function openEditDialog(row: StoreAccount) {
   editingId.value = row.id
-  form.storeCode = row.storeCode
-  form.storeName = row.storeName
   form.aliasName = row.aliasName
   form.platform = row.platform
-  form.storeUrl = row.storeUrl
   form.enabled = row.enabled
-  form.contactName = row.contactName
-  form.contactPhone = row.contactPhone
   form.description = row.description
   form.rakutenServiceSecret = ''
   form.rakutenLicenseKey = ''
-  form.priceMultiplier = row.priceMultiplier || '1.00'
   dialogOpen.value = true
 }
 
 async function saveStore() {
-  if (!form.storeCode.trim() || !form.storeName.trim()) {
-    ElMessage.warning('店铺编号和店铺名称不能为空')
+  if (!editingId.value && (!form.rakutenServiceSecret?.trim() || !form.rakutenLicenseKey?.trim())) {
+    ElMessage.warning('新增店铺时必须填写乐天 Secret 和乐天 Key')
     return
   }
   saving.value = true
   try {
-    const result = await api.saveStore({ ...form, storeCode: form.storeCode.trim(), storeName: form.storeName.trim() }, editingId.value ?? undefined)
+    const result = await api.saveStore({ ...form }, editingId.value ?? undefined)
     stores.value = result.stores
     dialogOpen.value = false
     ElMessage.success('店铺已保存')
@@ -158,7 +140,6 @@ async function removeStore(row: StoreAccount) {
 
     <section class="work-panel">
       <el-table v-loading="loading" :data="pagedStores" empty-text="暂无店铺" height="650">
-        <el-table-column prop="ownerUsername" label="租户编码" width="140" />
         <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
         <el-table-column prop="aliasName" label="店铺别称" min-width="150" show-overflow-tooltip />
@@ -170,7 +151,6 @@ async function removeStore(row: StoreAccount) {
             <span>{{ row.masked.rakutenLicenseKey || '未配置' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="priceMultiplier" label="价格系数" width="100" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'">
@@ -206,15 +186,9 @@ async function removeStore(row: StoreAccount) {
 
     <el-dialog v-model="dialogOpen" :title="editingId ? '编辑店铺信息' : '新增店铺信息'" width="760px">
       <div class="dialog-form">
-        <el-input v-model="form.storeCode" placeholder="店铺编号" />
-        <el-input v-model="form.storeName" placeholder="店铺名称" />
         <el-input v-model="form.aliasName" placeholder="店铺别称" />
-        <el-input v-model="form.storeUrl" placeholder="店铺URL" />
-        <el-input v-model="form.contactName" placeholder="联系人" />
-        <el-input v-model="form.contactPhone" placeholder="联系电话" />
         <el-input v-model="form.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
         <el-input v-model="form.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
-        <el-input v-model="form.priceMultiplier" placeholder="价格系数，例如 1.20" />
         <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
         <el-input v-model="form.description" class="full-row" type="textarea" :rows="3" placeholder="店铺介绍" />
       </div>
