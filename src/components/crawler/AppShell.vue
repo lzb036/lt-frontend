@@ -12,6 +12,7 @@ import {
   House,
   OfficeBuilding,
   Postcard,
+  Refresh,
   Sell,
   Setting,
   Shop,
@@ -72,8 +73,9 @@ const menuGroups = computed(() => {
       icon: Tickets,
       children: [
         { path: '/ltJobs/wjJobs', label: '手动采集', icon: Aim },
-        { path: '/ltJobs/upGoodsJob', label: '上架任务', icon: ShoppingCartFull },
         { path: '/ltJobs/wjProductJob', label: '定时采集', icon: AlarmClock },
+        { path: '/ltJobs/upGoodsJob', label: '上架任务', icon: ShoppingCartFull },
+        { path: '/ltJobs/syncJob', label: '同步任务', icon: Refresh },
       ],
     },
     {

@@ -17,6 +17,7 @@ import type {
   StoreAccount,
   StorePayload,
   StoreVerifySummary,
+  SyncTask,
   UserAccount,
 } from '../types/crawler'
 import { apiClient } from '../utils/api'
@@ -127,7 +128,13 @@ export function useCollectorApi() {
   }
 
   async function syncStore(id: number) {
-    const response = await apiClient.post<{ store: StoreAccount; stores: StoreAccount[]; syncedCount: number }>(`/crawler/stores/${id}/sync`)
+    const response = await apiClient.post<{
+      store: StoreAccount
+      stores: StoreAccount[]
+      syncTask: SyncTask
+      syncTasks: SyncTask[]
+      syncedCount: number
+    }>(`/crawler/stores/${id}/sync`)
     return response.data
   }
 
@@ -171,6 +178,16 @@ export function useCollectorApi() {
 
   async function retryListingTask(taskId: string) {
     const response = await apiClient.post<{ listingTask: ListingTask; listingTasks: ListingTask[] }>(`/crawler/listing-tasks/${taskId}/retry`)
+    return response.data
+  }
+
+  async function listSyncTasks() {
+    const response = await apiClient.get<{ syncTasks: SyncTask[] }>('/crawler/sync-tasks')
+    return response.data.syncTasks
+  }
+
+  async function retrySyncTask(taskId: string) {
+    const response = await apiClient.post<{ syncTask: SyncTask; syncTasks: SyncTask[] }>(`/crawler/sync-tasks/${taskId}/retry`)
     return response.data
   }
 
@@ -225,6 +242,8 @@ export function useCollectorApi() {
     listListingTasks,
     createListingTask,
     retryListingTask,
+    listSyncTasks,
+    retrySyncTask,
     listRoles,
     saveRole,
     deleteRole,

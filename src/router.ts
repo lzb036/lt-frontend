@@ -10,6 +10,7 @@ import ProductResultTable from './components/crawler/ProductResultTable.vue'
 import RoleManagementView from './components/crawler/RoleManagementView.vue'
 import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
 import StoreManagerView from './components/crawler/StoreManagerView.vue'
+import SyncTaskView from './components/crawler/SyncTaskView.vue'
 import UserManagement from './components/crawler/UserManagement.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -25,8 +26,9 @@ const routes: RouteRecordRaw[] = [
       { path: 'products', name: 'products', component: ProductResultTable, meta: { title: '商品结果' } },
       { path: 'users', name: 'users', component: UserManagement, meta: { title: '用户管理' } },
       { path: 'ltJobs/wjJobs', name: 'manual-crawl', component: ManualCrawlView, meta: { title: '手动采集' } },
-      { path: 'ltJobs/upGoodsJob', name: 'listing-jobs', component: ListingTaskView, meta: { title: '上架任务' } },
       { path: 'ltJobs/wjProductJob', name: 'scheduled-crawl', component: ScheduledCrawlView, meta: { title: '定时采集' } },
+      { path: 'ltJobs/upGoodsJob', name: 'listing-jobs', component: ListingTaskView, meta: { title: '上架任务' } },
+      { path: 'ltJobs/syncJob', name: 'sync-jobs', component: SyncTaskView, meta: { title: '同步任务' } },
       { path: 'ltShop/wjMerchantGoods', name: 'pending-products', component: ProductWorkflowView, props: { status: 'pending', title: '待审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '待审核商品' } },
       { path: 'ltShop/wjMerchantGoodsTrue', name: 'approved-products', component: ProductWorkflowView, props: { status: 'approved', title: '已审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '已审核商品' } },
       { path: 'ltShop/wjMerchantGoodsError', name: 'error-products', component: ProductWorkflowView, props: { status: 'error', title: '异常商品', eyebrow: 'Rakuten Shop' }, meta: { title: '异常商品' } },

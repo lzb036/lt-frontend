@@ -100,10 +100,10 @@ async function syncStore(row: StoreAccount) {
     if (result.store.lastError) {
       ElMessage.warning(result.store.lastError)
     } else {
-      ElMessage.success(`商品已更新，同步 ${result.syncedCount} 条`)
+      ElMessage.success(`同步任务已完成，同步 ${result.syncedCount} 条`)
     }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '更新商品失败'))
+    ElMessage.error(toApiErrorMessage(error, '商品同步失败'))
   } finally {
     loading.value = false
   }
@@ -170,12 +170,12 @@ async function removeStore(row: StoreAccount) {
         <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
         <el-table-column prop="aliasName" label="店铺别称" min-width="150" show-overflow-tooltip />
-        <el-table-column label="已用文件夹数" width="130" align="right">
+        <el-table-column label="已用文件夹数" width="130" align="left">
           <template #default="{ row }">
             {{ countText(row.cabinetUsedFolderCount) }}
           </template>
         </el-table-column>
-        <el-table-column label="剩余文件夹数" width="130" align="right">
+        <el-table-column label="剩余文件夹数" width="130" align="left">
           <template #default="{ row }">
             {{ countText(row.cabinetRemainingFolderCount) }}
           </template>
@@ -198,7 +198,7 @@ async function removeStore(row: StoreAccount) {
         <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <el-button :icon="Connection" link type="primary" @click="syncStore(row)">
-              更新商品
+              商品同步
             </el-button>
             <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
               编辑

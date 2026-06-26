@@ -187,6 +187,24 @@ export interface ListingTask {
   updatedAt?: string | null
 }
 
+export interface SyncTask {
+  id: string
+  ownerUsername: string
+  storeId?: number | null
+  storeName: string
+  taskName: string
+  status: TaskStatus
+  totalCount: number
+  successCount: number
+  failedCount: number
+  message: string
+  errorDetail?: string | null
+  startedAt?: string | null
+  finishedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 export interface RoleDefinition {
   id: number
   name: string
