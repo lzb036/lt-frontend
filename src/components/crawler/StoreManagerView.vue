@@ -5,6 +5,7 @@ import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useClientPagination } from '../../composables/useClientPagination'
+import type { AvailabilityStatus } from '../../types/crawler'
 import type { StoreAccount, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -96,12 +97,34 @@ async function syncStore(row: StoreAccount) {
   try {
     const result = await api.syncStore(row.id)
     stores.value = result.stores
-    ElMessage.success('店铺信息已刷新')
+    if (result.store.lastError) {
+      ElMessage.warning(result.store.lastError)
+    } else {
+      ElMessage.success(`商品已更新，同步 ${result.syncedCount} 条`)
+    }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '同步店铺失败'))
+    ElMessage.error(toApiErrorMessage(error, '更新商品失败'))
   } finally {
     loading.value = false
   }
+}
+
+function availabilityLabel(status: AvailabilityStatus) {
+  const labels: Record<AvailabilityStatus, string> = {
+    available: '可用',
+    error: '异常',
+    unchecked: '未检测',
+  }
+  return labels[status] ?? '未检测'
+}
+
+function availabilityTagType(status: AvailabilityStatus) {
+  const tagTypes: Record<AvailabilityStatus, 'success' | 'danger' | 'info'> = {
+    available: 'success',
+    error: 'danger',
+    unchecked: 'info',
+  }
+  return tagTypes[status] ?? 'info'
 }
 
 async function removeStore(row: StoreAccount) {
@@ -143,15 +166,14 @@ async function removeStore(row: StoreAccount) {
         <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
         <el-table-column prop="aliasName" label="店铺别称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="storeUrl" label="店铺URL" min-width="240" show-overflow-tooltip />
-        <el-table-column label="乐天秘钥" min-width="210">
+        <el-table-column label="可用性状态" width="120">
           <template #default="{ row }">
-            <span>{{ row.masked.rakutenServiceSecret || '未配置' }}</span>
-            <span class="key-separator">/</span>
-            <span>{{ row.masked.rakutenLicenseKey || '未配置' }}</span>
+            <el-tag :type="availabilityTagType(row.availabilityStatus)" :title="row.lastError || ''">
+              {{ availabilityLabel(row.availabilityStatus) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="启用状态" width="110">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'">
               {{ row.enabled ? '启用' : '停用' }}
@@ -234,11 +256,6 @@ async function removeStore(row: StoreAccount) {
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm);
   padding: 18px;
-}
-
-.key-separator {
-  color: var(--text-faint);
-  padding: 0 6px;
 }
 
 .dialog-form {

@@ -32,6 +32,7 @@ const {
 
 const filters = reactive({
   keyword: '',
+  storeId: null as number | null,
 })
 
 const listingForm = reactive({
@@ -44,14 +45,11 @@ const statusCopy = computed(() => {
     pending: { label: '待审核', tag: 'warning', empty: '暂无待审核商品' },
     approved: { label: '已审核', tag: 'success', empty: '暂无已审核商品' },
     error: { label: '异常', tag: 'danger', empty: '暂无异常商品' },
-    listed: { label: '已上架', tag: 'success', empty: '暂无上架商品' },
+    listed: { label: '店铺商品', tag: 'success', empty: '暂无店铺商品' },
     rejected: { label: '已拒绝', tag: 'danger', empty: '暂无拒绝商品' },
   }
   return map[props.status]
 })
-
-const totalValue = computed(() => pagedProducts.value.reduce((sum, product) => sum + (product.price || 0), 0))
-const selectedCount = computed(() => selectedIds.value.length)
 
 onMounted(() => {
   void refreshAll()
@@ -70,7 +68,11 @@ async function refreshAll() {
   loading.value = true
   try {
     const [productValues, storeValues] = await Promise.all([
-      api.listProducts({ status: props.status, keyword: filters.keyword.trim() }),
+      api.listProducts({
+        status: props.status,
+        keyword: filters.keyword.trim(),
+        storeId: props.status === 'listed' ? filters.storeId : null,
+      }),
       api.listStores(),
     ])
     products.value = productValues
@@ -84,6 +86,7 @@ async function refreshAll() {
 
 function resetFilters() {
   filters.keyword = ''
+  filters.storeId = null
   resetPage()
   void refreshAll()
 }
@@ -187,6 +190,20 @@ function priceText(product: ProductItem) {
   }
   return `${product.currency || 'JPY'} ${product.price.toLocaleString()}`
 }
+
+function productCode(product: ProductItem) {
+  return product.rakutenManageNumber || product.itemNumber || '-'
+}
+
+function storeProductStatusCopy(product: ProductItem) {
+  if (product.storeProductStatus === 'removed') {
+    return { label: '未同步到', type: 'warning' as const }
+  }
+  if (product.storeProductStatus === 'active') {
+    return { label: '后台存在', type: 'success' as const }
+  }
+  return { label: '未检测', type: 'info' as const }
+}
 </script>
 
 <template>
@@ -201,23 +218,23 @@ function priceText(product: ProductItem) {
       </el-button>
     </div>
 
-    <div class="metric-row">
-      <section class="metric-panel">
-        <strong>{{ products.length }}</strong>
-        <span>{{ statusCopy.label }}商品</span>
-      </section>
-      <section class="metric-panel">
-        <strong>{{ selectedCount }}</strong>
-        <span>已选择</span>
-      </section>
-      <section class="metric-panel">
-        <strong>{{ Math.round(totalValue).toLocaleString() }}</strong>
-        <span>当前页价格合计</span>
-      </section>
-    </div>
-
     <section class="work-panel">
-      <div class="filter-row">
+      <div class="filter-row" :class="{ 'filter-row-with-store': status === 'listed' }">
+        <el-select
+          v-if="status === 'listed'"
+          v-model="filters.storeId"
+          clearable
+          filterable
+          placeholder="选择店铺"
+          @change="searchProducts"
+        >
+          <el-option
+            v-for="store in stores"
+            :key="store.id"
+            :label="store.aliasName || store.storeName"
+            :value="store.id"
+          />
+        </el-select>
         <el-input v-model="filters.keyword" :prefix-icon="Search" clearable placeholder="商品标题、编号关键词" @keydown.enter="searchProducts" />
         <el-button type="primary" :icon="Search" @click="searchProducts">
           搜索
@@ -250,7 +267,7 @@ function priceText(product: ProductItem) {
 
       <div v-if="status === 'approved'" class="listing-row">
         <el-select v-model="listingForm.storeId" clearable filterable placeholder="选择上架店铺">
-          <el-option v-for="store in stores" :key="store.id" :label="`${store.storeName} / ${store.storeCode}`" :value="store.id" />
+          <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
         </el-select>
         <el-input v-model="listingForm.taskName" placeholder="上架任务名称，可留空" />
       </div>
@@ -278,11 +295,22 @@ function priceText(product: ProductItem) {
           </template>
         </el-table-column>
         <el-table-column prop="title" label="商品标题" min-width="300" show-overflow-tooltip />
-        <el-table-column prop="itemNumber" label="商品ID" min-width="150" show-overflow-tooltip />
+        <el-table-column label="商品管理编号" min-width="170" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ productCode(row) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="shopName" label="店铺" min-width="150" show-overflow-tooltip />
         <el-table-column label="价格(日元)" width="140">
           <template #default="{ row }">
             {{ priceText(row) }}
+          </template>
+        </el-table-column>
+        <el-table-column v-if="status === 'listed'" label="后台状态" width="120">
+          <template #default="{ row }">
+            <el-tag :type="storeProductStatusCopy(row).type">
+              {{ storeProductStatusCopy(row).label }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="110">
@@ -342,34 +370,11 @@ function priceText(product: ProductItem) {
   font-weight: 800;
 }
 
-.metric-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.metric-panel,
 .work-panel {
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm);
-}
-
-.metric-panel {
-  padding: 16px 18px;
-}
-
-.metric-panel strong {
-  display: block;
-  color: var(--text-main);
-  font-size: 25px;
-}
-
-.metric-panel span {
-  color: var(--text-soft);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .work-panel {
@@ -385,6 +390,10 @@ function priceText(product: ProductItem) {
 .filter-row {
   margin-bottom: 12px;
   grid-template-columns: minmax(0, 1fr) max-content max-content;
+}
+
+.filter-row-with-store {
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr) max-content max-content;
 }
 
 .listing-row {
@@ -420,8 +429,7 @@ function priceText(product: ProductItem) {
 
 @media (max-width: 760px) {
   .filter-row,
-  .listing-row,
-  .metric-row {
+  .listing-row {
     grid-template-columns: 1fr;
   }
 

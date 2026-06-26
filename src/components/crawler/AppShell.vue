@@ -78,13 +78,12 @@ const menuGroups = computed(() => {
     },
     {
       key: 'rakuten-shop',
-      label: '乐天店铺管理',
+      label: '商品管理',
       icon: ShoppingBag,
       children: [
         { path: '/ltShop/wjMerchantGoods', label: '待审核商品', icon: Document },
         { path: '/ltShop/wjMerchantGoodsTrue', label: '已审核商品', icon: Finished },
         { path: '/ltShop/wjMerchantGoodsError', label: '异常商品', icon: Warning },
-        { path: '/ltShop/GoodsUp', label: '上架商品', icon: Sell },
       ],
     },
     {
@@ -93,6 +92,7 @@ const menuGroups = computed(() => {
       icon: OfficeBuilding,
       children: [
         { path: '/ltHj/wjMerchant', label: '店铺信息', icon: Shop },
+        { path: '/ltShop/GoodsUp', label: '店铺商品', icon: Sell },
       ],
     },
   ]

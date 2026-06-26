@@ -3,6 +3,8 @@ export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url'
 export type TaskStatus = 'queued' | 'running' | 'success' | 'partial' | 'failed'
 export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listed' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
+export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
+export type StoreProductStatus = '' | 'active' | 'removed'
 
 export interface UserPermissions {
   manageUsers: boolean
@@ -97,6 +99,10 @@ export interface ProductItem {
   id: number
   ownerUsername: string
   taskId?: string | null
+  storeId?: number | null
+  rakutenManageNumber?: string | null
+  storeProductStatus: StoreProductStatus
+  storeLastSeenAt?: string | null
   title: string
   sourceUrl: string
   itemNumber: string
@@ -129,8 +135,16 @@ export interface StoreAccount {
   }
   lastSyncedAt?: string | null
   lastError?: string | null
+  availabilityStatus: AvailabilityStatus
   createdAt?: string | null
   updatedAt?: string | null
+}
+
+export interface StoreVerifySummary {
+  total: number
+  available: number
+  error: number
+  unchecked: number
 }
 
 export interface ScheduledCrawl {

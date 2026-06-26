@@ -21,14 +21,13 @@ const todayReference = shallowRef(new Date())
 
 const todayTasks = computed(() => tasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt)))
 const todayProducts = computed(() => products.value.filter((product) => hasTodayTimestamp(product.createdAt, product.updatedAt)))
-const todayStores = computed(() => stores.value.filter((store) => hasTodayTimestamp(store.createdAt, store.updatedAt, store.lastSyncedAt)))
 const todayListingTasks = computed(() => listingTasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt, task.updatedAt)))
 
 const queuedTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'queued').length)
 const runningTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'running').length)
-const totalStoreCount = computed(() => todayStores.value.length)
-const enabledStoreCount = computed(() => todayStores.value.filter((store) => store.enabled).length)
-const errorStoreCount = computed(() => todayStores.value.filter((store) => Boolean(store.lastError?.trim())).length)
+const totalStoreCount = computed(() => stores.value.length)
+const enabledStoreCount = computed(() => stores.value.filter((store) => store.enabled).length)
+const errorStoreCount = computed(() => stores.value.filter((store) => store.availabilityStatus === 'error').length)
 const successTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'success').length)
 const failedTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'failed').length)
 const pendingProductCount = computed(() => todayProducts.value.filter((product) => product.reviewStatus === 'pending').length)
@@ -47,18 +46,19 @@ async function refreshDashboard() {
   loading.value = true
   todayReference.value = new Date()
   try {
-    const [taskValues, productValues, storeValues, listingTaskValues] = await Promise.all([
+    const [storeVerifyResult, taskValues, productValues, listingTaskValues] = await Promise.all([
+      api.verifyStores(),
       api.listTasks(),
       api.listProducts({}),
-      api.listStores(),
       api.listListingTasks(),
     ])
     tasks.value = taskValues
     products.value = productValues
-    stores.value = storeValues
+    stores.value = storeVerifyResult.stores
     listingTasks.value = listingTaskValues
+    ElMessage.success('仪表盘数据已刷新')
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载概览失败'))
+    ElMessage.error(toApiErrorMessage(error, '刷新仪表盘失败'))
   } finally {
     loading.value = false
   }
@@ -97,13 +97,16 @@ function parseDateValue(value: string | null | undefined) {
         <p class="eyebrow">Product Collector</p>
         <h1 class="dashboard-title">今日系统数据统计</h1>
       </div>
-      <el-button
-        :icon="Refresh"
-        :loading="loading"
-        @click="refreshDashboard"
-      >
-        重新加载
-      </el-button>
+      <div class="dashboard-actions">
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="loading"
+          @click="refreshDashboard"
+        >
+          刷新
+        </el-button>
+      </div>
     </div>
 
     <section class="dashboard-metric-stack">
@@ -289,6 +292,17 @@ function parseDateValue(value: string | null | undefined) {
 
 .page-head .dashboard-title {
   display: block !important;
+}
+
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dashboard-actions :deep(.el-button) {
+  display: inline-flex !important;
 }
 
 .dashboard-metric-stack {

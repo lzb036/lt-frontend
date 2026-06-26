@@ -16,6 +16,7 @@ import type {
   SecretProfilePayload,
   StoreAccount,
   StorePayload,
+  StoreVerifySummary,
   UserAccount,
 } from '../types/crawler'
 import { apiClient } from '../utils/api'
@@ -92,7 +93,7 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function listProducts(params: { status?: ReviewStatus | ''; keyword?: string }) {
+  async function listProducts(params: { status?: ReviewStatus | ''; keyword?: string; storeId?: number | null }) {
     const response = await apiClient.get<{ products: ProductItem[] }>('/crawler/products', { params })
     return response.data.products
   }
@@ -126,7 +127,12 @@ export function useCollectorApi() {
   }
 
   async function syncStore(id: number) {
-    const response = await apiClient.post<{ store: StoreAccount; stores: StoreAccount[] }>(`/crawler/stores/${id}/sync`)
+    const response = await apiClient.post<{ store: StoreAccount; stores: StoreAccount[]; syncedCount: number }>(`/crawler/stores/${id}/sync`)
+    return response.data
+  }
+
+  async function verifyStores() {
+    const response = await apiClient.post<{ stores: StoreAccount[]; summary: StoreVerifySummary }>('/crawler/stores/verify')
     return response.data
   }
 
@@ -211,6 +217,7 @@ export function useCollectorApi() {
     saveStore,
     deleteStore,
     syncStore,
+    verifyStores,
     listSchedules,
     saveSchedule,
     deleteSchedule,
