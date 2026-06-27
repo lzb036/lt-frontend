@@ -8,6 +8,7 @@ import type {
   ListingTaskPayload,
   PageParams,
   PageResult,
+  ProductDetailEditPayload,
   ProductDetail,
   ProductItem,
   ReviewStatus,
@@ -197,6 +198,11 @@ export function useCollectorApi() {
     return response.data.product
   }
 
+  async function updateProductDetail(productId: number, payload: ProductDetailEditPayload) {
+    const response = await apiClient.put<{ product: ProductDetail }>(`/crawler/products/${productId}/detail`, payload)
+    return response.data.product
+  }
+
   async function updateProductsListingStatus(payload: {
     productIds: number[]
     listingStatus: 'listed' | 'unlisted'
@@ -361,6 +367,7 @@ export function useCollectorApi() {
     deleteProducts,
     getProductDetail,
     updateProductPrice,
+    updateProductDetail,
     updateProductsListingStatus,
     listStores,
     listStoresPage,

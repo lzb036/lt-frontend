@@ -5,8 +5,9 @@ import { Delete, EditPen, Finished, Plus, Refresh, Search, Top, Upload, View, Wa
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ProductDetail, ProductItem, ProductVariant, ReviewStatus, StoreAccount } from '../../types/crawler'
+import type { ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, ReviewStatus, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const props = defineProps<{
   status: ReviewStatus
@@ -18,18 +19,18 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const operating = shallowRef(false)
 const detailLoading = shallowRef(false)
-const priceSaving = shallowRef(false)
+const detailSaving = shallowRef(false)
 const productTableRef = ref<{ clearSelection: () => void } | null>(null)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
 const detailVisible = shallowRef(false)
-const priceVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
-const priceForm = reactive({
+const detailForm = reactive({
   productId: null as number | null,
   title: '',
-  price: null as number | null,
+  tagline: '',
+  variants: [] as ProductVariantEditPayload[],
 })
 const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, setPageResult, reduceTotal } = useServerPagination()
 
@@ -306,29 +307,53 @@ async function createListingTask() {
 }
 
 function priceText(product: ProductItem) {
-  if (product.price == null) {
+  const minPrice = product.priceMin ?? product.price
+  const maxPrice = product.priceMax ?? product.price
+  if (minPrice == null) {
     return '-'
   }
-  return `${product.currency || 'JPY'} ${product.price.toLocaleString()}`
+  const currency = product.currency || 'JPY'
+  const normalizedMin = Number(minPrice)
+  const normalizedMax = maxPrice == null ? normalizedMin : Number(maxPrice)
+  if (Number.isFinite(normalizedMin) && Number.isFinite(normalizedMax) && normalizedMin !== normalizedMax) {
+    return `${currency} ${normalizedMin.toLocaleString()} - ${normalizedMax.toLocaleString()}`
+  }
+  return `${currency} ${normalizedMin.toLocaleString()}`
 }
 
 function productCode(product: ProductItem) {
   return product.rakutenManageNumber || product.itemNumber || '-'
 }
 
+function storeDisplayName(product: ProductItem) {
+  const store = stores.value.find((item) => item.id === product.storeId)
+  return store?.aliasName || product.shopName || '-'
+}
+
+function storeRealName(product: ProductItem) {
+  const store = stores.value.find((item) => item.id === product.storeId)
+  return store?.storeName || product.shopName || '-'
+}
+
 function listingStatusCopy(product: ProductItem) {
   if (product.rakutenListingStatus === 'unlisted') {
     return { label: '未上架', type: 'info' as const }
   }
-  return { label: '已上架', type: 'success' as const }
+  if (product.rakutenListingStatus === 'listed') {
+    return { label: '已上架', type: 'success' as const }
+  }
+  return { label: '未检测', type: 'info' as const }
 }
 
 async function openProductDetail(product: ProductItem) {
   detailVisible.value = true
   detailLoading.value = true
   selectedProductDetail.value = null
+  resetDetailForm()
   try {
-    selectedProductDetail.value = await api.getProductDetail(product.id)
+    const detail = await api.getProductDetail(product.id)
+    selectedProductDetail.value = detail
+    fillDetailForm(detail)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载商品详情失败'))
     detailVisible.value = false
@@ -337,35 +362,67 @@ async function openProductDetail(product: ProductItem) {
   }
 }
 
-function openPriceDialog(product: ProductItem) {
-  priceForm.productId = product.id
-  priceForm.title = product.title
-  priceForm.price = product.price ?? null
-  priceVisible.value = true
+function resetDetailForm() {
+  detailForm.productId = null
+  detailForm.title = ''
+  detailForm.tagline = ''
+  detailForm.variants = []
 }
 
-async function submitPriceChange() {
-  if (!priceForm.productId || priceForm.price == null || priceForm.price <= 0) {
-    ElMessage.warning('请输入有效价格')
+function fillDetailForm(product: ProductDetail) {
+  detailForm.productId = product.id
+  detailForm.title = product.detail.title || product.title || ''
+  detailForm.tagline = product.detail.tagline || ''
+  detailForm.variants = product.detail.variants.map((variant) => ({
+    variantId: variant.variantId,
+    standardPrice: Number(variant.standardPrice || 0),
+    hidden: Boolean(variant.hidden),
+  }))
+}
+
+function detailVariantForm(variant: ProductVariant) {
+  return detailForm.variants.find((item) => item.variantId === variant.variantId)
+}
+
+async function submitDetailChange() {
+  if (!detailForm.productId) {
+    ElMessage.warning('请先打开商品详情')
     return
   }
-  try {
-    await ElMessageBox.confirm('确认同步修改该商品在乐天 RMS 中的价格？', '修改价格', {
-      confirmButtonText: '同步修改',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-    priceSaving.value = true
-    const product = await api.updateProductPrice(priceForm.productId, priceForm.price)
-    products.value = products.value.map((item) => (item.id === product.id ? product : item))
-    ElMessage.success('价格已同步到乐天')
-    priceVisible.value = false
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '修改价格失败'))
+  if (!detailForm.title.trim()) {
+    ElMessage.warning('商品标题不能为空')
+    return
+  }
+  const variants = detailForm.variants.map((variant) => ({
+    variantId: variant.variantId,
+    standardPrice: Number(variant.standardPrice),
+    hidden: Boolean(variant.hidden),
+  }))
+  for (const variant of variants) {
+    if (!Number.isFinite(variant.standardPrice) || variant.standardPrice <= 0) {
+      ElMessage.warning(`SKU ${variant.variantId} 价格必须大于 0`)
+      return
     }
+    if (!Number.isInteger(variant.standardPrice)) {
+      ElMessage.warning(`SKU ${variant.variantId} 价格必须为日元整数`)
+      return
+    }
+  }
+  detailSaving.value = true
+  try {
+    const product = await api.updateProductDetail(detailForm.productId, {
+      title: detailForm.title.trim(),
+      tagline: detailForm.tagline.trim(),
+      variants,
+    })
+    selectedProductDetail.value = product
+    fillDetailForm(product)
+    products.value = products.value.map((item) => (item.id === product.id ? product : item))
+    ElMessage.success('商品详情已同步到乐天')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '同步修改商品详情失败'))
   } finally {
-    priceSaving.value = false
+    detailSaving.value = false
   }
 }
 
@@ -380,18 +437,42 @@ function compactText(value: unknown) {
 }
 
 function variantSelectorText(variant: ProductVariant) {
-  const entries = Object.entries(variant.selectorValues || {})
-  if (entries.length < 1) {
+  const values = Object.values(variant.selectorValues || {})
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  if (values.length < 1) {
     return '-'
   }
-  return entries.map(([key, value]) => `${key}: ${value}`).join(' / ')
+  return values.join('/')
 }
 
-function rawJsonText(product: ProductDetail | null) {
-  if (!product?.detail?.raw) {
-    return '{}'
+function detailImageUrls(product: ProductDetail | null) {
+  if (!product) {
+    return []
   }
-  return JSON.stringify(product.detail.raw, null, 2)
+  const urls = [...product.detail.images]
+  if (product.imageUrl && !urls.includes(product.imageUrl)) {
+    urls.unshift(product.imageUrl)
+  }
+  return urls
+}
+
+function sanitizedDescriptionHtml(value: string) {
+  const parser = new DOMParser()
+  const documentValue = parser.parseFromString(value || '', 'text/html')
+  for (const element of Array.from(documentValue.body.querySelectorAll('script, style, iframe, object, embed, link, meta'))) {
+    element.remove()
+  }
+  for (const element of Array.from(documentValue.body.querySelectorAll('*'))) {
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name.toLowerCase()
+      const attrValue = attribute.value.trim()
+      if (name.startsWith('on') || attrValue.toLowerCase().startsWith('javascript:')) {
+        element.removeAttribute(attribute.name)
+      }
+    }
+  }
+  return documentValue.body.innerHTML
 }
 </script>
 
@@ -464,7 +545,7 @@ function rawJsonText(product: ProductDetail | null) {
           />
         </div>
         <div class="filter-field filter-keyword-field">
-          <el-input v-model="filters.keyword" class="full-control" :prefix-icon="Search" clearable placeholder="商品标题、编号关键词" @keydown.enter="searchProducts" />
+          <el-input v-model="filters.keyword" class="full-control" :prefix-icon="Search" clearable placeholder="商品标题、商品编号" @keydown.enter="searchProducts" />
         </div>
         <div class="filter-buttons">
           <el-button type="primary" :icon="Search" @click="searchProducts">
@@ -527,13 +608,21 @@ function rawJsonText(product: ProductDetail | null) {
             <span v-else class="image-empty">无图</span>
           </template>
         </el-table-column>
-        <el-table-column prop="title" label="商品标题" min-width="300" show-overflow-tooltip />
-        <el-table-column label="商品管理编号" min-width="170" show-overflow-tooltip>
+        <el-table-column label="商品标题" min-width="300">
           <template #default="{ row }">
-            {{ productCode(row) }}
+            <CopyableTableText :value="row.title" />
           </template>
         </el-table-column>
-        <el-table-column prop="shopName" label="店铺" min-width="150" show-overflow-tooltip />
+        <el-table-column label="商品编号" min-width="170">
+          <template #default="{ row }">
+            <CopyableTableText :value="productCode(row)" />
+          </template>
+        </el-table-column>
+        <el-table-column label="店铺" min-width="150">
+          <template #default="{ row }">
+            <CopyableTableText :value="storeRealName(row)" :display="storeDisplayName(row)" always />
+          </template>
+        </el-table-column>
         <el-table-column label="价格(日元)" width="140">
           <template #default="{ row }">
             {{ priceText(row) }}
@@ -553,16 +642,17 @@ function rawJsonText(product: ProductDetail | null) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column v-if="status !== 'listed'" prop="lastError" label="错误原因" min-width="190" show-overflow-tooltip />
+        <el-table-column v-if="status !== 'listed'" label="错误原因" min-width="190">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.lastError" />
+          </template>
+        </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button :icon="View" link type="primary" @click="openProductDetail(row)">
               查看详情
-            </el-button>
-            <el-button v-if="status === 'listed'" :icon="EditPen" link type="warning" @click="openPriceDialog(row)">
-              修改价格
             </el-button>
           </template>
         </el-table-column>
@@ -594,15 +684,24 @@ function rawJsonText(product: ProductDetail | null) {
             />
             <div v-else class="detail-cover detail-cover-empty">无图</div>
             <div class="detail-main">
-              <h2>{{ selectedProductDetail.title }}</h2>
-              <p v-if="selectedProductDetail.detail.tagline" class="detail-subtitle">
-                {{ selectedProductDetail.detail.tagline }}
-              </p>
+              <el-form label-position="top" class="detail-edit-form">
+                <el-form-item label="商品标题">
+                  <el-input v-model="detailForm.title" maxlength="500" show-word-limit type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
+                </el-form-item>
+                <el-form-item label="商品说明">
+                  <el-input v-model="detailForm.tagline" maxlength="500" show-word-limit type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" />
+                </el-form-item>
+              </el-form>
               <div class="detail-meta">
-                <span>商品管理编号：{{ compactText(selectedProductDetail.detail.manageNumber) }}</span>
                 <span>商品编号：{{ compactText(selectedProductDetail.detail.itemNumber) }}</span>
                 <span>店铺：{{ compactText(selectedProductDetail.detail.shopName) }}</span>
                 <span>价格：{{ priceText(selectedProductDetail) }}</span>
+                <span>
+                  上架状态：
+                  <el-tag :type="listingStatusCopy(selectedProductDetail).type" size="small">
+                    {{ listingStatusCopy(selectedProductDetail).label }}
+                  </el-tag>
+                </span>
                 <span>上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
                 <span>更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
               </div>
@@ -615,17 +714,44 @@ function rawJsonText(product: ProductDetail | null) {
           <el-tabs class="detail-tabs">
             <el-tab-pane label="款式 SKU">
               <el-table :data="selectedProductDetail.detail.variants" border max-height="300" empty-text="暂无款式数据">
-                <el-table-column prop="variantId" label="SKU ID" min-width="150" show-overflow-tooltip />
-                <el-table-column prop="merchantDefinedSkuId" label="商家 SKU" min-width="150" show-overflow-tooltip />
-                <el-table-column label="款式选项" min-width="220" show-overflow-tooltip>
+                <el-table-column label="SKU ID" min-width="150">
                   <template #default="{ row }">
-                    {{ variantSelectorText(row) }}
+                    <CopyableTableText :value="row.variantId" />
                   </template>
                 </el-table-column>
-                <el-table-column prop="standardPrice" label="价格(日元)" width="120" />
-                <el-table-column label="隐藏" width="90">
+                <el-table-column label="商家 SKU" min-width="150">
                   <template #default="{ row }">
-                    {{ row.hidden ? '是' : '否' }}
+                    <CopyableTableText :value="row.merchantDefinedSkuId" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="款式选项" min-width="220">
+                  <template #default="{ row }">
+                    <CopyableTableText :value="variantSelectorText(row)" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="价格(日元)" width="170">
+                  <template #default="{ row }">
+                    <el-input-number
+                      v-if="detailVariantForm(row)"
+                      v-model="detailVariantForm(row)!.standardPrice"
+                      class="sku-price-input"
+                      :min="1"
+                      :precision="0"
+                      :step="100"
+                    />
+                    <span v-else>{{ row.standardPrice }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="隐藏" width="110">
+                  <template #default="{ row }">
+                    <el-switch
+                      v-if="detailVariantForm(row)"
+                      v-model="detailVariantForm(row)!.hidden"
+                      active-text="是"
+                      inactive-text="否"
+                      inline-prompt
+                    />
+                    <span v-else>{{ row.hidden ? '是' : '否' }}</span>
                   </template>
                 </el-table-column>
               </el-table>
@@ -633,46 +759,33 @@ function rawJsonText(product: ProductDetail | null) {
             <el-tab-pane label="图片">
               <div class="detail-images">
                 <el-image
-                  v-for="image in selectedProductDetail.detail.images"
+                  v-for="(image, index) in detailImageUrls(selectedProductDetail)"
                   :key="image"
                   class="detail-thumb"
                   :src="image"
                   fit="cover"
-                  :preview-src-list="selectedProductDetail.detail.images"
+                  :preview-src-list="detailImageUrls(selectedProductDetail)"
+                  :initial-index="index"
                   preview-teleported
                 />
-                <el-empty v-if="selectedProductDetail.detail.images.length < 1" description="暂无图片数据" />
+                <el-empty v-if="detailImageUrls(selectedProductDetail).length < 1" description="暂无图片数据" />
               </div>
             </el-tab-pane>
             <el-tab-pane label="商品说明">
               <div class="description-list">
                 <div v-for="description in selectedProductDetail.detail.descriptions" :key="description.label" class="description-item">
                   <strong>{{ description.label }}</strong>
-                  <p>{{ description.value }}</p>
+                  <div class="description-html" v-html="sanitizedDescriptionHtml(description.value)" />
                 </div>
                 <el-empty v-if="selectedProductDetail.detail.descriptions.length < 1" description="暂无商品说明" />
               </div>
             </el-tab-pane>
-            <el-tab-pane label="原始数据">
-              <pre class="raw-json">{{ rawJsonText(selectedProductDetail) }}</pre>
-            </el-tab-pane>
           </el-tabs>
         </template>
       </div>
-    </el-dialog>
-
-    <el-dialog v-model="priceVisible" title="修改商品价格" width="460px" append-to-body>
-      <el-form label-position="top">
-        <el-form-item label="商品">
-          <el-input :model-value="priceForm.title" disabled />
-        </el-form-item>
-        <el-form-item label="新价格（日元）">
-          <el-input-number v-model="priceForm.price" class="full-control" :min="1" :precision="0" :step="100" />
-        </el-form-item>
-      </el-form>
       <template #footer>
-        <el-button @click="priceVisible = false">取消</el-button>
-        <el-button type="primary" :loading="priceSaving" @click="submitPriceChange">
+        <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button v-if="selectedProductDetail && status === 'listed'" type="primary" :loading="detailSaving" @click="submitDetailChange">
           同步修改
         </el-button>
       </template>
@@ -768,6 +881,10 @@ function rawJsonText(product: ProductDetail | null) {
   min-width: 220px;
 }
 
+.filter-row-with-store .filter-keyword-field {
+  margin-left: 8px;
+}
+
 .filter-row:not(.filter-row-with-store) .filter-keyword-field {
   max-width: none;
 }
@@ -847,17 +964,23 @@ function rawJsonText(product: ProductDetail | null) {
   min-width: 0;
 }
 
-.detail-main h2 {
-  margin: 0 0 8px;
-  color: var(--text-main);
-  font-size: 20px;
-  line-height: 1.45;
+.detail-edit-form {
+  margin-bottom: 10px;
 }
 
-.detail-subtitle {
-  margin: 0 0 12px;
+.detail-edit-form :deep(.el-form-item) {
+  margin-bottom: 10px;
+}
+
+.detail-edit-form :deep(.el-form-item__label) {
   color: var(--text-muted);
-  line-height: 1.6;
+  font-weight: 700;
+}
+
+.detail-edit-form :deep(.el-textarea__inner) {
+  color: var(--text-main);
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .detail-meta {
@@ -880,15 +1003,19 @@ function rawJsonText(product: ProductDetail | null) {
   margin-top: 18px;
 }
 
+.sku-price-input {
+  width: 132px;
+}
+
 .detail-images {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 12px;
 }
 
 .detail-thumb {
-  width: 92px;
-  height: 92px;
+  width: 112px;
+  height: 112px;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   background: var(--panel-muted);
@@ -914,24 +1041,36 @@ function rawJsonText(product: ProductDetail | null) {
   color: var(--text-main);
 }
 
-.description-item p {
-  margin: 0;
+.description-html {
   color: var(--text-muted);
   line-height: 1.7;
-  white-space: pre-wrap;
+  overflow: auto;
 }
 
-.raw-json {
-  max-height: 360px;
-  margin: 0;
-  overflow: auto;
+.description-html :deep(img),
+.description-html :deep(video) {
+  max-width: 100%;
+  height: auto;
+}
+
+.description-html :deep(a) {
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.description-html :deep(table) {
+  max-width: 100%;
+  border-collapse: collapse;
+}
+
+.description-html :deep(td),
+.description-html :deep(th) {
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 12px;
-  background: var(--panel-muted);
-  color: var(--text-main);
-  font-size: 12px;
-  line-height: 1.55;
+  padding: 6px 8px;
+}
+
+.description-html :deep(*) {
+  max-width: 100%;
 }
 
 @media (max-width: 1180px) {

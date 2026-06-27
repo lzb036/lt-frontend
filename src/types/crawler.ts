@@ -123,6 +123,8 @@ export interface ProductItem {
   shopName: string
   imageUrl: string
   price?: number | null
+  priceMin?: number | null
+  priceMax?: number | null
   currency: string
   salesCount?: number | null
   genreId: string
@@ -142,6 +144,18 @@ export interface ProductVariant {
   selectorValues: Record<string, string>
   specs: Record<string, unknown>[]
   attributes: Record<string, unknown>[]
+}
+
+export interface ProductVariantEditPayload {
+  variantId: string
+  standardPrice: number
+  hidden: boolean
+}
+
+export interface ProductDetailEditPayload {
+  title: string
+  tagline: string
+  variants: ProductVariantEditPayload[]
 }
 
 export interface ProductVariantSelector {

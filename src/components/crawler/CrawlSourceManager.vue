@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlSource, CrawlSourcePayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -170,7 +171,11 @@ function sourceTypeLabel(value: SourceType) {
             <el-tag>{{ sourceTypeLabel(row.sourceType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="target" label="目标" min-width="260" show-overflow-tooltip />
+        <el-table-column label="目标" min-width="260">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.target" />
+          </template>
+        </el-table-column>
         <el-table-column label="启用" width="90">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'">

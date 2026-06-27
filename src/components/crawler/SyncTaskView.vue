@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -95,8 +96,16 @@ function handlePageSizeChange() {
 
     <section class="work-panel">
       <el-table v-loading="loading" :data="tasks" empty-text="暂无同步任务" height="650">
-        <el-table-column prop="taskName" label="任务名称" min-width="230" show-overflow-tooltip />
-        <el-table-column prop="storeName" label="店铺" min-width="150" show-overflow-tooltip />
+        <el-table-column label="任务名称" min-width="230">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.taskName" />
+          </template>
+        </el-table-column>
+        <el-table-column label="店铺" min-width="150">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.storeName" />
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)">
@@ -107,8 +116,16 @@ function handlePageSizeChange() {
         <el-table-column prop="totalCount" label="总数量" width="90" />
         <el-table-column prop="successCount" label="成功数量" width="100" />
         <el-table-column prop="failedCount" label="失败数量" width="100" />
-        <el-table-column prop="message" label="处理结果" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="errorDetail" label="错误信息" min-width="180" show-overflow-tooltip />
+        <el-table-column label="处理结果" min-width="220">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.message" />
+          </template>
+        </el-table-column>
+        <el-table-column label="错误信息" min-width="180">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.errorDetail" />
+          </template>
+        </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
         <el-table-column label="操作" width="118" fixed="right">

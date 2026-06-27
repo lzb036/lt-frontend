@@ -231,7 +231,6 @@ async function confirmLogout() {
           type="button"
           class="sidebar-collapse-button"
           :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-          :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
           @click="toggleSidebarCollapsed"
         >
           <el-icon class="sidebar-collapse-icon">
@@ -250,16 +249,14 @@ async function confirmLogout() {
         <div class="header-user">
           <span class="role-tag">{{ isSuperadmin ? '超级管理员' : '运营用户' }}</span>
           <span class="user-name">{{ displayName }}</span>
-          <el-tooltip content="主题设置" placement="bottom">
-            <el-button
-              class="theme-trigger"
-              :icon="Setting"
-              plain
-              @click="themeDrawerOpen = true"
-            >
-              主题
-            </el-button>
-          </el-tooltip>
+          <el-button
+            class="theme-trigger"
+            :icon="Setting"
+            plain
+            @click="themeDrawerOpen = true"
+          >
+            主题
+          </el-button>
           <el-button
             :icon="SwitchButton"
             plain

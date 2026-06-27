@@ -8,6 +8,7 @@ import { useServerPagination } from '../../composables/useServerPagination'
 import type { AvailabilityStatus } from '../../types/crawler'
 import type { StoreAccount, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -197,9 +198,21 @@ function handlePageSizeChange() {
 
     <section class="work-panel">
       <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="650">
-        <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="aliasName" label="店铺别称" min-width="150" show-overflow-tooltip />
+        <el-table-column label="店铺编号" min-width="140">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.storeCode" />
+          </template>
+        </el-table-column>
+        <el-table-column label="店铺名称" min-width="170">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.storeName" />
+          </template>
+        </el-table-column>
+        <el-table-column label="店铺别称" min-width="150">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.aliasName" />
+          </template>
+        </el-table-column>
         <el-table-column label="已用文件夹数" width="130" align="left">
           <template #default="{ row }">
             {{ countText(row.cabinetUsedFolderCount) }}
@@ -212,9 +225,11 @@ function handlePageSizeChange() {
         </el-table-column>
         <el-table-column label="可用性状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="availabilityTagType(row.availabilityStatus)" :title="row.lastError || ''">
-              {{ availabilityLabel(row.availabilityStatus) }}
-            </el-tag>
+            <CopyableTableText :value="row.lastError || ''" :display="availabilityLabel(row.availabilityStatus)" :always="Boolean(row.lastError)">
+              <el-tag :type="availabilityTagType(row.availabilityStatus)">
+                {{ availabilityLabel(row.availabilityStatus) }}
+              </el-tag>
+            </CopyableTableText>
           </template>
         </el-table-column>
         <el-table-column label="启用状态" width="110">

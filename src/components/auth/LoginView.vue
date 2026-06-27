@@ -231,7 +231,6 @@ function restoreRememberedLogin() {
               class="captcha-code"
               type="button"
               aria-label="刷新验证码"
-              title="刷新验证码"
               @click="refreshCaptcha"
             >
               <span>{{ captchaQuestion }}</span>

@@ -219,7 +219,7 @@ function handlePageSizeChange() {
           <el-option label="仅本人数据权限" value="own" />
         </el-select>
         <el-switch v-model="form.enabled" active-text="正常" inactive-text="停用" />
-        <el-select v-model="form.permissions" class="full-row" multiple collapse-tags collapse-tags-tooltip placeholder="菜单权限">
+        <el-select v-model="form.permissions" class="full-row" multiple collapse-tags placeholder="菜单权限">
           <el-option v-for="permission in permissionOptions" :key="permission.value" :label="permission.label" :value="permission.value" />
         </el-select>
         <el-input v-model="form.notes" class="full-row" type="textarea" :rows="3" placeholder="备注" />

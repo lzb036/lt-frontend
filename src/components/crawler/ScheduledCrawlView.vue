@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlSource, ScheduledCrawl, ScheduledCrawlPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -205,8 +206,16 @@ function handlePageSizeChange() {
     <section class="work-panel">
       <el-table v-loading="loading" :data="schedules" empty-text="暂无定时采集" height="650">
         <el-table-column prop="ownerUsername" label="租户编码" width="140" />
-        <el-table-column prop="name" label="任务名称" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="crawlContent" label="采集内容" min-width="230" show-overflow-tooltip />
+        <el-table-column label="任务名称" min-width="170">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.name" />
+          </template>
+        </el-table-column>
+        <el-table-column label="采集内容" min-width="230">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.crawlContent" />
+          </template>
+        </el-table-column>
         <el-table-column label="采集条件" width="140">
           <template #default="{ row }">
             {{ sourceTypeLabel(row.sourceType) }}

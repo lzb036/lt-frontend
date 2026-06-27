@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlSource, CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -195,7 +196,11 @@ function handlePageSizeChange() {
             {{ sourceTypeLabel(row.sourceType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="target" label="目标" min-width="260" show-overflow-tooltip />
+        <el-table-column label="目标" min-width="260">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.target" />
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)">
@@ -206,8 +211,16 @@ function handlePageSizeChange() {
         <el-table-column prop="totalCount" label="采集" width="90" />
         <el-table-column prop="successCount" label="保存" width="90" />
         <el-table-column prop="failedCount" label="失败" width="90" />
-        <el-table-column prop="message" label="说明" min-width="190" show-overflow-tooltip />
-        <el-table-column prop="errorDetail" label="错误" min-width="180" show-overflow-tooltip />
+        <el-table-column label="说明" min-width="190">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.message" />
+          </template>
+        </el-table-column>
+        <el-table-column label="错误" min-width="180">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.errorDetail" />
+          </template>
+        </el-table-column>
       </el-table>
       <div class="pagination-row">
         <el-pagination

@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -192,9 +193,9 @@ function statusType(status: string) {
 
       <el-table v-loading="loading" :data="tasks" empty-text="暂无手动采集任务" height="620">
         <el-table-column prop="ownerUsername" label="租户编码" width="140" />
-        <el-table-column label="采集内容" min-width="260" show-overflow-tooltip>
+        <el-table-column label="采集内容" min-width="260">
           <template #default="{ row }">
-            {{ row.target }}
+            <CopyableTableText :value="row.target" />
           </template>
         </el-table-column>
         <el-table-column label="采集条件" width="140">
@@ -213,7 +214,11 @@ function statusType(status: string) {
         <el-table-column prop="successCount" label="成功数量" width="100" />
         <el-table-column prop="failedCount" label="失败数量" width="100" />
         <el-table-column prop="createdAt" label="任务创建时间" min-width="170" />
-        <el-table-column prop="message" label="说明" min-width="180" show-overflow-tooltip />
+        <el-table-column label="说明" min-width="180">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.message" />
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="118" fixed="right">
           <template #default="{ row }">
             <el-button :icon="VideoPlay" link type="primary" @click="restartTask(row)">
