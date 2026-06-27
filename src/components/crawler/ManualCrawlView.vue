@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, shallowRef } from 'vue'
+import { onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Delete, Plus, Refresh, Search, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -24,20 +24,15 @@ const form = reactive({
   target: '',
 })
 
-const filteredTasks = computed(() => tasks.value.filter((task) => {
-  const targetMatched = !filters.target || task.target.includes(filters.target)
-  const statusMatched = !filters.status || task.status === filters.status
-  const typeMatched = !filters.sourceType || task.sourceType === filters.sourceType
-  return targetMatched && statusMatched && typeMatched
-}))
 const {
   currentPage,
   pageSize,
   pageSizes,
   paginationLayout,
   total,
-  pagedItems: pagedTasks,
-} = useClientPagination(filteredTasks)
+  resetPage,
+  setPageResult,
+} = useServerPagination()
 
 const sourceTypeOptions: Array<{ label: string; value: SourceType }> = [
   { label: '乐天搜索', value: 'keyword' },
@@ -53,7 +48,15 @@ onMounted(() => {
 async function loadTasks() {
   loading.value = true
   try {
-    tasks.value = await api.listTasks()
+    const result = await api.listTasksPage({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      target: filters.target.trim(),
+      status: filters.status,
+      sourceType: filters.sourceType,
+    })
+    tasks.value = result.items
+    setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载手动采集任务失败'))
   } finally {
@@ -73,8 +76,9 @@ async function createTask() {
       target: form.target.trim(),
       mode: 'manual',
     }
-    const result = await api.createTask(payload)
-    tasks.value = result.tasks
+    await api.createTask(payload)
+    resetPage()
+    await loadTasks()
     form.target = ''
     ElMessage.success('采集任务已创建')
   } catch (error) {
@@ -87,8 +91,8 @@ async function createTask() {
 async function restartTask(row: CrawlTask) {
   loading.value = true
   try {
-    const result = await api.restartTask(row.id)
-    tasks.value = result.tasks
+    await api.restartTask(row.id)
+    await loadTasks()
     ElMessage.success('任务已重新执行')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
@@ -101,6 +105,13 @@ function resetFilters() {
   filters.target = ''
   filters.status = ''
   filters.sourceType = ''
+  resetPage()
+  void loadTasks()
+}
+
+function searchTasks() {
+  resetPage()
+  void loadTasks()
 }
 
 function sourceTypeLabel(value: SourceType) {
@@ -163,15 +174,15 @@ function statusType(status: string) {
 
     <section class="work-panel">
       <div class="filter-row">
-        <el-input v-model="filters.target" :prefix-icon="Search" clearable placeholder="采集内容" />
-        <el-select v-model="filters.status" clearable placeholder="采集状态">
+        <el-input v-model="filters.target" :prefix-icon="Search" clearable placeholder="采集内容" @keydown.enter="searchTasks" />
+        <el-select v-model="filters.status" clearable placeholder="采集状态" @change="searchTasks">
           <el-option label="待执行" value="queued" />
           <el-option label="采集中" value="running" />
           <el-option label="成功" value="success" />
           <el-option label="部分成功" value="partial" />
           <el-option label="失败" value="failed" />
         </el-select>
-        <el-select v-model="filters.sourceType" clearable placeholder="采集条件">
+        <el-select v-model="filters.sourceType" clearable placeholder="采集条件" @change="searchTasks">
           <el-option v-for="item in sourceTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <el-button :icon="Delete" @click="resetFilters">
@@ -179,7 +190,7 @@ function statusType(status: string) {
         </el-button>
       </div>
 
-      <el-table v-loading="loading" :data="pagedTasks" empty-text="暂无手动采集任务" height="620">
+      <el-table v-loading="loading" :data="tasks" empty-text="暂无手动采集任务" height="620">
         <el-table-column prop="ownerUsername" label="租户编码" width="140" />
         <el-table-column label="采集内容" min-width="260" show-overflow-tooltip>
           <template #default="{ row }">
@@ -218,6 +229,8 @@ function statusType(status: string) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="loadTasks"
+          @size-change="searchTasks"
         />
       </div>
     </section>

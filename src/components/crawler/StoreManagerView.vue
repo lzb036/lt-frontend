@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { AvailabilityStatus } from '../../types/crawler'
 import type { StoreAccount, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
@@ -22,8 +22,9 @@ const {
   pageSizes,
   paginationLayout,
   total,
-  pagedItems: pagedStores,
-} = useClientPagination(stores)
+  resetPage,
+  setPageResult,
+} = useServerPagination()
 
 const form = reactive<StorePayload>({
   aliasName: '',
@@ -41,7 +42,9 @@ onMounted(() => {
 async function loadStores() {
   loading.value = true
   try {
-    stores.value = await api.listStores()
+    const result = await api.listStoresPage({ page: currentPage.value, pageSize: pageSize.value })
+    stores.value = result.items
+    setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载店铺失败'))
   } finally {
@@ -82,8 +85,8 @@ async function saveStore() {
   }
   saving.value = true
   try {
-    const result = await api.saveStore({ ...form }, editingId.value ?? undefined)
-    stores.value = result.stores
+    await api.saveStore({ ...form }, editingId.value ?? undefined)
+    await loadStores()
     dialogOpen.value = false
     ElMessage.success('店铺已保存')
   } catch (error) {
@@ -97,7 +100,7 @@ async function syncStore(row: StoreAccount) {
   loading.value = true
   try {
     const result = await api.syncStore(row.id)
-    stores.value = result.stores
+    await loadStores()
     if (result.store.lastError) {
       ElMessage.warning(result.store.lastError)
     } else {
@@ -114,7 +117,7 @@ async function checkStoreKeys() {
   verifying.value = true
   try {
     const result = await api.verifyStores()
-    stores.value = result.stores
+    await loadStores()
     if (result.summary.error > 0) {
       ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
     } else {
@@ -156,13 +159,19 @@ async function removeStore(row: StoreAccount) {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    stores.value = await api.deleteStore(row.id)
+    await api.deleteStore(row.id)
+    await loadStores()
     ElMessage.success('店铺已删除')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '删除店铺失败'))
     }
   }
+}
+
+function handlePageSizeChange() {
+  resetPage()
+  void loadStores()
 }
 </script>
 
@@ -187,7 +196,7 @@ async function removeStore(row: StoreAccount) {
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="pagedStores" empty-text="暂无店铺" height="650">
+      <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="650">
         <el-table-column prop="storeCode" label="店铺编号" min-width="140" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺名称" min-width="170" show-overflow-tooltip />
         <el-table-column prop="aliasName" label="店铺别称" min-width="150" show-overflow-tooltip />
@@ -237,6 +246,8 @@ async function removeStore(row: StoreAccount) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="loadStores"
+          @size-change="handlePageSizeChange"
         />
       </div>
     </section>

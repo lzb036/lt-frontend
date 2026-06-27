@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -17,8 +17,9 @@ const {
   pageSizes,
   paginationLayout,
   total,
-  pagedItems: pagedTasks,
-} = useClientPagination(tasks)
+  resetPage,
+  setPageResult,
+} = useServerPagination()
 
 onMounted(() => {
   void loadTasks()
@@ -27,7 +28,9 @@ onMounted(() => {
 async function loadTasks() {
   loading.value = true
   try {
-    tasks.value = await api.listSyncTasks()
+    const result = await api.listSyncTasksPage({ page: currentPage.value, pageSize: pageSize.value })
+    tasks.value = result.items
+    setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载同步任务失败'))
   } finally {
@@ -38,8 +41,8 @@ async function loadTasks() {
 async function retryTask(row: SyncTask) {
   loading.value = true
   try {
-    const result = await api.retrySyncTask(row.id)
-    tasks.value = result.syncTasks
+    await api.retrySyncTask(row.id)
+    await loadTasks()
     ElMessage.success('同步任务已重试')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '重试同步任务失败'))
@@ -71,6 +74,11 @@ function statusType(status: string) {
   }
   return 'info'
 }
+
+function handlePageSizeChange() {
+  resetPage()
+  void loadTasks()
+}
 </script>
 
 <template>
@@ -86,7 +94,7 @@ function statusType(status: string) {
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="pagedTasks" empty-text="暂无同步任务" height="650">
+      <el-table v-loading="loading" :data="tasks" empty-text="暂无同步任务" height="650">
         <el-table-column prop="taskName" label="任务名称" min-width="230" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺" min-width="150" show-overflow-tooltip />
         <el-table-column label="状态" width="120">
@@ -118,6 +126,8 @@ function statusType(status: string) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="loadTasks"
+          @size-change="handlePageSizeChange"
         />
       </div>
     </section>

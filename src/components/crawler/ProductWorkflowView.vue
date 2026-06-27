@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, EditPen, Finished, Plus, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { ProductDetail, ProductItem, ProductVariant, ReviewStatus, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -31,15 +31,7 @@ const priceForm = reactive({
   title: '',
   price: null as number | null,
 })
-const {
-  currentPage,
-  pageSize,
-  pageSizes,
-  paginationLayout,
-  total,
-  pagedItems: pagedProducts,
-  resetPage,
-} = useClientPagination(products)
+const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, setPageResult, reduceTotal } = useServerPagination()
 
 const filters = reactive({
   keyword: '',
@@ -77,11 +69,14 @@ watch(
   },
 )
 
-async function refreshAll() {
+async function refreshAll(options: { loadStores?: boolean } = {}) {
+  const loadStores = options.loadStores ?? true
   loading.value = true
   try {
-    const storeValues = await api.listStores()
-    stores.value = storeValues
+    const storeValues = loadStores ? await api.listStores() : stores.value
+    if (loadStores) {
+      stores.value = storeValues
+    }
     if (props.status === 'listed') {
       const selectedStoreExists = storeValues.some((store) => store.id === filters.storeId)
       if ((!filters.storeId || !selectedStoreExists) && storeValues.length > 0) {
@@ -89,18 +84,22 @@ async function refreshAll() {
       }
       if (!filters.storeId) {
         products.value = []
+        total.value = 0
         return
       }
     }
-    const productValues = await api.listProducts({
+    const result = await api.listProductsPage({
       status: props.status,
       keyword: filters.keyword.trim(),
       storeId: props.status === 'listed' ? filters.storeId : null,
       listingStatus: props.status === 'listed' ? filters.listingStatus : '',
       listedAtFrom: props.status === 'listed' ? (filters.listedAtRange?.[0] || '') : '',
       listedAtTo: props.status === 'listed' ? (filters.listedAtRange?.[1] || '') : '',
+      page: currentPage.value,
+      pageSize: pageSize.value,
     })
-    products.value = productValues
+    products.value = result.items
+    setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载商品失败'))
   } finally {
@@ -120,6 +119,17 @@ function resetFilters() {
 function searchProducts() {
   resetPage()
   void refreshAll()
+}
+
+function handlePageChange() {
+  clearSelection()
+  void refreshAll({ loadStores: false })
+}
+
+function handlePageSizeChange() {
+  resetPage()
+  clearSelection()
+  void refreshAll({ loadStores: false })
 }
 
 function handleSelectionChange(rows: ProductItem[]) {
@@ -160,6 +170,7 @@ function removeVisibleProducts(productIds: number[]) {
   }
   const ids = new Set(productIds)
   products.value = products.value.filter((product) => !ids.has(product.id))
+  reduceTotal(ids.size)
 }
 
 async function changeStatus(status: ReviewStatus, message = '') {
@@ -223,6 +234,9 @@ async function removeSelected() {
     mergeVisibleProducts(result.products)
     removeVisibleProducts(result.deletedIds)
     clearSelection()
+    if (products.value.length < 1 && total.value > 0) {
+      void refreshAll({ loadStores: false })
+    }
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '删除商品失败'))
@@ -493,7 +507,7 @@ function rawJsonText(product: ProductDetail | null) {
       <el-table
         ref="productTableRef"
         v-loading="loading"
-        :data="pagedProducts"
+        :data="products"
         :empty-text="statusCopy.empty"
         height="620"
         @selection-change="handleSelectionChange"
@@ -560,6 +574,8 @@ function rawJsonText(product: ProductDetail | null) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="handlePageChange"
+          @size-change="handlePageSizeChange"
         />
       </div>
     </section>

@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleCheck, Lock, Plus, Refresh, User } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { AuthSession, UserAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -22,8 +22,9 @@ const {
   pageSizes,
   paginationLayout,
   total,
-  pagedItems: pagedUsers,
-} = useClientPagination(users)
+  resetPage,
+  setPageResult,
+} = useServerPagination()
 
 const createForm = reactive({
   username: '',
@@ -42,7 +43,9 @@ onMounted(() => {
 async function loadUsers() {
   loading.value = true
   try {
-    users.value = await api.listUsers()
+    const result = await api.listUsersPage({ page: currentPage.value, pageSize: pageSize.value })
+    users.value = result.items
+    setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载用户失败'))
   } finally {
@@ -57,12 +60,12 @@ async function createUser() {
   }
   saving.value = true
   try {
-    const result = await api.createUser({
+    await api.createUser({
       username: createForm.username.trim(),
       displayName: createForm.displayName.trim(),
       password: createForm.password,
     })
-    users.value = result.users
+    await loadUsers()
     createForm.username = ''
     createForm.displayName = ''
     createForm.password = ''
@@ -76,8 +79,8 @@ async function createUser() {
 
 async function updateEnabled(row: UserAccount, enabled: boolean) {
   try {
-    const result = await api.updateUser(row.username, { enabled })
-    users.value = result.users
+    await api.updateUser(row.username, { enabled })
+    await loadUsers()
     ElMessage.success(enabled ? '用户已启用' : '用户已停用')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '更新用户状态失败'))
@@ -95,14 +98,18 @@ async function resetPassword(row: UserAccount) {
       inputPattern: /^.{6,}$/,
       inputErrorMessage: '密码至少 6 位',
     })
-    const result = await api.resetPassword(row.username, value.value)
-    users.value = result.users
+    await api.resetPassword(row.username, value.value)
     ElMessage.success('密码已重置')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '重置密码失败'))
     }
   }
+}
+
+function handlePageSizeChange() {
+  resetPage()
+  void loadUsers()
 }
 </script>
 
@@ -157,7 +164,7 @@ async function resetPassword(row: UserAccount) {
           <p>账号启停不影响各用户已保存的独立配置。</p>
         </div>
       </div>
-      <el-table v-loading="loading" :data="pagedUsers" empty-text="暂无用户" height="520">
+      <el-table v-loading="loading" :data="users" empty-text="暂无用户" height="520">
         <el-table-column prop="username" label="用户名" min-width="150" />
         <el-table-column prop="displayName" label="显示名称" min-width="160" />
         <el-table-column label="角色" width="130">
@@ -194,6 +201,8 @@ async function resetPassword(row: UserAccount) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="loadUsers"
+          @size-change="handlePageSizeChange"
         />
       </div>
     </section>

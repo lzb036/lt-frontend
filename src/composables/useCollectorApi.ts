@@ -6,6 +6,8 @@ import type {
   CreateTaskPayload,
   ListingTask,
   ListingTaskPayload,
+  PageParams,
+  PageResult,
   ProductDetail,
   ProductItem,
   ReviewStatus,
@@ -15,6 +17,7 @@ import type {
   ScheduledCrawlPayload,
   SecretProfile,
   SecretProfilePayload,
+  SourceType,
   StoreAccount,
   StorePayload,
   StoreVerifySummary,
@@ -23,24 +26,44 @@ import type {
 } from '../types/crawler'
 import { apiClient } from '../utils/api'
 
+type ApiPageResponse<K extends string, T> = Record<K, T[]> & {
+  total: number
+  page: number
+  pageSize: number
+}
+
+function toPageResult<K extends string, T>(data: ApiPageResponse<K, T>, key: K): PageResult<T> {
+  return {
+    items: data[key],
+    total: data.total,
+    page: data.page,
+    pageSize: data.pageSize,
+  }
+}
+
 export function useCollectorApi() {
   async function listUsers() {
     const response = await apiClient.get<{ users: UserAccount[] }>('/users')
     return response.data.users
   }
 
+  async function listUsersPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'users', UserAccount>>('/users', { params })
+    return toPageResult(response.data, 'users')
+  }
+
   async function createUser(payload: { username: string; password: string; displayName: string }) {
-    const response = await apiClient.post<{ user: UserAccount; users: UserAccount[] }>('/users', payload)
+    const response = await apiClient.post<{ user: UserAccount }>('/users', payload)
     return response.data
   }
 
   async function updateUser(username: string, payload: { displayName?: string; enabled?: boolean }) {
-    const response = await apiClient.put<{ user: UserAccount; users: UserAccount[] }>(`/users/${encodeURIComponent(username)}`, payload)
+    const response = await apiClient.put<{ user: UserAccount }>(`/users/${encodeURIComponent(username)}`, payload)
     return response.data
   }
 
   async function resetPassword(username: string, password: string) {
-    const response = await apiClient.put<{ user: UserAccount; users: UserAccount[] }>(
+    const response = await apiClient.put<{ user: UserAccount }>(
       `/users/${encodeURIComponent(username)}/password`,
       { password },
     )
@@ -67,17 +90,21 @@ export function useCollectorApi() {
     return response.data.sources
   }
 
+  async function listSourcesPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'sources', CrawlSource>>('/crawler/sources', { params })
+    return toPageResult(response.data, 'sources')
+  }
+
   async function saveSource(payload: CrawlSourcePayload, id?: number) {
     const request = id
-      ? apiClient.put<{ source: CrawlSource; sources: CrawlSource[] }>(`/crawler/sources/${id}`, payload)
-      : apiClient.post<{ source: CrawlSource; sources: CrawlSource[] }>('/crawler/sources', payload)
+      ? apiClient.put<{ source: CrawlSource }>(`/crawler/sources/${id}`, payload)
+      : apiClient.post<{ source: CrawlSource }>('/crawler/sources', payload)
     const response = await request
     return response.data
   }
 
   async function deleteSource(id: number) {
-    const response = await apiClient.delete<{ sources: CrawlSource[] }>(`/crawler/sources/${id}`)
-    return response.data.sources
+    await apiClient.delete<{ deleted: boolean }>(`/crawler/sources/${id}`)
   }
 
   async function listTasks() {
@@ -85,13 +112,22 @@ export function useCollectorApi() {
     return response.data.tasks
   }
 
+  async function listTasksPage(params: PageParams & {
+    target?: string
+    status?: string
+    sourceType?: SourceType | ''
+  }) {
+    const response = await apiClient.get<ApiPageResponse<'tasks', CrawlTask>>('/crawler/tasks', { params })
+    return toPageResult(response.data, 'tasks')
+  }
+
   async function createTask(payload: CreateTaskPayload) {
-    const response = await apiClient.post<{ task: CrawlTask; tasks: CrawlTask[] }>('/crawler/tasks', payload)
+    const response = await apiClient.post<{ task: CrawlTask }>('/crawler/tasks', payload)
     return response.data
   }
 
   async function restartTask(taskId: string) {
-    const response = await apiClient.post<{ task: CrawlTask; tasks: CrawlTask[] }>(`/crawler/tasks/${taskId}/restart`)
+    const response = await apiClient.post<{ task: CrawlTask }>(`/crawler/tasks/${taskId}/restart`)
     return response.data
   }
 
@@ -102,9 +138,30 @@ export function useCollectorApi() {
     listingStatus?: 'listed' | 'unlisted' | ''
     listedAtFrom?: string
     listedAtTo?: string
+    page?: number
+    pageSize?: number
   }) {
-    const response = await apiClient.get<{ products: ProductItem[] }>('/crawler/products', { params })
+    const response = await apiClient.get<{
+      products: ProductItem[]
+      total?: number
+      page?: number
+      pageSize?: number
+    }>('/crawler/products', { params })
     return response.data.products
+  }
+
+  async function listProductsPage(params: {
+    status?: ReviewStatus | ''
+    keyword?: string
+    storeId?: number | null
+    listingStatus?: 'listed' | 'unlisted' | ''
+    listedAtFrom?: string
+    listedAtTo?: string
+    page: number
+    pageSize: number
+  }) {
+    const response = await apiClient.get<ApiPageResponse<'products', ProductItem>>('/crawler/products', { params })
+    return toPageResult(response.data, 'products')
   }
 
   async function updateProductStatus(payload: { productIds: number[]; status: ReviewStatus; message?: string }) {
@@ -162,25 +219,27 @@ export function useCollectorApi() {
     return response.data.stores
   }
 
+  async function listStoresPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'stores', StoreAccount>>('/crawler/stores', { params })
+    return toPageResult(response.data, 'stores')
+  }
+
   async function saveStore(payload: StorePayload, id?: number) {
     const request = id
-      ? apiClient.put<{ store: StoreAccount; stores: StoreAccount[] }>(`/crawler/stores/${id}`, payload)
-      : apiClient.post<{ store: StoreAccount; stores: StoreAccount[] }>('/crawler/stores', payload)
+      ? apiClient.put<{ store: StoreAccount }>(`/crawler/stores/${id}`, payload)
+      : apiClient.post<{ store: StoreAccount }>('/crawler/stores', payload)
     const response = await request
     return response.data
   }
 
   async function deleteStore(id: number) {
-    const response = await apiClient.delete<{ stores: StoreAccount[] }>(`/crawler/stores/${id}`)
-    return response.data.stores
+    await apiClient.delete<{ deleted: boolean }>(`/crawler/stores/${id}`)
   }
 
   async function syncStore(id: number) {
     const response = await apiClient.post<{
       store: StoreAccount
-      stores: StoreAccount[]
       syncTask: SyncTask
-      syncTasks: SyncTask[]
       syncedCount: number
     }>(`/crawler/stores/${id}/sync`)
     return response.data
@@ -196,21 +255,25 @@ export function useCollectorApi() {
     return response.data.schedules
   }
 
+  async function listSchedulesPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'schedules', ScheduledCrawl>>('/crawler/schedules', { params })
+    return toPageResult(response.data, 'schedules')
+  }
+
   async function saveSchedule(payload: ScheduledCrawlPayload, id?: number) {
     const request = id
-      ? apiClient.put<{ schedule: ScheduledCrawl; schedules: ScheduledCrawl[] }>(`/crawler/schedules/${id}`, payload)
-      : apiClient.post<{ schedule: ScheduledCrawl; schedules: ScheduledCrawl[] }>('/crawler/schedules', payload)
+      ? apiClient.put<{ schedule: ScheduledCrawl }>(`/crawler/schedules/${id}`, payload)
+      : apiClient.post<{ schedule: ScheduledCrawl }>('/crawler/schedules', payload)
     const response = await request
     return response.data
   }
 
   async function deleteSchedule(id: number) {
-    const response = await apiClient.delete<{ schedules: ScheduledCrawl[] }>(`/crawler/schedules/${id}`)
-    return response.data.schedules
+    await apiClient.delete<{ deleted: boolean }>(`/crawler/schedules/${id}`)
   }
 
   async function runSchedule(id: number) {
-    const response = await apiClient.post<{ schedule: ScheduledCrawl; schedules: ScheduledCrawl[] }>(`/crawler/schedules/${id}/run`)
+    const response = await apiClient.post<{ schedule: ScheduledCrawl }>(`/crawler/schedules/${id}/run`)
     return response.data
   }
 
@@ -219,13 +282,18 @@ export function useCollectorApi() {
     return response.data.listingTasks
   }
 
+  async function listListingTasksPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'listingTasks', ListingTask>>('/crawler/listing-tasks', { params })
+    return toPageResult(response.data, 'listingTasks')
+  }
+
   async function createListingTask(payload: ListingTaskPayload) {
-    const response = await apiClient.post<{ listingTask: ListingTask; listingTasks: ListingTask[] }>('/crawler/listing-tasks', payload)
+    const response = await apiClient.post<{ listingTask: ListingTask }>('/crawler/listing-tasks', payload)
     return response.data
   }
 
   async function retryListingTask(taskId: string) {
-    const response = await apiClient.post<{ listingTask: ListingTask; listingTasks: ListingTask[] }>(`/crawler/listing-tasks/${taskId}/retry`)
+    const response = await apiClient.post<{ listingTask: ListingTask }>(`/crawler/listing-tasks/${taskId}/retry`)
     return response.data
   }
 
@@ -234,8 +302,13 @@ export function useCollectorApi() {
     return response.data.syncTasks
   }
 
+  async function listSyncTasksPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'syncTasks', SyncTask>>('/crawler/sync-tasks', { params })
+    return toPageResult(response.data, 'syncTasks')
+  }
+
   async function retrySyncTask(taskId: string) {
-    const response = await apiClient.post<{ syncTask: SyncTask; syncTasks: SyncTask[] }>(`/crawler/sync-tasks/${taskId}/retry`)
+    const response = await apiClient.post<{ syncTask: SyncTask }>(`/crawler/sync-tasks/${taskId}/retry`)
     return response.data
   }
 
@@ -244,17 +317,21 @@ export function useCollectorApi() {
     return response.data.roles
   }
 
+  async function listRolesPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'roles', RoleDefinition>>('/crawler/roles', { params })
+    return toPageResult(response.data, 'roles')
+  }
+
   async function saveRole(payload: RolePayload, id?: number) {
     const request = id
-      ? apiClient.put<{ role: RoleDefinition; roles: RoleDefinition[] }>(`/crawler/roles/${id}`, payload)
-      : apiClient.post<{ role: RoleDefinition; roles: RoleDefinition[] }>('/crawler/roles', payload)
+      ? apiClient.put<{ role: RoleDefinition }>(`/crawler/roles/${id}`, payload)
+      : apiClient.post<{ role: RoleDefinition }>('/crawler/roles', payload)
     const response = await request
     return response.data
   }
 
   async function deleteRole(id: number) {
-    const response = await apiClient.delete<{ roles: RoleDefinition[] }>(`/crawler/roles/${id}`)
-    return response.data.roles
+    await apiClient.delete<{ deleted: boolean }>(`/crawler/roles/${id}`)
   }
 
   function isSuperadmin(session: AuthSession | null | undefined) {
@@ -263,6 +340,7 @@ export function useCollectorApi() {
 
   return {
     listUsers,
+    listUsersPage,
     createUser,
     updateUser,
     resetPassword,
@@ -270,32 +348,40 @@ export function useCollectorApi() {
     updateSecretProfile,
     verifySecretProfile,
     listSources,
+    listSourcesPage,
     saveSource,
     deleteSource,
     listTasks,
+    listTasksPage,
     createTask,
     restartTask,
     listProducts,
+    listProductsPage,
     updateProductStatus,
     deleteProducts,
     getProductDetail,
     updateProductPrice,
     updateProductsListingStatus,
     listStores,
+    listStoresPage,
     saveStore,
     deleteStore,
     syncStore,
     verifyStores,
     listSchedules,
+    listSchedulesPage,
     saveSchedule,
     deleteSchedule,
     runSchedule,
     listListingTasks,
+    listListingTasksPage,
     createListingTask,
     retryListingTask,
     listSyncTasks,
+    listSyncTasksPage,
     retrySyncTask,
     listRoles,
+    listRolesPage,
     saveRole,
     deleteRole,
     isSuperadmin,

@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlSource, CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -19,8 +19,9 @@ const {
   pageSizes,
   paginationLayout,
   total,
-  pagedItems: pagedTasks,
-} = useClientPagination(tasks)
+  resetPage,
+  setPageResult,
+} = useServerPagination()
 
 const form = reactive({
   sourceId: null as number | null,
@@ -47,15 +48,20 @@ onMounted(() => {
   void refreshAll()
 })
 
-async function refreshAll() {
+async function refreshAll(options: { loadSources?: boolean } = {}) {
+  const loadSources = options.loadSources ?? true
   loading.value = true
   try {
+    const taskRequest = api.listTasksPage({ page: currentPage.value, pageSize: pageSize.value })
     const [sourceValues, taskValues] = await Promise.all([
-      api.listSources(),
-      api.listTasks(),
+      loadSources ? api.listSources() : Promise.resolve(sources.value),
+      taskRequest,
     ])
-    sources.value = sourceValues
-    tasks.value = taskValues
+    if (loadSources) {
+      sources.value = sourceValues
+    }
+    tasks.value = taskValues.items
+    setPageResult(taskValues)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载任务失败'))
   } finally {
@@ -86,8 +92,8 @@ async function createTask() {
   }
   creating.value = true
   try {
-    const result = await api.createTask(payload)
-    tasks.value = result.tasks
+    await api.createTask(payload)
+    await refreshAll()
     ElMessage.success('采集任务已创建并执行')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建采集任务失败'))
@@ -122,6 +128,11 @@ function statusType(status: string) {
     return 'warning'
   }
   return 'info'
+}
+
+function handlePageSizeChange() {
+  resetPage()
+  void refreshAll({ loadSources: false })
 }
 </script>
 
@@ -177,7 +188,7 @@ function statusType(status: string) {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="pagedTasks" empty-text="暂无任务" height="560">
+      <el-table v-loading="loading" :data="tasks" empty-text="暂无任务" height="560">
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column label="类型" width="110">
           <template #default="{ row }">
@@ -205,6 +216,8 @@ function statusType(status: string) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="refreshAll({ loadSources: false })"
+          @size-change="handlePageSizeChange"
         />
       </div>
     </section>

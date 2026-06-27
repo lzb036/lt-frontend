@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlSource, CrawlSourcePayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -20,8 +20,9 @@ const {
   pageSizes,
   paginationLayout,
   total,
-  pagedItems: pagedSources,
-} = useClientPagination(sources)
+  resetPage,
+  setPageResult,
+} = useServerPagination()
 
 const form = reactive<CrawlSourcePayload>({
   name: '',
@@ -49,7 +50,9 @@ onMounted(() => {
 async function loadSources() {
   loading.value = true
   try {
-    sources.value = await api.listSources()
+    const result = await api.listSourcesPage({ page: currentPage.value, pageSize: pageSize.value })
+    sources.value = result.items
+    setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载采集源失败'))
   } finally {
@@ -92,13 +95,13 @@ async function saveSource() {
   }
   saving.value = true
   try {
-    const result = await api.saveSource({
+    await api.saveSource({
       ...form,
       name: form.name.trim(),
       target: form.target.trim(),
       notes: form.notes.trim(),
     }, editingId.value ?? undefined)
-    sources.value = result.sources
+    await loadSources()
     dialogVisible.value = false
     ElMessage.success('采集源已保存')
   } catch (error) {
@@ -115,13 +118,19 @@ async function deleteSource(row: CrawlSource) {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     })
-    sources.value = await api.deleteSource(row.id)
+    await api.deleteSource(row.id)
+    await loadSources()
     ElMessage.success('采集源已删除')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '删除采集源失败'))
     }
   }
+}
+
+function handlePageSizeChange() {
+  resetPage()
+  void loadSources()
 }
 
 function sourceTypeLabel(value: SourceType) {
@@ -154,7 +163,7 @@ function sourceTypeLabel(value: SourceType) {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="pagedSources" empty-text="暂无采集源" height="560">
+      <el-table v-loading="loading" :data="sources" empty-text="暂无采集源" height="560">
         <el-table-column prop="name" label="名称" min-width="160" />
         <el-table-column label="类型" width="120">
           <template #default="{ row }">
@@ -193,6 +202,8 @@ function sourceTypeLabel(value: SourceType) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="loadSources"
+          @size-change="handlePageSizeChange"
         />
       </div>
     </section>

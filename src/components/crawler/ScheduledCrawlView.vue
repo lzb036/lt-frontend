@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus, Refresh, Search, Timer, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import { useClientPagination } from '../../composables/useClientPagination'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlSource, ScheduledCrawl, ScheduledCrawlPayload, SourceType } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
@@ -21,8 +21,9 @@ const {
   pageSizes,
   paginationLayout,
   total,
-  pagedItems: pagedSchedules,
-} = useClientPagination(schedules)
+  resetPage,
+  setPageResult,
+} = useServerPagination()
 
 const form = reactive<ScheduledCrawlPayload>({
   sourceId: null,
@@ -47,15 +48,19 @@ onMounted(() => {
   void refreshAll()
 })
 
-async function refreshAll() {
+async function refreshAll(options: { loadSources?: boolean } = {}) {
+  const loadSources = options.loadSources ?? true
   loading.value = true
   try {
     const [scheduleValues, sourceValues] = await Promise.all([
-      api.listSchedules(),
-      api.listSources(),
+      api.listSchedulesPage({ page: currentPage.value, pageSize: pageSize.value }),
+      loadSources ? api.listSources() : Promise.resolve(sources.value),
     ])
-    schedules.value = scheduleValues
-    sources.value = sourceValues
+    schedules.value = scheduleValues.items
+    setPageResult(scheduleValues)
+    if (loadSources) {
+      sources.value = sourceValues
+    }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载定时采集失败'))
   } finally {
@@ -116,8 +121,8 @@ async function saveSchedule() {
   }
   saving.value = true
   try {
-    const result = await api.saveSchedule({ ...form, name: form.name.trim(), target: form.target.trim() }, editingId.value ?? undefined)
-    schedules.value = result.schedules
+    await api.saveSchedule({ ...form, name: form.name.trim(), target: form.target.trim() }, editingId.value ?? undefined)
+    await refreshAll()
     dialogOpen.value = false
     ElMessage.success('定时采集已保存')
   } catch (error) {
@@ -130,8 +135,8 @@ async function saveSchedule() {
 async function runSchedule(row: ScheduledCrawl) {
   loading.value = true
   try {
-    const result = await api.runSchedule(row.id)
-    schedules.value = result.schedules
+    await api.runSchedule(row.id)
+    await refreshAll()
     ElMessage.success('定时任务已执行一次')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '执行定时任务失败'))
@@ -147,7 +152,8 @@ async function removeSchedule(row: ScheduledCrawl) {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    schedules.value = await api.deleteSchedule(row.id)
+    await api.deleteSchedule(row.id)
+    await refreshAll()
     ElMessage.success('定时采集已删除')
   } catch (error) {
     if (error !== 'cancel') {
@@ -172,6 +178,11 @@ function statusLabel(row: ScheduledCrawl) {
   }
   return labels[row.status] || row.status
 }
+
+function handlePageSizeChange() {
+  resetPage()
+  void refreshAll({ loadSources: false })
+}
 </script>
 
 <template>
@@ -192,7 +203,7 @@ function statusLabel(row: ScheduledCrawl) {
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="pagedSchedules" empty-text="暂无定时采集" height="650">
+      <el-table v-loading="loading" :data="schedules" empty-text="暂无定时采集" height="650">
         <el-table-column prop="ownerUsername" label="租户编码" width="140" />
         <el-table-column prop="name" label="任务名称" min-width="170" show-overflow-tooltip />
         <el-table-column prop="crawlContent" label="采集内容" min-width="230" show-overflow-tooltip />
@@ -232,6 +243,8 @@ function statusLabel(row: ScheduledCrawl) {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
+          @current-change="refreshAll({ loadSources: false })"
+          @size-change="handlePageSizeChange"
         />
       </div>
     </section>

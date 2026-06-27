@@ -7,6 +7,18 @@ export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
 
+export interface PageParams {
+  page: number
+  pageSize: number
+}
+
+export interface PageResult<T> {
+  total: number
+  page: number
+  pageSize: number
+  items: T[]
+}
+
 export interface UserPermissions {
   manageUsers: boolean
   manageOwnSecrets: boolean
