@@ -135,6 +135,15 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function deleteTasks(taskIds: string[]) {
+    const response = await apiClient.delete<{
+      deletedIds: string[]
+      failedIds: string[]
+      deletedCount: number
+    }>('/crawler/tasks', { data: { taskIds } })
+    return response.data
+  }
+
   async function listProducts(params: {
     status?: ReviewStatus | ''
     keyword?: string
@@ -211,6 +220,11 @@ export function useCollectorApi() {
 
   async function updateProductDetail(productId: number, payload: ProductDetailEditPayload) {
     const response = await apiClient.put<{ product: ProductDetail }>(`/crawler/products/${productId}/detail`, payload)
+    return response.data.product
+  }
+
+  async function updateProductLocalDetail(productId: number, payload: ProductDetailEditPayload) {
+    const response = await apiClient.put<{ product: ProductDetail }>(`/crawler/products/${productId}/local-detail`, payload)
     return response.data.product
   }
 
@@ -314,6 +328,15 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function deleteListingTasks(taskIds: string[]) {
+    const response = await apiClient.delete<{
+      deletedIds: string[]
+      failedIds: string[]
+      deletedCount: number
+    }>('/crawler/listing-tasks', { data: { taskIds } })
+    return response.data
+  }
+
   async function listSyncTasks() {
     const response = await apiClient.get<{ syncTasks: SyncTask[] }>('/crawler/sync-tasks')
     return response.data.syncTasks
@@ -326,6 +349,15 @@ export function useCollectorApi() {
 
   async function retrySyncTask(taskId: string) {
     const response = await apiClient.post<{ syncTask: SyncTask }>(`/crawler/sync-tasks/${taskId}/retry`)
+    return response.data
+  }
+
+  async function deleteSyncTasks(taskIds: string[]) {
+    const response = await apiClient.delete<{
+      deletedIds: string[]
+      failedIds: string[]
+      deletedCount: number
+    }>('/crawler/sync-tasks', { data: { taskIds } })
     return response.data
   }
 
@@ -372,6 +404,7 @@ export function useCollectorApi() {
     listTasksPage,
     createTask,
     restartTask,
+    deleteTasks,
     listProducts,
     listProductsPage,
     updateProductStatus,
@@ -379,6 +412,7 @@ export function useCollectorApi() {
     getProductDetail,
     updateProductPrice,
     updateProductDetail,
+    updateProductLocalDetail,
     updateProductsListingStatus,
     listStores,
     listStoresPage,
@@ -395,9 +429,11 @@ export function useCollectorApi() {
     listListingTasksPage,
     createListingTask,
     retryListingTask,
+    deleteListingTasks,
     listSyncTasks,
     listSyncTasksPage,
     retrySyncTask,
+    deleteSyncTasks,
     listRoles,
     listRolesPage,
     saveRole,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, shallowRef } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Delete, Plus, QuestionFilled, Search, VideoPlay } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Plus, QuestionFilled, Refresh, Search, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -14,6 +14,7 @@ const loading = shallowRef(false)
 const creating = shallowRef(false)
 const createDialogVisible = shallowRef(false)
 const tasks = shallowRef<CrawlTask[]>([])
+const selectedTasks = shallowRef<CrawlTask[]>([])
 
 const filters = reactive({
   target: '',
@@ -52,6 +53,9 @@ const sourceTypeLabels: Record<string, string> = {
 }
 
 type RankingPeriod = 'realtime' | 'daily' | 'weekly' | 'monthly'
+type ProductTarget =
+  | { type: 'market'; shopCode: string; itemNumber: string }
+  | { type: 'fashion'; fashionCode: string }
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '实时', value: 'realtime' },
@@ -60,7 +64,7 @@ const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '月榜', value: 'monthly' },
 ]
 
-const productTargetError = '单个商品采集只支持完整乐天商品链接、带参数的乐天商品链接、店铺编码/商品编号。'
+const productTargetError = '单个商品采集支持普通乐天商品链接、Rakuten Fashion 商品链接、带参数链接、店铺编码/商品编号。'
 const shopTargetError = '店铺采集请输入店铺展示名称、店铺url代码、店铺url或sid。'
 
 onMounted(() => {
@@ -242,7 +246,7 @@ function normalizeRakutenShopTarget(value: string) {
   return parseRakutenShopTarget(value) || ''
 }
 
-function parseRakutenProductTarget(value: string) {
+function parseRakutenProductTarget(value: string): ProductTarget | null {
   const target = value.trim()
   if (!target) {
     return null
@@ -250,14 +254,22 @@ function parseRakutenProductTarget(value: string) {
   if (target.startsWith('http://') || target.startsWith('https://')) {
     try {
       const parsedUrl = new URL(target)
-      if (parsedUrl.hostname !== 'item.rakuten.co.jp') {
+      const hostname = parsedUrl.hostname.toLowerCase()
+      if (hostname === 'brandavenue.rakuten.co.jp') {
+        const parts = parsedUrl.pathname.split('/').filter(Boolean).map((part) => decodeURIComponent(part))
+        if (parts.length >= 2 && parts[0] === 'item') {
+          return { type: 'fashion', fashionCode: parts[1] }
+        }
+        return null
+      }
+      if (hostname !== 'item.rakuten.co.jp') {
         return null
       }
       const parts = parsedUrl.pathname.split('/').filter(Boolean).map((part) => decodeURIComponent(part))
       if (parts.length < 2) {
         return null
       }
-      return { shopCode: parts[0], itemNumber: parts[1] }
+      return { type: 'market', shopCode: parts[0], itemNumber: parts[1] }
     } catch {
       return null
     }
@@ -266,7 +278,7 @@ function parseRakutenProductTarget(value: string) {
   if (parts.length !== 2) {
     return null
   }
-  return { shopCode: parts[0], itemNumber: parts[1] }
+  return { type: 'market', shopCode: parts[0], itemNumber: parts[1] }
 }
 
 function isValidRakutenProductTarget(value: string) {
@@ -277,6 +289,9 @@ function normalizeRakutenProductTarget(value: string) {
   const parsed = parseRakutenProductTarget(value)
   if (!parsed) {
     return value.trim()
+  }
+  if (parsed.type === 'fashion') {
+    return `https://brandavenue.rakuten.co.jp/item/${encodeURIComponent(parsed.fashionCode)}/`
   }
   return `https://item.rakuten.co.jp/${encodeURIComponent(parsed.shopCode)}/${encodeURIComponent(parsed.itemNumber)}/`
 }
@@ -289,6 +304,43 @@ async function restartTask(row: CrawlTask) {
     ElMessage.success('任务已重新执行')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleSelectionChange(rows: CrawlTask[]) {
+  selectedTasks.value = rows
+}
+
+async function deleteSelectedTasks() {
+  if (selectedTasks.value.length < 1) {
+    ElMessage.warning('请选择要删除的任务')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedTasks.value.length} 条手动采集任务？该操作只删除任务记录，不会删除商品数据。`,
+      '批量删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    loading.value = true
+    const result = await api.deleteTasks(selectedTasks.value.map((task) => task.id))
+    selectedTasks.value = []
+    await loadTasks()
+    if (result.failedIds.length > 0) {
+      ElMessage.warning(`已删除 ${result.deletedCount} 条，${result.failedIds.length} 条删除失败`)
+    } else {
+      ElMessage.success(`已删除 ${result.deletedCount} 条任务`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '批量删除任务失败'))
+    }
   } finally {
     loading.value = false
   }
@@ -354,6 +406,12 @@ function statusType(status: string) {
 <template>
   <section class="page-stack">
     <div class="head-actions">
+      <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
+        批量删除
+      </el-button>
+      <el-button :icon="Refresh" :loading="loading" @click="loadTasks">
+        刷新
+      </el-button>
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">
         新增采集任务
       </el-button>
@@ -395,7 +453,15 @@ function statusType(status: string) {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="tasks" empty-text="暂无手动采集任务" height="620">
+      <el-table
+        v-loading="loading"
+        :data="tasks"
+        empty-text="暂无手动采集任务"
+        height="620"
+        row-key="id"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="52" />
         <el-table-column label="采集内容" min-width="260">
           <template #default="{ row }">
             <CopyableTableText :value="row.target" />
@@ -419,11 +485,16 @@ function statusType(status: string) {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column label="操作" width="118" fixed="right">
+        <el-table-column label="操作" width="118">
           <template #default="{ row }">
             <el-button :icon="VideoPlay" link type="primary" @click="restartTask(row)">
               重新采集
             </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="错误信息" min-width="280">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.errorDetail" />
           </template>
         </el-table-column>
       </el-table>
@@ -487,6 +558,7 @@ function statusType(status: string) {
                     <div>支持格式：</div>
                     <code>https://item.rakuten.co.jp/honestone/chen159/</code>
                     <code>https://item.rakuten.co.jp/honestone/chen159/?s-id=...</code>
+                    <code>https://brandavenue.rakuten.co.jp/item/NP3688/?s-id=...</code>
                     <code>honestone/chen159</code>
                   </div>
                 </template>

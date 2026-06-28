@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, EditPen, Finished, Plus, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
+import { Delete, EditPen, Finished, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -429,6 +429,34 @@ async function createListingTask() {
   }
 }
 
+async function createListingTaskForProduct(product: ProductItem) {
+  try {
+    await ElMessageBox.confirm(
+      `确认将商品「${productDisplayName(product)}」创建上架任务？`,
+      '上架',
+      {
+        confirmButtonText: '上架',
+        cancelButtonText: '取消',
+        type: 'success',
+      },
+    )
+    operating.value = true
+    await api.createListingTask({
+      productIds: [product.id],
+      storeId: listingForm.storeId,
+      taskName: '',
+    })
+    ElMessage.success('已创建上架任务')
+    await refreshAll()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
+    }
+  } finally {
+    operating.value = false
+  }
+}
+
 function priceText(product: ProductItem) {
   const minPrice = product.priceMin ?? product.price
   const maxPrice = product.priceMax ?? product.price
@@ -485,29 +513,6 @@ async function openProductDetail(product: ProductItem) {
   }
 }
 
-async function confirmOpenProductDetail(product: ProductItem) {
-  if (props.status !== 'pending') {
-    await openProductDetail(product)
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-      `确认查看商品「${productDisplayName(product)}」的详情？`,
-      '查看详情',
-      {
-        confirmButtonText: '查看',
-        cancelButtonText: '取消',
-        type: 'info',
-      },
-    )
-    await openProductDetail(product)
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '打开商品详情失败'))
-    }
-  }
-}
-
 function resetDetailForm() {
   detailForm.productId = null
   detailForm.title = ''
@@ -528,6 +533,14 @@ function fillDetailForm(product: ProductDetail) {
 
 function detailVariantForm(variant: ProductVariant) {
   return detailForm.variants.find((item) => item.variantId === variant.variantId)
+}
+
+function detailEditable() {
+  return props.status === 'pending' || props.status === 'listed'
+}
+
+function detailSaveButtonText() {
+  return props.status === 'listed' ? '同步修改' : '保存'
 }
 
 async function submitDetailChange() {
@@ -556,17 +569,20 @@ async function submitDetailChange() {
   }
   detailSaving.value = true
   try {
-    const product = await api.updateProductDetail(detailForm.productId, {
+    const payload = {
       title: detailForm.title.trim(),
       tagline: detailForm.tagline.trim(),
       variants,
-    })
+    }
+    const product = props.status === 'listed'
+      ? await api.updateProductDetail(detailForm.productId, payload)
+      : await api.updateProductLocalDetail(detailForm.productId, payload)
     selectedProductDetail.value = product
     fillDetailForm(product)
     products.value = products.value.map((item) => (item.id === product.id ? product : item))
-    ElMessage.success('商品详情已同步到乐天')
+    ElMessage.success(props.status === 'listed' ? '商品详情已同步到乐天' : '商品详情已保存')
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '同步修改商品详情失败'))
+    ElMessage.error(toApiErrorMessage(error, props.status === 'listed' ? '同步修改商品详情失败' : '保存商品详情失败'))
   } finally {
     detailSaving.value = false
   }
@@ -652,6 +668,17 @@ function sanitizedDescriptionHtml(value: string) {
         <el-button v-if="status === 'listed'" type="danger" plain :icon="Delete" :loading="operating" @click="removeSelected">
           批量删除
         </el-button>
+        <div v-if="status === 'approved'" class="approved-head-actions">
+          <el-select v-model="listingForm.storeId" clearable filterable placeholder="选择上架店铺">
+            <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
+          </el-select>
+          <el-button type="primary" :icon="Upload" :disabled="selectedIds.length < 1" :loading="operating" @click="createListingTask">
+            批量上架
+          </el-button>
+          <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
+            批量删除
+          </el-button>
+        </div>
         <el-button :icon="Refresh" :loading="loading" @click="refreshAll">
           刷新
         </el-button>
@@ -755,29 +782,13 @@ function sanitizedDescriptionHtml(value: string) {
         </div>
       </div>
 
-      <div v-if="status !== 'listed' && status !== 'pending'" class="action-bar">
-        <el-button v-if="status !== 'error'" type="warning" :icon="EditPen" :loading="operating" @click="markError()">
-          标记异常
-        </el-button>
+      <div v-if="status === 'error'" class="action-bar">
         <el-button v-if="status === 'error'" type="primary" :icon="Refresh" :loading="operating" @click="changeStatus('pending')">
           重新审核
-        </el-button>
-        <el-button v-if="status === 'approved'" type="primary" :icon="Plus" :loading="operating" @click="createListingTask">
-          加入商品池
-        </el-button>
-        <el-button v-if="status === 'approved'" :icon="Upload" :loading="operating" @click="createListingTask">
-          创建上架任务
         </el-button>
         <el-button type="danger" plain :icon="Delete" :loading="operating" @click="removeSelected">
           删除商品
         </el-button>
-      </div>
-
-      <div v-if="status === 'approved'" class="listing-row">
-        <el-select v-model="listingForm.storeId" clearable filterable placeholder="选择上架店铺">
-          <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
-        </el-select>
-        <el-input v-model="listingForm.taskName" placeholder="上架任务名称，可留空" />
       </div>
 
       <el-table
@@ -833,11 +844,19 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column label="操作" :width="status === 'pending' ? 300 : 120" fixed="right">
+        <el-table-column label="操作" :width="status === 'pending' ? 300 : status === 'approved' ? 220 : 120" fixed="right">
           <template #default="{ row }">
-            <el-button :icon="View" link type="primary" @click="confirmOpenProductDetail(row)">
+            <el-button :icon="View" link type="primary" @click="openProductDetail(row)">
               查看详情
             </el-button>
+            <template v-if="status === 'approved'">
+              <el-button :icon="Upload" link type="success" @click="createListingTaskForProduct(row)">
+                上架
+              </el-button>
+              <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
+                删除
+              </el-button>
+            </template>
             <template v-if="status === 'pending'">
               <el-button :icon="Finished" link type="success" @click="approveProduct(row)">
                 审核通过
@@ -887,7 +906,7 @@ function sanitizedDescriptionHtml(value: string) {
                     show-word-limit
                     type="textarea"
                     :autosize="{ minRows: 2, maxRows: 4 }"
-                    :readonly="status !== 'listed'"
+                    :readonly="!detailEditable()"
                   />
                 </el-form-item>
                 <el-form-item label="商品说明">
@@ -897,22 +916,22 @@ function sanitizedDescriptionHtml(value: string) {
                     show-word-limit
                     type="textarea"
                     :autosize="{ minRows: 2, maxRows: 3 }"
-                    :readonly="status !== 'listed'"
+                    :readonly="!detailEditable()"
                   />
                 </el-form-item>
               </el-form>
               <div class="detail-meta">
-                <span>商品编号：{{ compactText(selectedProductDetail.detail.itemNumber) }}</span>
-                <span>店铺：{{ compactText(selectedProductDetail.detail.shopName) }}</span>
+                <span v-if="status === 'listed'">商品编号：{{ compactText(selectedProductDetail.detail.itemNumber) }}</span>
+                <span v-if="status === 'listed'">店铺：{{ compactText(selectedProductDetail.detail.shopName) }}</span>
                 <span>价格：{{ priceText(selectedProductDetail) }}</span>
-                <span>
+                <span v-if="status === 'listed'">
                   上架状态：
                   <el-tag :type="listingStatusCopy(selectedProductDetail).type" size="small">
                     {{ listingStatusCopy(selectedProductDetail).label }}
                   </el-tag>
                 </span>
-                <span>上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
-                <span>更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
+                <span v-if="status === 'listed'">上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
+                <span v-if="status === 'listed'">更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
               </div>
               <el-button :icon="View" link type="primary" tag="a" :href="selectedProductDetail.sourceUrl" target="_blank" rel="noreferrer">
                 打开乐天商品页
@@ -923,12 +942,12 @@ function sanitizedDescriptionHtml(value: string) {
           <el-tabs class="detail-tabs">
             <el-tab-pane label="款式 SKU">
               <el-table :data="selectedProductDetail.detail.variants" border max-height="300" empty-text="暂无款式数据">
-                <el-table-column label="SKU ID" min-width="150">
+                <el-table-column v-if="status === 'listed'" label="SKU ID" min-width="150">
                   <template #default="{ row }">
                     <CopyableTableText :value="row.variantId" />
                   </template>
                 </el-table-column>
-                <el-table-column label="商家 SKU" min-width="150">
+                <el-table-column v-if="status === 'listed'" label="商家 SKU" min-width="150">
                   <template #default="{ row }">
                     <CopyableTableText :value="row.merchantDefinedSkuId" />
                   </template>
@@ -936,6 +955,11 @@ function sanitizedDescriptionHtml(value: string) {
                 <el-table-column label="款式选项" min-width="220">
                   <template #default="{ row }">
                     <CopyableTableText :value="variantSelectorText(row)" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="材质" min-width="120">
+                  <template #default="{ row }">
+                    <CopyableTableText :value="row.material || '-'" />
                   </template>
                 </el-table-column>
                 <el-table-column label="价格(日元)" width="170">
@@ -947,12 +971,12 @@ function sanitizedDescriptionHtml(value: string) {
                       :min="1"
                       :precision="0"
                       :step="100"
-                      :disabled="status !== 'listed'"
+                      :disabled="!detailEditable()"
                     />
                     <span v-else>{{ row.standardPrice }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="隐藏" width="110">
+                <el-table-column v-if="status === 'listed'" label="隐藏" width="110">
                   <template #default="{ row }">
                     <el-switch
                       v-if="detailVariantForm(row)"
@@ -996,8 +1020,8 @@ function sanitizedDescriptionHtml(value: string) {
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
-        <el-button v-if="selectedProductDetail && status === 'listed'" type="primary" :loading="detailSaving" @click="submitDetailChange">
-          同步修改
+        <el-button v-if="selectedProductDetail && detailEditable()" type="primary" :loading="detailSaving" @click="submitDetailChange">
+          {{ detailSaveButtonText() }}
         </el-button>
       </template>
     </el-dialog>
@@ -1047,6 +1071,18 @@ function sanitizedDescriptionHtml(value: string) {
 
 .batch-action-group :deep(.el-button + .el-button) {
   margin-left: 0;
+}
+
+.approved-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.approved-head-actions :deep(.el-select) {
+  width: 220px;
 }
 
 .work-panel {
@@ -1142,16 +1178,6 @@ function sanitizedDescriptionHtml(value: string) {
 
 .full-control {
   width: 100%;
-}
-
-.listing-row {
-  display: grid;
-  gap: 12px;
-}
-
-.listing-row {
-  margin-bottom: 12px;
-  grid-template-columns: minmax(180px, 0.6fr) minmax(0, 1fr);
 }
 
 .action-bar {
@@ -1255,7 +1281,13 @@ function sanitizedDescriptionHtml(value: string) {
 .detail-images {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  align-content: start;
   gap: 12px;
+  max-height: min(420px, calc(100vh - 470px));
+  min-height: 160px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .detail-thumb {
@@ -1329,7 +1361,8 @@ function sanitizedDescriptionHtml(value: string) {
 @media (max-width: 760px) {
   .filter-field,
   .filter-buttons,
-  .listing-row {
+  .approved-head-actions,
+  .approved-head-actions :deep(.el-select) {
     width: 100%;
   }
 
@@ -1345,10 +1378,6 @@ function sanitizedDescriptionHtml(value: string) {
 
   .filter-price-field {
     min-width: 0;
-  }
-
-  .listing-row {
-    grid-template-columns: 1fr;
   }
 
   .page-head {

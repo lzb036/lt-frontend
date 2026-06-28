@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, View, VideoPlay } from '@element-plus/icons-vue'
+import { Delete, Edit, Plus, Refresh, Search, View, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -18,6 +18,7 @@ const schedulesDialogOpen = ref(false)
 const editingId = ref<number | null>(null)
 const tasks = shallowRef<CrawlTask[]>([])
 const schedules = shallowRef<ScheduledCrawl[]>([])
+const selectedTasks = shallowRef<CrawlTask[]>([])
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '实时', value: 'realtime' },
@@ -238,6 +239,43 @@ function restartTask(row: CrawlTask) {
     })
 }
 
+function handleSelectionChange(rows: CrawlTask[]) {
+  selectedTasks.value = rows
+}
+
+async function deleteSelectedTasks() {
+  if (selectedTasks.value.length < 1) {
+    ElMessage.warning('请选择要删除的任务')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedTasks.value.length} 条定时采集记录？该操作只删除任务记录，不会删除定时计划和商品数据。`,
+      '批量删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    loading.value = true
+    const result = await api.deleteTasks(selectedTasks.value.map((task) => task.id))
+    selectedTasks.value = []
+    await loadTasks()
+    if (result.failedIds.length > 0) {
+      ElMessage.warning(`已删除 ${result.deletedCount} 条，${result.failedIds.length} 条删除失败`)
+    } else {
+      ElMessage.success(`已删除 ${result.deletedCount} 条任务`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '批量删除任务失败'))
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
 function resetFilters() {
   filters.target = ''
   filters.status = ''
@@ -327,6 +365,12 @@ function handlePageSizeChange() {
       <el-button :icon="View" @click="openSchedulesDialog">
         查看定时任务
       </el-button>
+      <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
+        批量删除
+      </el-button>
+      <el-button :icon="Refresh" :loading="loading" @click="loadTasks">
+        刷新
+      </el-button>
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">
         新增定时采集
       </el-button>
@@ -365,7 +409,15 @@ function handlePageSizeChange() {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="tasks" empty-text="暂无定时采集记录" height="620">
+      <el-table
+        v-loading="loading"
+        :data="tasks"
+        empty-text="暂无定时采集记录"
+        height="620"
+        row-key="id"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="52" />
         <el-table-column label="采集内容" min-width="280">
           <template #default="{ row }">
             <CopyableTableText :value="row.target" />
@@ -387,11 +439,16 @@ function handlePageSizeChange() {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column label="操作" width="118" fixed="right">
+        <el-table-column label="操作" width="118">
           <template #default="{ row }">
             <el-button :icon="VideoPlay" link type="primary" @click="restartTask(row)">
               重新采集
             </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="错误信息" min-width="280">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.errorDetail" />
           </template>
         </el-table-column>
       </el-table>

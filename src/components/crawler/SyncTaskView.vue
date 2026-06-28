@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, shallowRef } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -12,6 +12,7 @@ import CopyableTableText from './CopyableTableText.vue'
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const tasks = shallowRef<SyncTask[]>([])
+const selectedTasks = shallowRef<SyncTask[]>([])
 const {
   currentPage,
   pageSize,
@@ -34,6 +35,43 @@ async function loadTasks() {
     setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载同步任务失败'))
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleSelectionChange(rows: SyncTask[]) {
+  selectedTasks.value = rows
+}
+
+async function deleteSelectedTasks() {
+  if (selectedTasks.value.length < 1) {
+    ElMessage.warning('请选择要删除的任务')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedTasks.value.length} 条同步任务？该操作只删除任务记录，不会删除店铺商品数据。`,
+      '批量删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    loading.value = true
+    const result = await api.deleteSyncTasks(selectedTasks.value.map((task) => task.id))
+    selectedTasks.value = []
+    await loadTasks()
+    if (result.failedIds.length > 0) {
+      ElMessage.warning(`已删除 ${result.deletedCount} 条，${result.failedIds.length} 条删除失败`)
+    } else {
+      ElMessage.success(`已删除 ${result.deletedCount} 条任务`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '批量删除任务失败'))
+    }
   } finally {
     loading.value = false
   }
@@ -76,13 +114,26 @@ function handlePageSizeChange() {
         <p class="eyebrow">Sync Jobs</p>
         <h1>同步任务</h1>
       </div>
-      <el-button :icon="Refresh" :loading="loading" @click="loadTasks">
-        刷新
-      </el-button>
+      <div class="page-actions">
+        <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
+          批量删除
+        </el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadTasks">
+          刷新
+        </el-button>
+      </div>
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="tasks" empty-text="暂无同步任务" height="650">
+      <el-table
+        v-loading="loading"
+        :data="tasks"
+        empty-text="暂无同步任务"
+        height="650"
+        row-key="id"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="52" />
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
         <el-table-column label="任务名称" min-width="230">
@@ -137,6 +188,14 @@ function handlePageSizeChange() {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .eyebrow {

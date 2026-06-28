@@ -145,6 +145,7 @@ export interface ProductVariant {
   selectorValues: Record<string, string>
   specs: Record<string, unknown>[]
   attributes: Record<string, unknown>[]
+  material?: string | null
 }
 
 export interface ProductVariantEditPayload {
