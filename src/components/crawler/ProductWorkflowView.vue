@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, EditPen, Finished, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
+import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -20,7 +20,9 @@ const loading = shallowRef(false)
 const operating = shallowRef(false)
 const detailLoading = shallowRef(false)
 const detailSaving = shallowRef(false)
+const imageOperating = shallowRef(false)
 const productTableRef = ref<{ clearSelection: () => void } | null>(null)
+const imageFileInputRef = ref<HTMLInputElement | null>(null)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
@@ -32,6 +34,7 @@ const detailForm = reactive({
   tagline: '',
   variants: [] as ProductVariantEditPayload[],
 })
+const replacingImageIndex = shallowRef<number | null>(null)
 const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, setPageResult, reduceTotal } = useServerPagination()
 
 const filters = reactive({
@@ -412,6 +415,10 @@ async function createListingTask() {
     ElMessage.warning('请先选择要上架的商品')
     return
   }
+  if (!listingForm.storeId) {
+    ElMessage.warning('请先选择上架店铺')
+    return
+  }
   operating.value = true
   try {
     await api.createListingTask({
@@ -430,6 +437,10 @@ async function createListingTask() {
 }
 
 async function createListingTaskForProduct(product: ProductItem) {
+  if (!listingForm.storeId) {
+    ElMessage.warning('请先选择上架店铺')
+    return
+  }
   try {
     await ElMessageBox.confirm(
       `确认将商品「${productDisplayName(product)}」创建上架任务？`,
@@ -539,6 +550,10 @@ function detailEditable() {
   return props.status === 'pending' || props.status === 'listed'
 }
 
+function imageEditable() {
+  return props.status === 'pending' || props.status === 'approved'
+}
+
 function detailSaveButtonText() {
   return props.status === 'listed' ? '同步修改' : '保存'
 }
@@ -617,6 +632,71 @@ function detailImageUrls(product: ProductDetail | null) {
     urls.unshift(product.imageUrl)
   }
   return urls
+}
+
+function downloadProductImage(index: number) {
+  if (!selectedProductDetail.value) {
+    return
+  }
+  window.open(api.productImageDownloadUrl(selectedProductDetail.value.id, index), '_blank', 'noopener')
+}
+
+function triggerReplaceImage(index: number) {
+  if (!imageEditable()) {
+    return
+  }
+  replacingImageIndex.value = index
+  if (imageFileInputRef.value) {
+    imageFileInputRef.value.value = ''
+    imageFileInputRef.value.click()
+  }
+}
+
+async function handleReplaceImage(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  const productId = selectedProductDetail.value?.id
+  const imageIndex = replacingImageIndex.value
+  if (!file || !productId || imageIndex == null) {
+    return
+  }
+  imageOperating.value = true
+  try {
+    const product = await api.replaceProductImage(productId, imageIndex, file)
+    selectedProductDetail.value = product
+    products.value = products.value.map((item) => (item.id === product.id ? product : item))
+    ElMessage.success('图片已替换')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '替换图片失败'))
+  } finally {
+    imageOperating.value = false
+    replacingImageIndex.value = null
+    input.value = ''
+  }
+}
+
+async function deleteDetailImage(index: number) {
+  if (!selectedProductDetail.value || !imageEditable()) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm('确认删除这张商品图片？该操作只会先修改本地待上架商品数据。', '删除图片', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+    imageOperating.value = true
+    const product = await api.deleteProductImage(selectedProductDetail.value.id, index)
+    selectedProductDetail.value = product
+    products.value = products.value.map((item) => (item.id === product.id ? product : item))
+    ElMessage.success('图片已删除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '删除图片失败'))
+    }
+  } finally {
+    imageOperating.value = false
+  }
 }
 
 function sanitizedDescriptionHtml(value: string) {
@@ -992,18 +1072,30 @@ function sanitizedDescriptionHtml(value: string) {
               </el-table>
             </el-tab-pane>
             <el-tab-pane label="图片">
-              <div class="detail-images">
-                <el-image
-                  v-for="(image, index) in detailImageUrls(selectedProductDetail)"
-                  :key="image"
-                  class="detail-thumb"
-                  :src="image"
-                  fit="cover"
-                  :preview-src-list="detailImageUrls(selectedProductDetail)"
-                  :initial-index="index"
-                  preview-teleported
-                />
+              <div v-loading="imageOperating" class="detail-images">
+                <div v-for="(image, index) in detailImageUrls(selectedProductDetail)" :key="`${image}-${index}`" class="detail-image-card">
+                  <el-image
+                    class="detail-thumb"
+                    :src="image"
+                    fit="cover"
+                    :preview-src-list="detailImageUrls(selectedProductDetail)"
+                    :initial-index="index"
+                    preview-teleported
+                  />
+                  <div class="detail-image-actions">
+                    <el-button :icon="Download" link type="primary" @click="downloadProductImage(index)">
+                      下载
+                    </el-button>
+                    <el-button v-if="imageEditable()" :icon="EditPen" link type="warning" @click="triggerReplaceImage(index)">
+                      替换
+                    </el-button>
+                    <el-button v-if="imageEditable()" :icon="Delete" link type="danger" @click="deleteDetailImage(index)">
+                      删除
+                    </el-button>
+                  </div>
+                </div>
                 <el-empty v-if="detailImageUrls(selectedProductDetail).length < 1" description="暂无图片数据" />
+                <input ref="imageFileInputRef" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/gif" @change="handleReplaceImage" />
               </div>
             </el-tab-pane>
             <el-tab-pane label="商品说明">
@@ -1290,12 +1382,36 @@ function sanitizedDescriptionHtml(value: string) {
   padding-right: 6px;
 }
 
+.detail-image-card {
+  display: grid;
+  gap: 8px;
+  width: 112px;
+}
+
 .detail-thumb {
   width: 112px;
   height: 112px;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   background: var(--panel-muted);
+}
+
+.detail-image-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 24px;
+}
+
+.detail-image-actions :deep(.el-button) {
+  margin-left: 0;
+  padding: 0 2px;
+  font-size: 12px;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 .description-list {
