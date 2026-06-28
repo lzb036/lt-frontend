@@ -420,15 +420,19 @@ async function createListingTask() {
     return
   }
   operating.value = true
+  const productIds = [...selectedIds.value]
   try {
     await api.createListingTask({
-      productIds: selectedIds.value,
+      productIds,
       storeId: listingForm.storeId,
       taskName: listingForm.taskName.trim(),
     })
-    ElMessage.success('已创建上架任务')
-    selectedIds.value = []
-    await refreshAll()
+    removeVisibleProducts(productIds)
+    clearSelection()
+    ElMessage.success('商品已上架')
+    if (products.value.length < 1 && total.value > 0) {
+      void refreshAll({ loadStores: false })
+    }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
   } finally {
@@ -457,8 +461,12 @@ async function createListingTaskForProduct(product: ProductItem) {
       storeId: listingForm.storeId,
       taskName: '',
     })
-    ElMessage.success('已创建上架任务')
-    await refreshAll()
+    removeVisibleProducts([product.id])
+    clearSelection()
+    ElMessage.success('商品已上架')
+    if (products.value.length < 1 && total.value > 0) {
+      void refreshAll({ loadStores: false })
+    }
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
