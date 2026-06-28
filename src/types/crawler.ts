@@ -6,6 +6,7 @@ export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
+export type RankingPeriod = 'realtime' | 'daily' | 'weekly' | 'monthly'
 
 export interface PageParams {
   page: number
@@ -234,6 +235,7 @@ export interface ScheduledCrawl {
   target: string
   enabled: boolean
   intervalMinutes: number
+  scheduleTime: string
   lastRunAt?: string | null
   nextRunAt?: string | null
   status: ScheduleStatus
@@ -343,8 +345,10 @@ export interface ScheduledCrawlPayload {
   crawlCondition: string
   sourceType: SourceType
   target: string
+  rankingPeriod: RankingPeriod
   enabled: boolean
   intervalMinutes: number
+  scheduleTime: string
   notes: string
 }
 

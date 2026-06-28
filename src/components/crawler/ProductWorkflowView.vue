@@ -36,6 +36,9 @@ const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, se
 
 const filters = reactive({
   keyword: '',
+  priceMin: null as number | null,
+  priceMax: null as number | null,
+  collectedAtRange: [] as string[] | null,
   storeId: null as number | null,
   listingStatus: '' as '' | 'listed' | 'unlisted',
   listedAtRange: [] as string[] | null,
@@ -94,8 +97,12 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       keyword: filters.keyword.trim(),
       storeId: props.status === 'listed' ? filters.storeId : null,
       listingStatus: props.status === 'listed' ? filters.listingStatus : '',
-      listedAtFrom: props.status === 'listed' ? (filters.listedAtRange?.[0] || '') : '',
-      listedAtTo: props.status === 'listed' ? (filters.listedAtRange?.[1] || '') : '',
+      listedAtFrom: props.status === 'listed' ? listedAtFromValue() : '',
+      listedAtTo: props.status === 'listed' ? listedAtToValue() : '',
+      priceMin: props.status !== 'listed' ? filters.priceMin : null,
+      priceMax: props.status !== 'listed' ? filters.priceMax : null,
+      collectedAtFrom: props.status !== 'listed' ? collectedAtFromValue() : '',
+      collectedAtTo: props.status !== 'listed' ? collectedAtToValue() : '',
       page: currentPage.value,
       pageSize: pageSize.value,
     })
@@ -110,6 +117,9 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
 
 function resetFilters() {
   filters.keyword = ''
+  filters.priceMin = null
+  filters.priceMax = null
+  filters.collectedAtRange = []
   filters.storeId = props.status === 'listed' ? (stores.value[0]?.id ?? null) : null
   filters.listingStatus = ''
   filters.listedAtRange = []
@@ -120,6 +130,26 @@ function resetFilters() {
 function searchProducts() {
   resetPage()
   void refreshAll()
+}
+
+function listedAtFromValue() {
+  const value = filters.listedAtRange?.[0] || ''
+  return value ? `${value}T00:00:00` : ''
+}
+
+function listedAtToValue() {
+  const value = filters.listedAtRange?.[1] || ''
+  return value ? `${value}T23:59:59` : ''
+}
+
+function collectedAtFromValue() {
+  const value = filters.collectedAtRange?.[0] || ''
+  return value ? `${value}T00:00:00` : ''
+}
+
+function collectedAtToValue() {
+  const value = filters.collectedAtRange?.[1] || ''
+  return value ? `${value}T23:59:59` : ''
 }
 
 function handlePageChange() {
@@ -174,17 +204,39 @@ function removeVisibleProducts(productIds: number[]) {
   reduceTotal(ids.size)
 }
 
-async function changeStatus(status: ReviewStatus, message = '') {
-  if (selectedIds.value.length < 1) {
+function productDisplayName(product: ProductItem) {
+  return product.title || productCode(product)
+}
+
+function reviewStatusLabel(status: ReviewStatus) {
+  const labels: Record<string, string> = {
+    pending: '待审核',
+    approved: '已审核',
+    error: '异常',
+    listed: '已上架',
+    rejected: '已拒绝',
+  }
+  return labels[status] || status
+}
+
+async function applyReviewStatus(productIds: number[], status: ReviewStatus, message = '') {
+  if (productIds.length < 1) {
     ElMessage.warning('请先选择商品')
     return
   }
   operating.value = true
   try {
-    await api.updateProductStatus({ productIds: selectedIds.value, status, message })
+    const updatedProducts = await api.updateProductStatus({ productIds, status, message })
+    if (status === props.status) {
+      mergeVisibleProducts(updatedProducts)
+    } else {
+      removeVisibleProducts(productIds)
+    }
+    clearSelection()
     ElMessage.success('商品状态已更新')
-    selectedIds.value = []
-    await refreshAll()
+    if (products.value.length < 1 && total.value > 0) {
+      void refreshAll({ loadStores: false })
+    }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '更新商品状态失败'))
   } finally {
@@ -192,18 +244,79 @@ async function changeStatus(status: ReviewStatus, message = '') {
   }
 }
 
-async function markError() {
-  if (selectedIds.value.length < 1) {
+async function confirmReviewStatus(productIds: number[], status: ReviewStatus, options?: {
+  title?: string
+  message?: string
+  confirmButtonText?: string
+  type?: 'success' | 'warning' | 'info' | 'error'
+}) {
+  if (productIds.length < 1) {
+    ElMessage.warning('请先选择商品')
+    return
+  }
+  const label = reviewStatusLabel(status)
+  try {
+    await ElMessageBox.confirm(
+      options?.message || `确认将选中的 ${productIds.length} 个商品改为「${label}」？该操作只修改本地数据库。`,
+      options?.title || label,
+      {
+        confirmButtonText: options?.confirmButtonText || '确定',
+        cancelButtonText: '取消',
+        type: options?.type || 'warning',
+      },
+    )
+    await applyReviewStatus(productIds, status)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, `${label}失败`))
+    }
+  }
+}
+
+async function changeStatus(status: ReviewStatus, message = '') {
+  if (message) {
+    await applyReviewStatus(selectedIds.value, status, message)
+    return
+  }
+  await confirmReviewStatus(selectedIds.value, status)
+}
+
+async function approveSelected() {
+  await confirmReviewStatus(selectedIds.value, 'approved', {
+    title: '批量审核通过',
+    message: `确认将选中的 ${selectedIds.value.length} 个商品批量审核通过？该操作只修改本地数据库。`,
+    confirmButtonText: '审核通过',
+    type: 'success',
+  })
+}
+
+async function approveProduct(product: ProductItem) {
+  await confirmReviewStatus([product.id], 'approved', {
+    title: '审核通过',
+    message: `确认将商品「${productDisplayName(product)}」审核通过？该操作只修改本地数据库。`,
+    confirmButtonText: '审核通过',
+    type: 'success',
+  })
+}
+
+async function markError(productIds = selectedIds.value, product?: ProductItem) {
+  if (productIds.length < 1) {
     ElMessage.warning('请先选择商品')
     return
   }
   try {
-    const result = await ElMessageBox.prompt('填写异常原因', '标记异常', {
+    const result = await ElMessageBox.prompt(
+      product
+        ? `确认将商品「${productDisplayName(product)}」标记为异常？该操作只修改本地数据库。`
+        : `确认将选中的 ${productIds.length} 个商品批量标记为异常？该操作只修改本地数据库。`,
+      product ? '标记异常' : '批量标记异常',
+      {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       inputPlaceholder: '例如：标题缺失、图片不可用、价格不合理',
-    })
-    await changeStatus('error', result.value)
+      },
+    )
+    await applyReviewStatus(productIds, 'error', result.value)
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '标记异常失败'))
@@ -211,22 +324,24 @@ async function markError() {
   }
 }
 
-async function removeSelected() {
-  if (selectedIds.value.length < 1) {
+async function removeProducts(productIds: number[], product?: ProductItem) {
+  if (productIds.length < 1) {
     ElMessage.warning('请先选择商品')
     return
   }
   try {
     const deleteMessage = props.status === 'listed'
-      ? `确认删除选中的 ${selectedIds.value.length} 个店铺商品？该操作会同步删除乐天商品，并尝试删除商品关联的 R-Cabinet 图片。`
-      : `确认删除 ${selectedIds.value.length} 个商品？`
+      ? `确认删除选中的 ${productIds.length} 个店铺商品？该操作会同步删除乐天商品，并尝试删除商品关联的 R-Cabinet 图片。`
+      : product
+        ? `确认删除商品「${productDisplayName(product)}」？该操作只删除本地数据库记录。`
+        : `确认批量删除选中的 ${productIds.length} 个商品？该操作只删除本地数据库记录。`
     await ElMessageBox.confirm(deleteMessage, '删除商品', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',
     })
     operating.value = true
-    const result = await api.deleteProducts(selectedIds.value)
+    const result = await api.deleteProducts(productIds)
     if (result.summary.failedCount > 0) {
       ElMessage.warning(result.summary.message)
     } else {
@@ -245,6 +360,14 @@ async function removeSelected() {
   } finally {
     operating.value = false
   }
+}
+
+async function removeSelected() {
+  await removeProducts(selectedIds.value)
+}
+
+async function removeProduct(product: ProductItem) {
+  await removeProducts([product.id], product)
 }
 
 async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted') {
@@ -362,6 +485,29 @@ async function openProductDetail(product: ProductItem) {
   }
 }
 
+async function confirmOpenProductDetail(product: ProductItem) {
+  if (props.status !== 'pending') {
+    await openProductDetail(product)
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认查看商品「${productDisplayName(product)}」的详情？`,
+      '查看详情',
+      {
+        confirmButtonText: '查看',
+        cancelButtonText: '取消',
+        type: 'info',
+      },
+    )
+    await openProductDetail(product)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '打开商品详情失败'))
+    }
+  }
+}
+
 function resetDetailForm() {
   detailForm.productId = null
   detailForm.title = ''
@@ -443,7 +589,7 @@ function variantSelectorText(variant: ProductVariant) {
   if (values.length < 1) {
     return '-'
   }
-  return values.join('/')
+  return values.join(' ')
 }
 
 function detailImageUrls(product: ProductDetail | null) {
@@ -484,6 +630,17 @@ function sanitizedDescriptionHtml(value: string) {
         <h1>{{ title }}</h1>
       </div>
       <div class="head-actions">
+        <div v-if="status === 'pending'" class="batch-action-group">
+          <el-button type="success" :icon="Finished" :loading="operating" @click="approveSelected">
+            批量审核通过
+          </el-button>
+          <el-button type="warning" :icon="EditPen" :loading="operating" @click="markError()">
+            批量标记异常
+          </el-button>
+          <el-button type="danger" plain :icon="Delete" :loading="operating" @click="removeSelected">
+            批量删除
+          </el-button>
+        </div>
         <div v-if="status === 'listed'" class="batch-action-group">
           <el-button type="success" plain :icon="Top" :loading="operating" @click="updateSelectedListingStatus('listed')">
             批量上架
@@ -535,17 +692,58 @@ function sanitizedDescriptionHtml(value: string) {
           <el-date-picker
             v-model="filters.listedAtRange"
             class="full-control"
-            type="datetimerange"
-            value-format="YYYY-MM-DDTHH:mm:ss"
-            format="YYYY-MM-DD HH:mm:ss"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
             range-separator="至"
-            start-placeholder="上架开始时间"
-            end-placeholder="上架结束时间"
+            start-placeholder="上架开始日期"
+            end-placeholder="上架结束日期"
             @change="searchProducts"
           />
         </div>
         <div class="filter-field filter-keyword-field">
-          <el-input v-model="filters.keyword" class="full-control" :prefix-icon="Search" clearable placeholder="商品标题、商品编号" @keydown.enter="searchProducts" />
+          <el-input
+            v-model="filters.keyword"
+            class="full-control"
+            :prefix-icon="Search"
+            clearable
+            :placeholder="status === 'listed' ? '商品标题、商品编号' : '商品标题'"
+            @keydown.enter="searchProducts"
+          />
+        </div>
+        <div v-if="status !== 'listed'" class="filter-field filter-price-field">
+          <el-input-number
+            v-model="filters.priceMin"
+            class="price-input"
+            :min="0"
+            :precision="0"
+            :controls="false"
+            placeholder="最低价"
+            @change="searchProducts"
+          />
+          <span class="range-separator">至</span>
+          <el-input-number
+            v-model="filters.priceMax"
+            class="price-input"
+            :min="0"
+            :precision="0"
+            :controls="false"
+            placeholder="最高价"
+            @change="searchProducts"
+          />
+        </div>
+        <div v-if="status !== 'listed'" class="filter-field filter-collected-field">
+          <el-date-picker
+            v-model="filters.collectedAtRange"
+            class="full-control"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="采集开始日期"
+            end-placeholder="采集结束日期"
+            @change="searchProducts"
+          />
         </div>
         <div class="filter-buttons">
           <el-button type="primary" :icon="Search" @click="searchProducts">
@@ -557,11 +755,8 @@ function sanitizedDescriptionHtml(value: string) {
         </div>
       </div>
 
-      <div v-if="status !== 'listed'" class="action-bar">
-        <el-button v-if="status === 'pending'" type="success" :icon="Finished" :loading="operating" @click="changeStatus('approved')">
-          审核通过
-        </el-button>
-        <el-button v-if="status !== 'error'" type="warning" :icon="EditPen" :loading="operating" @click="markError">
+      <div v-if="status !== 'listed' && status !== 'pending'" class="action-bar">
+        <el-button v-if="status !== 'error'" type="warning" :icon="EditPen" :loading="operating" @click="markError()">
           标记异常
         </el-button>
         <el-button v-if="status === 'error'" type="primary" :icon="Refresh" :loading="operating" @click="changeStatus('pending')">
@@ -613,12 +808,12 @@ function sanitizedDescriptionHtml(value: string) {
             <CopyableTableText :value="row.title" />
           </template>
         </el-table-column>
-        <el-table-column label="商品编号" min-width="170">
+        <el-table-column v-if="status === 'listed'" label="商品编号" min-width="170">
           <template #default="{ row }">
             <CopyableTableText :value="productCode(row)" />
           </template>
         </el-table-column>
-        <el-table-column label="店铺" min-width="150">
+        <el-table-column v-if="status === 'listed'" label="店铺" min-width="150">
           <template #default="{ row }">
             <CopyableTableText :value="storeRealName(row)" :display="storeDisplayName(row)" always />
           </template>
@@ -628,6 +823,7 @@ function sanitizedDescriptionHtml(value: string) {
             {{ priceText(row) }}
           </template>
         </el-table-column>
+        <el-table-column v-if="status !== 'listed'" prop="createdAt" label="采集时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" label="上架状态" width="120">
           <template #default="{ row }">
             <el-tag :type="listingStatusCopy(row).type">
@@ -635,25 +831,24 @@ function sanitizedDescriptionHtml(value: string) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column v-if="status !== 'listed'" label="状态" width="110">
-          <template #default>
-            <el-tag :type="statusCopy.tag">
-              {{ statusCopy.label }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column v-if="status !== 'listed'" label="错误原因" min-width="190">
-          <template #default="{ row }">
-            <CopyableTableText :value="row.lastError" />
-          </template>
-        </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
-        <el-table-column prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
+        <el-table-column label="操作" :width="status === 'pending' ? 300 : 120" fixed="right">
           <template #default="{ row }">
-            <el-button :icon="View" link type="primary" @click="openProductDetail(row)">
+            <el-button :icon="View" link type="primary" @click="confirmOpenProductDetail(row)">
               查看详情
             </el-button>
+            <template v-if="status === 'pending'">
+              <el-button :icon="Finished" link type="success" @click="approveProduct(row)">
+                审核通过
+              </el-button>
+              <el-button :icon="EditPen" link type="warning" @click="markError([row.id], row)">
+                标记异常
+              </el-button>
+              <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
+                删除
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -686,10 +881,24 @@ function sanitizedDescriptionHtml(value: string) {
             <div class="detail-main">
               <el-form label-position="top" class="detail-edit-form">
                 <el-form-item label="商品标题">
-                  <el-input v-model="detailForm.title" maxlength="500" show-word-limit type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
+                  <el-input
+                    v-model="detailForm.title"
+                    maxlength="500"
+                    show-word-limit
+                    type="textarea"
+                    :autosize="{ minRows: 2, maxRows: 4 }"
+                    :readonly="status !== 'listed'"
+                  />
                 </el-form-item>
                 <el-form-item label="商品说明">
-                  <el-input v-model="detailForm.tagline" maxlength="500" show-word-limit type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" />
+                  <el-input
+                    v-model="detailForm.tagline"
+                    maxlength="500"
+                    show-word-limit
+                    type="textarea"
+                    :autosize="{ minRows: 2, maxRows: 3 }"
+                    :readonly="status !== 'listed'"
+                  />
                 </el-form-item>
               </el-form>
               <div class="detail-meta">
@@ -738,6 +947,7 @@ function sanitizedDescriptionHtml(value: string) {
                       :min="1"
                       :precision="0"
                       :step="100"
+                      :disabled="status !== 'listed'"
                     />
                     <span v-else>{{ row.standardPrice }}</span>
                   </template>
@@ -750,6 +960,7 @@ function sanitizedDescriptionHtml(value: string) {
                       active-text="是"
                       inactive-text="否"
                       inline-prompt
+                      :disabled="status !== 'listed'"
                     />
                     <span v-else>{{ row.hidden ? '是' : '否' }}</span>
                   </template>
@@ -871,8 +1082,8 @@ function sanitizedDescriptionHtml(value: string) {
 
 .filter-range-field {
   flex: 1 1 360px;
-  max-width: 430px;
-  min-width: 300px;
+  max-width: 480px;
+  min-width: 360px;
 }
 
 .filter-keyword-field {
@@ -881,8 +1092,42 @@ function sanitizedDescriptionHtml(value: string) {
   min-width: 220px;
 }
 
+.filter-price-field {
+  display: inline-flex;
+  flex: 0 1 300px;
+  min-width: 260px;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-collected-field {
+  flex: 1 1 340px;
+  min-width: 320px;
+  max-width: 440px;
+}
+
+.filter-collected-field :deep(.el-date-editor) {
+  width: 100%;
+  min-width: 0;
+}
+
+.price-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.price-input :deep(.el-input__wrapper) {
+  width: 100%;
+}
+
+.range-separator {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
 .filter-row-with-store .filter-keyword-field {
-  margin-left: 8px;
+  margin-left: 12px;
 }
 
 .filter-row:not(.filter-row-with-store) .filter-keyword-field {
@@ -1075,6 +1320,7 @@ function sanitizedDescriptionHtml(value: string) {
 
 @media (max-width: 1180px) {
   .filter-range-field,
+  .filter-collected-field,
   .filter-keyword-field {
     max-width: none;
   }
@@ -1095,6 +1341,10 @@ function sanitizedDescriptionHtml(value: string) {
 
   .filter-buttons .el-button {
     flex: 1;
+  }
+
+  .filter-price-field {
+    min-width: 0;
   }
 
   .listing-row {

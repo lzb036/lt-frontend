@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, VideoPlay } from '@element-plus/icons-vue'
+import { Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -34,19 +34,6 @@ async function loadTasks() {
     setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载同步任务失败'))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function retryTask(row: SyncTask) {
-  loading.value = true
-  try {
-    await api.retrySyncTask(row.id)
-    await loadTasks()
-    ElMessage.success('同步任务已重试')
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '重试同步任务失败'))
   } finally {
     loading.value = false
   }
@@ -96,6 +83,8 @@ function handlePageSizeChange() {
 
     <section class="work-panel">
       <el-table v-loading="loading" :data="tasks" empty-text="暂无同步任务" height="650">
+        <el-table-column prop="createdAt" label="创建时间" min-width="170" />
+        <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
         <el-table-column label="任务名称" min-width="230">
           <template #default="{ row }">
             <CopyableTableText :value="row.taskName" />
@@ -116,23 +105,9 @@ function handlePageSizeChange() {
         <el-table-column prop="totalCount" label="总数量" width="90" />
         <el-table-column prop="successCount" label="成功数量" width="100" />
         <el-table-column prop="failedCount" label="失败数量" width="100" />
-        <el-table-column label="处理结果" min-width="220">
-          <template #default="{ row }">
-            <CopyableTableText :value="row.message" />
-          </template>
-        </el-table-column>
         <el-table-column label="错误信息" min-width="180">
           <template #default="{ row }">
             <CopyableTableText :value="row.errorDetail" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column label="操作" width="118" fixed="right">
-          <template #default="{ row }">
-            <el-button :icon="VideoPlay" link type="primary" @click="retryTask(row)">
-              重试
-            </el-button>
           </template>
         </el-table-column>
       </el-table>

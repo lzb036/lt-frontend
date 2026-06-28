@@ -117,6 +117,9 @@ export function useCollectorApi() {
     target?: string
     status?: string
     sourceType?: SourceType | ''
+    mode?: string
+    createdAtFrom?: string
+    createdAtTo?: string
   }) {
     const response = await apiClient.get<ApiPageResponse<'tasks', CrawlTask>>('/crawler/tasks', { params })
     return toPageResult(response.data, 'tasks')
@@ -139,6 +142,10 @@ export function useCollectorApi() {
     listingStatus?: 'listed' | 'unlisted' | ''
     listedAtFrom?: string
     listedAtTo?: string
+    priceMin?: number | null
+    priceMax?: number | null
+    collectedAtFrom?: string
+    collectedAtTo?: string
     page?: number
     pageSize?: number
   }) {
@@ -158,6 +165,10 @@ export function useCollectorApi() {
     listingStatus?: 'listed' | 'unlisted' | ''
     listedAtFrom?: string
     listedAtTo?: string
+    priceMin?: number | null
+    priceMax?: number | null
+    collectedAtFrom?: string
+    collectedAtTo?: string
     page: number
     pageSize: number
   }) {

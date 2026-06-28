@@ -1,21 +1,51 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Plus, Refresh, Search, Timer, VideoPlay } from '@element-plus/icons-vue'
+import { Delete, Edit, Plus, Search, View, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { CrawlSource, ScheduledCrawl, ScheduledCrawlPayload, SourceType } from '../../types/crawler'
+import type { CrawlTask, RankingPeriod, ScheduledCrawl, ScheduledCrawlPayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
+const scheduleLoading = shallowRef(false)
 const saving = shallowRef(false)
 const dialogOpen = ref(false)
+const schedulesDialogOpen = ref(false)
 const editingId = ref<number | null>(null)
+const tasks = shallowRef<CrawlTask[]>([])
 const schedules = shallowRef<ScheduledCrawl[]>([])
-const sources = shallowRef<CrawlSource[]>([])
+
+const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
+  { label: '实时', value: 'realtime' },
+  { label: '日榜', value: 'daily' },
+  { label: '周榜', value: 'weekly' },
+  { label: '月榜', value: 'monthly' },
+]
+
+const filters = reactive({
+  target: '',
+  status: '',
+  createdAtRange: [] as string[] | null,
+})
+
+const form = reactive<ScheduledCrawlPayload>({
+  sourceId: null,
+  name: '',
+  crawlContent: '',
+  crawlCondition: '',
+  sourceType: 'shop',
+  target: '',
+  rankingPeriod: 'daily',
+  enabled: true,
+  intervalMinutes: 1440,
+  scheduleTime: '09:00',
+  notes: '',
+})
+
 const {
   currentPage,
   pageSize,
@@ -26,46 +56,45 @@ const {
   setPageResult,
 } = useServerPagination()
 
-const form = reactive<ScheduledCrawlPayload>({
-  sourceId: null,
-  name: '',
-  crawlContent: '',
-  crawlCondition: '',
-  sourceType: 'keyword',
-  target: '',
-  enabled: true,
-  intervalMinutes: 60,
-  notes: '',
-})
-
-const sourceTypeOptions: Array<{ label: string; value: SourceType }> = [
-  { label: '乐天搜索', value: 'keyword' },
-  { label: '采集店铺', value: 'shop' },
-  { label: '排行榜', value: 'ranking' },
-  { label: '采集商品地址/ID', value: 'product_url' },
-]
-
 onMounted(() => {
   void refreshAll()
 })
 
-async function refreshAll(options: { loadSources?: boolean } = {}) {
-  const loadSources = options.loadSources ?? true
+async function refreshAll() {
+  await Promise.all([loadTasks(), loadSchedules()])
+}
+
+async function loadTasks() {
   loading.value = true
   try {
-    const [scheduleValues, sourceValues] = await Promise.all([
-      api.listSchedulesPage({ page: currentPage.value, pageSize: pageSize.value }),
-      loadSources ? api.listSources() : Promise.resolve(sources.value),
-    ])
-    schedules.value = scheduleValues.items
-    setPageResult(scheduleValues)
-    if (loadSources) {
-      sources.value = sourceValues
-    }
+    const result = await api.listTasksPage({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      target: filters.target.trim(),
+      status: filters.status,
+      sourceType: 'shop',
+      mode: 'scheduled',
+      createdAtFrom: createdAtFromValue(),
+      createdAtTo: createdAtToValue(),
+    })
+    tasks.value = result.items
+    setPageResult(result)
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载定时采集失败'))
+    ElMessage.error(toApiErrorMessage(error, '加载定时采集记录失败'))
   } finally {
     loading.value = false
+  }
+}
+
+async function loadSchedules() {
+  scheduleLoading.value = true
+  try {
+    const result = await api.listSchedulesPage({ page: 1, pageSize: 500 })
+    schedules.value = result.items
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载定时任务失败'))
+  } finally {
+    scheduleLoading.value = false
   }
 }
 
@@ -75,10 +104,12 @@ function resetForm() {
   form.name = ''
   form.crawlContent = ''
   form.crawlCondition = ''
-  form.sourceType = 'keyword'
+  form.sourceType = 'shop'
   form.target = ''
+  form.rankingPeriod = 'daily'
   form.enabled = true
-  form.intervalMinutes = 60
+  form.intervalMinutes = 1440
+  form.scheduleTime = '09:00'
   form.notes = ''
 }
 
@@ -87,42 +118,71 @@ function openCreateDialog() {
   dialogOpen.value = true
 }
 
+function openSchedulesDialog() {
+  schedulesDialogOpen.value = true
+  void loadSchedules()
+}
+
 function openEditDialog(row: ScheduledCrawl) {
   editingId.value = row.id
-  form.sourceId = row.sourceId ?? null
+  form.sourceId = null
   form.name = row.name
   form.crawlContent = row.crawlContent
   form.crawlCondition = row.crawlCondition
-  form.sourceType = row.sourceType
-  form.target = row.target
+  form.sourceType = 'shop'
+  form.target = row.crawlContent || normalizeScheduleTarget(row.target)
+  form.rankingPeriod = rankingPeriodFromTarget(row.target)
   form.enabled = row.enabled
-  form.intervalMinutes = row.intervalMinutes
-  form.notes = row.notes
+  form.intervalMinutes = 1440
+  form.scheduleTime = row.scheduleTime || '09:00'
+  form.notes = ''
   dialogOpen.value = true
 }
 
-function handleSourceChange() {
-  if (!form.sourceId) {
-    return
+function normalizeScheduleTarget(value: string) {
+  return String(value || '').replace(/^店铺[:：]/, '').replace(/\s+(实时|日榜|周榜|月榜)\s+全部$/, '').trim()
+}
+
+function rankingPeriodFromTarget(value: string): RankingPeriod {
+  const target = String(value || '')
+  if (/\s实时\s/.test(target)) {
+    return 'realtime'
   }
-  const source = sources.value.find((item) => item.id === form.sourceId)
-  if (!source) {
-    return
+  if (/\s周榜\s/.test(target)) {
+    return 'weekly'
   }
-  form.sourceType = source.sourceType
-  form.target = source.target
-  form.crawlContent = source.target
-  form.crawlCondition = source.sourceType
+  if (/\s月榜\s/.test(target)) {
+    return 'monthly'
+  }
+  return 'daily'
+}
+
+function rankingPeriodLabel(value: RankingPeriod) {
+  return rankingPeriodOptions.find((item) => item.value === value)?.label || '日榜'
 }
 
 async function saveSchedule() {
-  if (!form.name.trim() || (!form.sourceId && !form.target.trim())) {
-    ElMessage.warning('请填写任务名称和采集目标')
+  if (!form.name.trim() || !form.target.trim()) {
+    ElMessage.warning('请填写任务名称和店铺信息')
+    return
+  }
+  if (!form.scheduleTime) {
+    ElMessage.warning('请选择每天执行时间')
     return
   }
   saving.value = true
   try {
-    await api.saveSchedule({ ...form, name: form.name.trim(), target: form.target.trim() }, editingId.value ?? undefined)
+    await api.saveSchedule({
+      ...form,
+      name: form.name.trim(),
+      target: form.target.trim(),
+      sourceType: 'shop',
+      rankingPeriod: form.rankingPeriod,
+      intervalMinutes: 1440,
+      crawlContent: form.target.trim(),
+      crawlCondition: '店铺采集',
+      notes: '',
+    }, editingId.value ?? undefined)
     await refreshAll()
     dialogOpen.value = false
     ElMessage.success('定时采集已保存')
@@ -134,7 +194,7 @@ async function saveSchedule() {
 }
 
 async function runSchedule(row: ScheduledCrawl) {
-  loading.value = true
+  scheduleLoading.value = true
   try {
     await api.runSchedule(row.id)
     await refreshAll()
@@ -142,7 +202,7 @@ async function runSchedule(row: ScheduledCrawl) {
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '执行定时任务失败'))
   } finally {
-    loading.value = false
+    scheduleLoading.value = false
   }
 }
 
@@ -163,84 +223,174 @@ async function removeSchedule(row: ScheduledCrawl) {
   }
 }
 
-function sourceTypeLabel(value: SourceType) {
-  return sourceTypeOptions.find((item) => item.value === value)?.label || value
+function restartTask(row: CrawlTask) {
+  loading.value = true
+  api.restartTask(row.id)
+    .then(() => {
+      ElMessage.success('任务已重新执行')
+      return loadTasks()
+    })
+    .catch((error) => {
+      ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
 
-function statusLabel(row: ScheduledCrawl) {
+function resetFilters() {
+  filters.target = ''
+  filters.status = ''
+  filters.createdAtRange = []
+  resetPage()
+  void loadTasks()
+}
+
+function searchTasks() {
+  resetPage()
+  void loadTasks()
+}
+
+function createdAtFromValue() {
+  const value = filters.createdAtRange?.[0] || ''
+  return value ? `${value}T00:00:00` : ''
+}
+
+function createdAtToValue() {
+  const value = filters.createdAtRange?.[1] || ''
+  return value ? `${value}T23:59:59` : ''
+}
+
+function taskResultText(row: CrawlTask) {
+  return `总 ${row.totalCount || 0} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
+}
+
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    queued: '待执行',
+    running: '采集中',
+    success: '成功',
+    partial: '部分成功',
+    failed: '失败',
+  }
+  return labels[status] || status
+}
+
+function statusType(status: string) {
+  if (status === 'success') {
+    return 'success'
+  }
+  if (status === 'failed') {
+    return 'danger'
+  }
+  if (status === 'partial') {
+    return 'warning'
+  }
+  return 'info'
+}
+
+function scheduleStatusLabel(row: ScheduledCrawl) {
   if (!row.enabled) {
-    return '已停用'
+    return '未启用'
   }
   const labels: Record<string, string> = {
-    idle: '待执行',
+    idle: '已启用',
     running: '执行中',
-    disabled: '已停用',
+    disabled: '未启用',
     failed: '失败',
   }
   return labels[row.status] || row.status
 }
 
+function scheduleStatusType(row: ScheduledCrawl) {
+  if (!row.enabled || row.status === 'disabled') {
+    return 'info'
+  }
+  if (row.status === 'failed') {
+    return 'danger'
+  }
+  if (row.status === 'running') {
+    return 'warning'
+  }
+  return 'success'
+}
+
 function handlePageSizeChange() {
   resetPage()
-  void refreshAll({ loadSources: false })
+  void loadTasks()
 }
 </script>
 
 <template>
   <section class="page-stack">
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">Scheduled Jobs</p>
-        <h1>定时采集</h1>
-      </div>
-      <div class="head-actions">
-        <el-button :icon="Refresh" :loading="loading" @click="refreshAll">
-          刷新
-        </el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">
-          新增定时采集
-        </el-button>
-      </div>
+    <div class="head-actions">
+      <el-button :icon="View" @click="openSchedulesDialog">
+        查看定时任务
+      </el-button>
+      <el-button type="primary" :icon="Plus" @click="openCreateDialog">
+        新增定时采集
+      </el-button>
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="schedules" empty-text="暂无定时采集" height="650">
-        <el-table-column prop="ownerUsername" label="租户编码" width="140" />
-        <el-table-column label="任务名称" min-width="170">
+      <div class="filter-row">
+        <el-input v-model="filters.target" :prefix-icon="Search" clearable placeholder="采集内容" @keydown.enter="searchTasks" />
+        <el-select v-model="filters.status" clearable placeholder="采集状态" @change="searchTasks">
+          <el-option label="待执行" value="queued" />
+          <el-option label="采集中" value="running" />
+          <el-option label="成功" value="success" />
+          <el-option label="部分成功" value="partial" />
+          <el-option label="失败" value="failed" />
+        </el-select>
+        <div class="filter-date-field">
+          <el-date-picker
+            v-model="filters.createdAtRange"
+            class="full-control"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="创建开始日期"
+            end-placeholder="创建结束日期"
+            @change="searchTasks"
+          />
+        </div>
+        <div class="filter-actions">
+          <el-button type="primary" :icon="Search" @click="searchTasks">
+            搜索
+          </el-button>
+          <el-button :icon="Delete" @click="resetFilters">
+            重置
+          </el-button>
+        </div>
+      </div>
+
+      <el-table v-loading="loading" :data="tasks" empty-text="暂无定时采集记录" height="620">
+        <el-table-column label="采集内容" min-width="280">
           <template #default="{ row }">
-            <CopyableTableText :value="row.name" />
+            <CopyableTableText :value="row.target" />
           </template>
         </el-table-column>
-        <el-table-column label="采集内容" min-width="230">
-          <template #default="{ row }">
-            <CopyableTableText :value="row.crawlContent" />
-          </template>
+        <el-table-column label="采集方式" width="140">
+          <template #default>店铺采集</template>
         </el-table-column>
-        <el-table-column label="采集条件" width="140">
+        <el-table-column label="采集状态" width="120">
           <template #default="{ row }">
-            {{ sourceTypeLabel(row.sourceType) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ statusLabel(row) }}
+            <el-tag :type="statusType(row.status)">
+              {{ statusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="intervalMinutes" label="间隔(分钟)" width="120" />
-        <el-table-column prop="lastRunAt" label="上次执行" min-width="170" />
-        <el-table-column prop="nextRunAt" label="下次执行" min-width="170" />
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="采集结果" min-width="180">
           <template #default="{ row }">
-            <el-button :icon="VideoPlay" link type="primary" @click="runSchedule(row)">
-              立即执行
-            </el-button>
-            <el-button :icon="Timer" link type="primary" @click="openEditDialog(row)">
-              编辑
-            </el-button>
-            <el-button :icon="Delete" link type="danger" @click="removeSchedule(row)">
-              删除
+            {{ taskResultText(row) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdAt" label="创建时间" min-width="170" />
+        <el-table-column label="操作" width="118" fixed="right">
+          <template #default="{ row }">
+            <el-button :icon="VideoPlay" link type="primary" @click="restartTask(row)">
+              重新采集
             </el-button>
           </template>
         </el-table-column>
@@ -252,32 +402,92 @@ function handlePageSizeChange() {
           :page-sizes="pageSizes"
           :total="total"
           :layout="paginationLayout"
-          @current-change="refreshAll({ loadSources: false })"
+          @current-change="loadTasks"
           @size-change="handlePageSizeChange"
         />
       </div>
     </section>
 
-    <el-dialog v-model="dialogOpen" :title="editingId ? '编辑定时采集' : '新增定时采集'" width="680px">
-      <div class="dialog-form">
-        <el-input v-model="form.name" placeholder="任务名称" />
-        <el-select v-model="form.sourceId" clearable filterable placeholder="可选：使用已保存采集源" @change="handleSourceChange">
-          <el-option v-for="source in sources" :key="source.id" :label="`${source.name} / ${source.target}`" :value="source.id" />
-        </el-select>
-        <el-select v-model="form.sourceType" :disabled="Boolean(form.sourceId)" placeholder="采集条件">
-          <el-option v-for="item in sourceTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-        <el-input v-model="form.target" :disabled="Boolean(form.sourceId)" :prefix-icon="Search" placeholder="采集目标：关键词、店铺ID、商品URL" />
-        <el-input v-model="form.crawlContent" placeholder="采集内容显示值，可留空" />
-        <el-input v-model="form.crawlCondition" placeholder="采集条件显示值，可留空" />
-        <el-input-number v-model="form.intervalMinutes" :min="5" :max="1440" controls-position="right" />
-        <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
-        <el-input v-model="form.notes" type="textarea" :rows="3" placeholder="备注" />
-      </div>
+    <el-dialog v-model="dialogOpen" :title="editingId ? '编辑定时采集' : '新增定时采集'" width="560px" append-to-body>
+      <el-form label-position="top">
+        <el-form-item label="任务名称">
+          <el-input v-model="form.name" placeholder="请输入任务名称" />
+        </el-form-item>
+        <el-form-item label="采集方式">
+          <el-input model-value="店铺采集" disabled />
+        </el-form-item>
+        <el-form-item label="采集内容">
+          <el-input v-model="form.target" :prefix-icon="Search" placeholder="请输入店铺展示名称、url代码、url或sid" />
+        </el-form-item>
+        <el-form-item label="榜单时间">
+          <el-select v-model="form.rankingPeriod" class="full-control" placeholder="选择榜单时间">
+            <el-option v-for="item in rankingPeriodOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="每天执行时间">
+          <el-time-picker
+            v-model="form.scheduleTime"
+            class="full-control"
+            format="HH:mm"
+            value-format="HH:mm"
+            placeholder="选择每天几点几分"
+          />
+        </el-form-item>
+        <el-form-item label="启用状态">
+          <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
+        </el-form-item>
+      </el-form>
       <template #footer>
         <el-button @click="dialogOpen = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="saveSchedule">保存</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="schedulesDialogOpen" title="定时任务" width="980px" append-to-body>
+      <el-table v-loading="scheduleLoading" :data="schedules" empty-text="暂无定时任务" height="520">
+        <el-table-column label="任务名称" min-width="160">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.name" />
+          </template>
+        </el-table-column>
+        <el-table-column label="采集内容" min-width="220">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.crawlContent || row.target" />
+          </template>
+        </el-table-column>
+        <el-table-column label="执行时间" width="110">
+          <template #default="{ row }">
+            {{ row.scheduleTime }}
+          </template>
+        </el-table-column>
+        <el-table-column label="榜单时间" width="110">
+          <template #default="{ row }">
+            {{ rankingPeriodLabel(rankingPeriodFromTarget(row.target)) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="启用状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="scheduleStatusType(row)">
+              {{ scheduleStatusLabel(row) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="lastRunAt" label="上次执行" min-width="170" />
+        <el-table-column prop="nextRunAt" label="下次执行" min-width="170" />
+        <el-table-column label="操作" width="230" fixed="right">
+          <template #default="{ row }">
+            <el-button :icon="VideoPlay" link type="primary" @click="runSchedule(row)">
+              立即执行
+            </el-button>
+            <el-button :icon="Edit" link type="primary" @click="openEditDialog(row)">
+              编辑
+            </el-button>
+            <el-button :icon="Delete" link type="danger" @click="removeSchedule(row)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-dialog>
   </section>
 </template>
@@ -288,26 +498,11 @@ function handlePageSizeChange() {
   gap: 18px;
 }
 
-.page-head,
 .head-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.page-head h1 {
-  margin: 0;
-  color: var(--text-main);
-  font-size: 26px;
-  font-weight: 800;
 }
 
 .work-panel {
@@ -318,25 +513,61 @@ function handlePageSizeChange() {
   padding: 18px;
 }
 
-.dialog-form {
+.filter-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 160px) minmax(260px, 320px) max-content;
+  margin-bottom: 14px;
 }
 
-.dialog-form .el-textarea {
-  grid-column: 1 / -1;
+.filter-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.filter-date-field {
+  min-width: 0;
+}
+
+.filter-date-field :deep(.el-date-editor) {
+  width: 100%;
+  min-width: 0;
+}
+
+.full-control {
+  width: 100%;
+}
+
+@media (max-width: 1120px) {
+  .filter-row {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 160px);
+  }
+
+  .filter-actions {
+    grid-column: 1 / -1;
+    justify-self: flex-end;
+  }
 }
 
 @media (max-width: 760px) {
-  .page-head,
   .head-actions {
-    align-items: flex-start;
+    align-items: stretch;
     flex-direction: column;
   }
 
-  .dialog-form {
+  .filter-row {
     grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    grid-column: auto;
+    justify-self: stretch;
+  }
+
+  .filter-actions .el-button {
+    flex: 1;
   }
 }
 </style>

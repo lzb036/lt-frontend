@@ -19,6 +19,7 @@ const filters = reactive({
   target: '',
   status: '',
   sourceType: '' as SourceType | '',
+  createdAtRange: [] as string[] | null,
 })
 
 const form = reactive({
@@ -26,7 +27,6 @@ const form = reactive({
   target: '',
   targets: [''],
   rankingPeriod: 'daily' as RankingPeriod,
-  rankingLimit: 10,
 })
 
 const {
@@ -41,9 +41,15 @@ const {
 
 const sourceTypeOptions: Array<{ label: string; value: SourceType }> = [
   { label: '店铺采集', value: 'shop' },
-  { label: '排行榜采集', value: 'ranking' },
   { label: '单个商品采集', value: 'product_url' },
 ]
+
+const sourceTypeLabels: Record<string, string> = {
+  shop: '店铺采集',
+  product_url: '单个商品采集',
+  ranking: '排行榜采集',
+  keyword: '关键词采集',
+}
 
 type RankingPeriod = 'realtime' | 'daily' | 'weekly' | 'monthly'
 
@@ -55,7 +61,7 @@ const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
 ]
 
 const productTargetError = '单个商品采集只支持完整乐天商品链接、带参数的乐天商品链接、店铺编码/商品编号。'
-const shopTargetError = '店铺采集请输入店铺展示名称、店铺 URL 代码、店铺 URL 或 sid。'
+const shopTargetError = '店铺采集请输入店铺展示名称、店铺url代码、店铺url或sid。'
 
 onMounted(() => {
   void loadTasks()
@@ -70,6 +76,9 @@ async function loadTasks() {
       target: filters.target.trim(),
       status: filters.status,
       sourceType: filters.sourceType,
+      mode: 'manual',
+      createdAtFrom: createdAtFromValue(),
+      createdAtTo: createdAtToValue(),
     })
     tasks.value = result.items
     setPageResult(result)
@@ -164,14 +173,12 @@ function resetCreateForm() {
   form.target = ''
   form.targets = ['']
   form.rankingPeriod = 'daily'
-  form.rankingLimit = 10
 }
 
 function handleSourceTypeChange() {
   form.target = ''
   form.targets = ['']
   form.rankingPeriod = 'daily'
-  form.rankingLimit = 10
 }
 
 function addProductInput() {
@@ -190,18 +197,14 @@ function normalizeCreateTarget() {
   return form.target.trim()
 }
 
-function buildRankingTarget(keyword: string, prefix = '') {
-  const limit = Math.min(100, Math.max(1, Number(form.rankingLimit) || 10))
+function buildShopTarget(keyword: string) {
   const periodLabel = rankingPeriodOptions.find((item) => item.value === form.rankingPeriod)?.label || '日榜'
-  return `${prefix}${keyword} ${periodLabel} 前${limit}`
+  return `店铺:${keyword} ${periodLabel} 全部`
 }
 
 function buildCreateTarget(target: string) {
-  if (form.sourceType === 'ranking') {
-    return buildRankingTarget(target)
-  }
   if (form.sourceType === 'shop') {
-    return buildRankingTarget(normalizeRakutenShopTarget(target), '店铺:')
+    return buildShopTarget(normalizeRakutenShopTarget(target))
   }
   return target
 }
@@ -295,6 +298,7 @@ function resetFilters() {
   filters.target = ''
   filters.status = ''
   filters.sourceType = ''
+  filters.createdAtRange = []
   resetPage()
   void loadTasks()
 }
@@ -304,8 +308,22 @@ function searchTasks() {
   void loadTasks()
 }
 
+function createdAtFromValue() {
+  const value = filters.createdAtRange?.[0] || ''
+  return value ? `${value}T00:00:00` : ''
+}
+
+function createdAtToValue() {
+  const value = filters.createdAtRange?.[1] || ''
+  return value ? `${value}T23:59:59` : ''
+}
+
 function sourceTypeLabel(value: SourceType) {
-  return sourceTypeOptions.find((item) => item.value === value)?.label || value
+  return sourceTypeLabels[value] || value
+}
+
+function taskResultText(row: CrawlTask) {
+  return `总 ${row.totalCount || 0} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
 }
 
 function statusLabel(status: string) {
@@ -335,13 +353,13 @@ function statusType(status: string) {
 
 <template>
   <section class="page-stack">
-    <section class="work-panel">
-      <div class="panel-toolbar">
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">
-          新增采集任务
-        </el-button>
-      </div>
+    <div class="head-actions">
+      <el-button type="primary" :icon="Plus" @click="openCreateDialog">
+        新增采集任务
+      </el-button>
+    </div>
 
+    <section class="work-panel">
       <div class="filter-row">
         <el-input v-model="filters.target" :prefix-icon="Search" clearable placeholder="采集内容" @keydown.enter="searchTasks" />
         <el-select v-model="filters.status" clearable placeholder="采集状态" @change="searchTasks">
@@ -351,22 +369,39 @@ function statusType(status: string) {
           <el-option label="部分成功" value="partial" />
           <el-option label="失败" value="failed" />
         </el-select>
-        <el-select v-model="filters.sourceType" clearable placeholder="采集条件" @change="searchTasks">
+        <el-select v-model="filters.sourceType" clearable placeholder="采集方式" @change="searchTasks">
           <el-option v-for="item in sourceTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-        <el-button :icon="Delete" @click="resetFilters">
-          重置
-        </el-button>
+        <div class="filter-date-field">
+          <el-date-picker
+            v-model="filters.createdAtRange"
+            class="full-control"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="创建开始日期"
+            end-placeholder="创建结束日期"
+            @change="searchTasks"
+          />
+        </div>
+        <div class="filter-actions">
+          <el-button type="primary" :icon="Search" @click="searchTasks">
+            搜索
+          </el-button>
+          <el-button :icon="Delete" @click="resetFilters">
+            重置
+          </el-button>
+        </div>
       </div>
 
       <el-table v-loading="loading" :data="tasks" empty-text="暂无手动采集任务" height="620">
-        <el-table-column prop="ownerUsername" label="租户编码" width="140" />
         <el-table-column label="采集内容" min-width="260">
           <template #default="{ row }">
             <CopyableTableText :value="row.target" />
           </template>
         </el-table-column>
-        <el-table-column label="采集条件" width="140">
+        <el-table-column label="采集方式" width="140">
           <template #default="{ row }">
             {{ sourceTypeLabel(row.sourceType) }}
           </template>
@@ -378,15 +413,12 @@ function statusType(status: string) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="totalCount" label="总数量" width="90" />
-        <el-table-column prop="successCount" label="成功数量" width="100" />
-        <el-table-column prop="failedCount" label="失败数量" width="100" />
-        <el-table-column prop="createdAt" label="任务创建时间" min-width="170" />
-        <el-table-column label="说明" min-width="180">
+        <el-table-column label="采集结果" min-width="180">
           <template #default="{ row }">
-            <CopyableTableText :value="row.message" />
+            {{ taskResultText(row) }}
           </template>
         </el-table-column>
+        <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column label="操作" width="118" fixed="right">
           <template #default="{ row }">
             <el-button :icon="VideoPlay" link type="primary" @click="restartTask(row)">
@@ -424,9 +456,9 @@ function statusType(status: string) {
                   <div class="format-tooltip">
                     <div>支持格式：</div>
                     <code>店铺展示名：オネストワン</code>
-                    <code>店铺 URL 代码：honestone</code>
-                    <code>店铺 sid：441608</code>
-                    <code>https://search.rakuten.co.jp/search/mall/?...&sid=441608</code>
+                    <code>店铺url代码：honestone</code>
+                    <code>店铺sid：441608</code>
+                    <code>店铺url：https://search.rakuten.co.jp/search/mall/?...&sid=441608</code>
                   </div>
                 </template>
                 <el-icon class="hint-icon"><QuestionFilled /></el-icon>
@@ -436,25 +468,14 @@ function statusType(status: string) {
           <el-input
             v-model="form.target"
             :prefix-icon="Search"
-            :placeholder="form.sourceType === 'ranking' ? '请输入商品关键词' : '请输入店铺展示名称、URL代码、url或sid'"
+            placeholder="请输入店铺展示名称、url代码、url或sid"
             @keydown.enter="createTask"
           />
         </el-form-item>
-        <el-form-item v-if="form.sourceType === 'ranking' || form.sourceType === 'shop'" label="榜单时间">
+        <el-form-item v-if="form.sourceType === 'shop'" label="榜单时间">
           <el-select v-model="form.rankingPeriod" class="full-control" placeholder="选择榜单时间">
             <el-option v-for="item in rankingPeriodOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-        </el-form-item>
-        <el-form-item v-if="form.sourceType === 'ranking' || form.sourceType === 'shop'" label="采集数量">
-          <el-input-number
-            v-model="form.rankingLimit"
-            class="full-control"
-            :min="1"
-            :max="100"
-            :step="5"
-            step-strictly
-            controls-position="right"
-          />
         </el-form-item>
         <el-form-item v-if="form.sourceType === 'product_url'">
           <template #label>
@@ -510,7 +531,7 @@ function statusType(status: string) {
 }
 
 .page-head,
-.panel-toolbar {
+.head-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -542,9 +563,8 @@ function statusType(status: string) {
   padding: 18px;
 }
 
-.panel-toolbar {
+.head-actions {
   justify-content: flex-end;
-  margin-bottom: 14px;
 }
 
 .filter-row {
@@ -554,7 +574,23 @@ function statusType(status: string) {
 
 .filter-row {
   margin-bottom: 14px;
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 170px) minmax(160px, 190px) max-content;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 160px) minmax(150px, 180px) minmax(260px, 320px) max-content;
+}
+
+.filter-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.filter-date-field {
+  min-width: 0;
+}
+
+.filter-date-field :deep(.el-date-editor) {
+  width: 100%;
+  min-width: 0;
 }
 
 .full-control {
@@ -612,12 +648,12 @@ function statusType(status: string) {
   font-family: Consolas, "Microsoft YaHei", monospace;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1280px) {
   .filter-row {
-    grid-template-columns: minmax(0, 1fr) minmax(150px, 170px) minmax(160px, 190px);
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 160px) minmax(150px, 180px);
   }
 
-  .filter-row .el-button {
+  .filter-actions {
     grid-column: 1 / -1;
     justify-self: flex-end;
   }
@@ -636,9 +672,13 @@ function statusType(status: string) {
     grid-template-columns: 1fr;
   }
 
-  .filter-row .el-button {
+  .filter-actions {
     grid-column: auto;
     justify-self: stretch;
+  }
+
+  .filter-actions .el-button {
+    flex: 1;
   }
 
   .page-head {
@@ -647,7 +687,7 @@ function statusType(status: string) {
   }
 
   .page-head .el-button,
-  .panel-toolbar .el-button {
+  .head-actions .el-button {
     width: 100%;
   }
 }
