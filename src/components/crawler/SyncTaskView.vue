@@ -122,6 +122,18 @@ function taskTypeLabel(task: SyncTask) {
     }
     return '上下架同步'
   }
+  if (task.taskType === 'product_listing_status') {
+    if (task.taskName.includes('批量上架')) {
+      return '批量上架'
+    }
+    if (task.taskName.includes('批量下架')) {
+      return '批量下架'
+    }
+    return '批量上下架'
+  }
+  if (task.taskType === 'product_delete') {
+    return '批量删除'
+  }
   return '商品同步'
 }
 

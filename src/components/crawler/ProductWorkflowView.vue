@@ -5,7 +5,7 @@ import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, ReviewStatus, StoreAccount } from '../../types/crawler'
+import type { ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -346,13 +346,18 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     })
     operating.value = true
     const result = await api.deleteProducts(productIds)
+    if (result.syncTask) {
+      ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || '批量删除任务已创建'))
+      clearSelection()
+      return
+    }
     if (result.summary.failedCount > 0) {
       ElMessage.warning(result.summary.message)
     } else {
       ElMessage.success(result.summary.message)
     }
-    mergeVisibleProducts(result.products)
-    removeVisibleProducts(result.deletedIds)
+    mergeVisibleProducts(result.products || [])
+    removeVisibleProducts(result.deletedIds || [])
     clearSelection()
     if (products.value.length < 1 && total.value > 0) {
       void refreshAll({ loadStores: false })
@@ -395,12 +400,7 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
       productIds: selectedIds.value,
       listingStatus,
     })
-    if (result.summary.failedCount > 0) {
-      ElMessage.warning(result.summary.message)
-    } else {
-      ElMessage.success(result.summary.message)
-    }
-    mergeVisibleProducts(result.products)
+    ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || `批量${actionText}任务已创建`))
     clearSelection()
   } catch (error) {
     if (error !== 'cancel') {
@@ -559,6 +559,13 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
     return
   }
   ElMessage.success('上架任务已创建，请到上架任务中查看进度')
+}
+
+function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
+  if (!task) {
+    return fallback
+  }
+  return `${fallback}，请到同步任务中查看进度`
 }
 
 function priceText(product: ProductItem) {
@@ -725,6 +732,10 @@ function detailImageUrls(product: ProductDetail | null) {
     urls.unshift(product.imageUrl)
   }
   return urls
+}
+
+function productPageUrl(product: ProductDetail) {
+  return product.detail.rakutenItemUrl || product.rakutenItemUrl || product.detail.sourceUrl || product.sourceUrl
 }
 
 function downloadProductImage(index: number) {
@@ -1159,7 +1170,7 @@ function sanitizedDescriptionHtml(value: string) {
                 <span v-if="status === 'listed'">上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
                 <span v-if="status === 'listed'">更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
               </div>
-              <el-button :icon="View" link type="primary" tag="a" :href="selectedProductDetail.sourceUrl" target="_blank" rel="noreferrer">
+              <el-button :icon="View" link type="primary" tag="a" :href="productPageUrl(selectedProductDetail)" target="_blank" rel="noreferrer">
                 打开乐天商品页
               </el-button>
             </div>

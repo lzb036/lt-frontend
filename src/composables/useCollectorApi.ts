@@ -192,9 +192,11 @@ export function useCollectorApi() {
 
   async function deleteProducts(productIds: number[]) {
     const response = await apiClient.delete<{
-      deletedIds: number[]
-      failedIds: number[]
-      products: ProductItem[]
+      deletedIds?: number[]
+      failedIds?: number[]
+      products?: ProductItem[]
+      store?: StoreAccount | null
+      syncTask?: SyncTask
       summary: {
         total: number
         successCount: number
@@ -253,7 +255,8 @@ export function useCollectorApi() {
     listingStatus: 'listed' | 'unlisted'
   }) {
     const response = await apiClient.put<{
-      products: ProductItem[]
+      store: StoreAccount | null
+      syncTask: SyncTask
       summary: {
         total: number
         successCount: number

@@ -120,6 +120,7 @@ export interface ProductItem {
   storeLastSeenAt?: string | null
   title: string
   sourceUrl: string
+  rakutenItemUrl?: string | null
   itemNumber: string
   shopName: string
   imageUrl: string
@@ -180,6 +181,7 @@ export interface ProductDetail extends ProductItem {
     genreId?: string | null
     shopName?: string | null
     sourceUrl?: string | null
+    rakutenItemUrl?: string | null
     listingStatus?: string | null
     salesCount?: number | null
     created?: string | null
