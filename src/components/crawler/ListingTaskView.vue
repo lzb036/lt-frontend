@@ -6,11 +6,13 @@ import { Delete, Refresh, VideoPlay } from '@element-plus/icons-vue'
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { ListingTask } from '../../types/crawler'
+import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
+const refreshing = shallowRef(false)
 const tasks = shallowRef<ListingTask[]>([])
 const selectedTasks = shallowRef<ListingTask[]>([])
 const {
@@ -37,6 +39,15 @@ async function loadTasks() {
     ElMessage.error(toApiErrorMessage(error, '加载上架任务失败'))
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshTasks() {
+  refreshing.value = true
+  try {
+    await withMinimumDelay(loadTasks())
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -131,7 +142,7 @@ function handlePageSizeChange() {
         <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
           批量删除
         </el-button>
-        <el-button :icon="Refresh" :loading="loading" @click="loadTasks">
+        <el-button :icon="Refresh" :loading="refreshing" @click="refreshTasks">
           刷新
         </el-button>
       </div>

@@ -6,11 +6,13 @@ import { Delete, Refresh } from '@element-plus/icons-vue'
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { SyncTask } from '../../types/crawler'
+import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
+const refreshing = shallowRef(false)
 const tasks = shallowRef<SyncTask[]>([])
 const selectedTasks = shallowRef<SyncTask[]>([])
 const {
@@ -37,6 +39,15 @@ async function loadTasks() {
     ElMessage.error(toApiErrorMessage(error, '加载同步任务失败'))
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshTasks() {
+  refreshing.value = true
+  try {
+    await withMinimumDelay(loadTasks())
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -101,6 +112,19 @@ function statusType(status: string) {
   return 'info'
 }
 
+function taskTypeLabel(task: SyncTask) {
+  if (task.taskType === 'listing_status') {
+    if (task.taskName.includes('全部上架')) {
+      return '全部上架'
+    }
+    if (task.taskName.includes('全部下架')) {
+      return '全部下架'
+    }
+    return '上下架同步'
+  }
+  return '商品同步'
+}
+
 function handlePageSizeChange() {
   resetPage()
   void loadTasks()
@@ -118,7 +142,7 @@ function handlePageSizeChange() {
         <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
           批量删除
         </el-button>
-        <el-button :icon="Refresh" :loading="loading" @click="loadTasks">
+        <el-button :icon="Refresh" :loading="refreshing" @click="refreshTasks">
           刷新
         </el-button>
       </div>
@@ -139,6 +163,11 @@ function handlePageSizeChange() {
         <el-table-column label="任务名称" min-width="230">
           <template #default="{ row }">
             <CopyableTableText :value="row.taskName" />
+          </template>
+        </el-table-column>
+        <el-table-column label="任务类型" width="120">
+          <template #default="{ row }">
+            {{ taskTypeLabel(row) }}
           </template>
         </el-table-column>
         <el-table-column label="店铺" min-width="150">

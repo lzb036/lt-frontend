@@ -5,7 +5,7 @@ import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, ReviewStatus, StoreAccount } from '../../types/crawler'
+import type { ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, ReviewStatus, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -28,6 +28,7 @@ const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
 const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
+const listingProductIds = shallowRef<Set<number>>(new Set())
 const detailForm = reactive({
   productId: null as number | null,
   title: '',
@@ -410,9 +411,48 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
   }
 }
 
+async function updateCurrentStoreListingStatus(listingStatus: 'listed' | 'unlisted') {
+  if (!filters.storeId) {
+    ElMessage.warning('请先在筛选栏选择店铺')
+    return
+  }
+  const store = stores.value.find((item) => item.id === filters.storeId)
+  const storeName = store?.aliasName || store?.storeName || '当前店铺'
+  const actionText = listingStatus === 'listed' ? '上架' : '下架'
+  try {
+    await ElMessageBox.confirm(
+      `确认将「${storeName}」的全部店铺商品${actionText}？该操作会逐个同步写入乐天 RMS。`,
+      `全部${actionText}`,
+      {
+        confirmButtonText: `全部${actionText}`,
+        cancelButtonText: '取消',
+        type: listingStatus === 'listed' ? 'success' : 'warning',
+      },
+    )
+    operating.value = true
+    const result = await api.updateStoreListingStatus({
+      storeId: filters.storeId,
+      listingStatus,
+    })
+    ElMessage.success(result.summary.message || `${actionText}任务已创建，请到同步任务中查看进度`)
+    clearSelection()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, `全部${actionText}失败`))
+    }
+  } finally {
+    operating.value = false
+  }
+}
+
 async function createListingTask() {
   if (selectedIds.value.length < 1) {
     ElMessage.warning('请先选择要上架的商品')
+    return
+  }
+  const productIds = [...selectedIds.value]
+  if (productIds.some((productId) => listingProductIds.value.has(productId))) {
+    ElMessage.warning('选中的商品正在创建上架任务，请稍后')
     return
   }
   if (!listingForm.storeId) {
@@ -420,27 +460,31 @@ async function createListingTask() {
     return
   }
   operating.value = true
-  const productIds = [...selectedIds.value]
+  setListingProductsBusy(productIds, true)
   try {
-    await api.createListingTask({
+    const result = await api.createListingTask({
       productIds,
       storeId: listingForm.storeId,
       taskName: listingForm.taskName.trim(),
     })
-    removeVisibleProducts(productIds)
+    handleListingTaskResult(result.listingTask, productIds)
     clearSelection()
-    ElMessage.success('商品已上架')
     if (products.value.length < 1 && total.value > 0) {
       void refreshAll({ loadStores: false })
     }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
   } finally {
+    setListingProductsBusy(productIds, false)
     operating.value = false
   }
 }
 
 async function createListingTaskForProduct(product: ProductItem) {
+  if (listingProductIds.value.has(product.id)) {
+    ElMessage.warning('该商品正在创建上架任务，请稍后')
+    return
+  }
   if (!listingForm.storeId) {
     ElMessage.warning('请先选择上架店铺')
     return
@@ -456,14 +500,14 @@ async function createListingTaskForProduct(product: ProductItem) {
       },
     )
     operating.value = true
-    await api.createListingTask({
+    setListingProductsBusy([product.id], true)
+    const result = await api.createListingTask({
       productIds: [product.id],
       storeId: listingForm.storeId,
       taskName: '',
     })
-    removeVisibleProducts([product.id])
+    handleListingTaskResult(result.listingTask, [product.id])
     clearSelection()
-    ElMessage.success('商品已上架')
     if (products.value.length < 1 && total.value > 0) {
       void refreshAll({ loadStores: false })
     }
@@ -472,8 +516,49 @@ async function createListingTaskForProduct(product: ProductItem) {
       ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
     }
   } finally {
+    setListingProductsBusy([product.id], false)
     operating.value = false
   }
+}
+
+function setListingProductsBusy(productIds: number[], busy: boolean) {
+  if (productIds.length < 1) {
+    return
+  }
+  const next = new Set(listingProductIds.value)
+  for (const productId of productIds) {
+    if (busy) {
+      next.add(productId)
+    } else {
+      next.delete(productId)
+    }
+  }
+  listingProductIds.value = next
+}
+
+function isListingProductBusy(product: ProductItem) {
+  return listingProductIds.value.has(product.id)
+}
+
+function hasSelectedListingProductBusy() {
+  return selectedIds.value.some((productId) => listingProductIds.value.has(productId))
+}
+
+function handleListingTaskResult(task: ListingTask, productIds: number[]) {
+  if (task.status === 'success') {
+    removeVisibleProducts(productIds)
+    ElMessage.success(task.message || '上架任务已完成')
+    return
+  }
+  if (task.status === 'partial') {
+    ElMessage.warning(task.message || '上架任务部分成功，请到上架任务中查看异常信息')
+    return
+  }
+  if (task.status === 'failed') {
+    ElMessage.error(task.errorDetail || task.message || '上架任务执行失败，请到上架任务中查看错误信息')
+    return
+  }
+  ElMessage.success('上架任务已创建，请到上架任务中查看进度')
 }
 
 function priceText(product: ProductItem) {
@@ -746,21 +831,67 @@ function sanitizedDescriptionHtml(value: string) {
           </el-button>
         </div>
         <div v-if="status === 'listed'" class="batch-action-group">
-          <el-button type="success" plain :icon="Top" :loading="operating" @click="updateSelectedListingStatus('listed')">
+          <el-button
+            type="success"
+            plain
+            :icon="Top"
+            :disabled="selectedIds.length < 1"
+            :loading="operating"
+            @click="updateSelectedListingStatus('listed')"
+          >
             批量上架
           </el-button>
-          <el-button type="warning" plain :icon="Warning" :loading="operating" @click="updateSelectedListingStatus('unlisted')">
+          <el-button
+            type="warning"
+            plain
+            :icon="Warning"
+            :disabled="selectedIds.length < 1"
+            :loading="operating"
+            @click="updateSelectedListingStatus('unlisted')"
+          >
             批量下架
           </el-button>
+          <el-button
+            type="warning"
+            :icon="Warning"
+            :disabled="!filters.storeId"
+            :loading="operating"
+            @click="updateCurrentStoreListingStatus('unlisted')"
+          >
+            全部下架
+          </el-button>
+          <el-button
+            type="success"
+            :icon="Top"
+            :disabled="!filters.storeId"
+            :loading="operating"
+            @click="updateCurrentStoreListingStatus('listed')"
+          >
+            全部上架
+          </el-button>
         </div>
-        <el-button v-if="status === 'listed'" type="danger" plain :icon="Delete" :loading="operating" @click="removeSelected">
+        <el-button
+          v-if="status === 'listed'"
+          type="danger"
+          plain
+          :icon="Delete"
+          :disabled="selectedIds.length < 1"
+          :loading="operating"
+          @click="removeSelected"
+        >
           批量删除
         </el-button>
         <div v-if="status === 'approved'" class="approved-head-actions">
           <el-select v-model="listingForm.storeId" clearable filterable placeholder="选择上架店铺">
             <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
           </el-select>
-          <el-button type="primary" :icon="Upload" :disabled="selectedIds.length < 1" :loading="operating" @click="createListingTask">
+          <el-button
+            type="primary"
+            :icon="Upload"
+            :disabled="selectedIds.length < 1 || hasSelectedListingProductBusy()"
+            :loading="operating"
+            @click="createListingTask"
+          >
             批量上架
           </el-button>
           <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
@@ -938,7 +1069,14 @@ function sanitizedDescriptionHtml(value: string) {
               查看详情
             </el-button>
             <template v-if="status === 'approved'">
-              <el-button :icon="Upload" link type="success" @click="createListingTaskForProduct(row)">
+              <el-button
+                :icon="Upload"
+                link
+                type="success"
+                :disabled="isListingProductBusy(row)"
+                :loading="isListingProductBusy(row)"
+                @click="createListingTaskForProduct(row)"
+              >
                 上架
               </el-button>
               <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
@@ -1395,42 +1533,52 @@ function sanitizedDescriptionHtml(value: string) {
 
 .detail-images {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(136px, 136px));
   align-content: start;
-  gap: 12px;
+  justify-content: start;
+  gap: 16px 18px;
   max-height: min(420px, calc(100vh - 470px));
   min-height: 160px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 6px;
+  padding: 0 8px 8px 0;
 }
 
 .detail-image-card {
   display: grid;
   gap: 8px;
-  width: 112px;
+  width: 136px;
+  min-width: 0;
 }
 
 .detail-thumb {
-  width: 112px;
-  height: 112px;
+  width: 136px;
+  height: 136px;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   background: var(--panel-muted);
 }
 
 .detail-image-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-height: 24px;
+  gap: 4px;
+  min-height: 28px;
+  overflow: hidden;
 }
 
 .detail-image-actions :deep(.el-button) {
+  justify-content: center;
   margin-left: 0;
-  padding: 0 2px;
+  min-width: 0;
+  padding: 0;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.detail-image-actions :deep(.el-button .el-icon) {
+  margin-right: 2px;
 }
 
 .hidden-file-input {

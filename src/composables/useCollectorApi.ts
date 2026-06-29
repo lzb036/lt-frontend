@@ -265,6 +265,24 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function updateStoreListingStatus(payload: {
+    storeId: number
+    listingStatus: 'listed' | 'unlisted'
+  }) {
+    const response = await apiClient.put<{
+      store: StoreAccount
+      syncTask: SyncTask
+      summary: {
+        total: number
+        successCount: number
+        failedCount: number
+        message: string
+        errors: string[]
+      }
+    }>('/crawler/stores/listing-status', payload)
+    return response.data
+  }
+
   async function listStores() {
     const response = await apiClient.get<{ stores: StoreAccount[] }>('/crawler/stores')
     return response.data.stores
@@ -437,6 +455,7 @@ export function useCollectorApi() {
     deleteProductImage,
     productImageDownloadUrl,
     updateProductsListingStatus,
+    updateStoreListingStatus,
     listStores,
     listStoresPage,
     saveStore,

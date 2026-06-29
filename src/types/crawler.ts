@@ -269,6 +269,7 @@ export interface SyncTask {
   storeId?: number | null
   storeName: string
   taskName: string
+  taskType?: string
   status: TaskStatus
   totalCount: number
   successCount: number

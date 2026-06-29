@@ -6,11 +6,13 @@ import { Delete, Plus, QuestionFilled, Refresh, Search, VideoPlay } from '@eleme
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
+import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
+const refreshing = shallowRef(false)
 const creating = shallowRef(false)
 const createDialogVisible = shallowRef(false)
 const tasks = shallowRef<CrawlTask[]>([])
@@ -90,6 +92,15 @@ async function loadTasks() {
     ElMessage.error(toApiErrorMessage(error, '加载手动采集任务失败'))
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshTasks() {
+  refreshing.value = true
+  try {
+    await withMinimumDelay(loadTasks())
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -297,13 +308,24 @@ function normalizeRakutenProductTarget(value: string) {
 }
 
 async function restartTask(row: CrawlTask) {
-  loading.value = true
   try {
+    await ElMessageBox.confirm(
+      `确认重新采集「${row.target || '该任务'}」？`,
+      '重新采集',
+      {
+        confirmButtonText: '重新采集',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    loading.value = true
     await api.restartTask(row.id)
     await loadTasks()
     ElMessage.success('任务已重新执行')
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
+    }
   } finally {
     loading.value = false
   }
@@ -409,7 +431,7 @@ function statusType(status: string) {
       <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
         批量删除
       </el-button>
-      <el-button :icon="Refresh" :loading="loading" @click="loadTasks">
+      <el-button :icon="Refresh" :loading="refreshing" @click="refreshTasks">
         刷新
       </el-button>
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">
