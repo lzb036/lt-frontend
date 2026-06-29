@@ -7,10 +7,10 @@ import ListingTaskView from './components/crawler/ListingTaskView.vue'
 import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
-import RoleManagementView from './components/crawler/RoleManagementView.vue'
 import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
 import StoreManagerView from './components/crawler/StoreManagerView.vue'
 import SyncTaskView from './components/crawler/SyncTaskView.vue'
+import ThemeSettingsView from './components/crawler/ThemeSettingsView.vue'
 import UserManagement from './components/crawler/UserManagement.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -22,20 +22,20 @@ const routes: RouteRecordRaw[] = [
       { path: 'dashboard', name: 'dashboard', component: DashboardView, meta: { title: '采集概览' } },
       { path: 'secrets', redirect: '/ltHj/wjMerchant' },
       { path: 'sources', redirect: '/ltHj/wjMerchant' },
-      { path: 'tasks', name: 'tasks', component: CrawlTaskManager, meta: { title: '采集任务' } },
-      { path: 'products', name: 'products', component: ProductResultTable, meta: { title: '商品结果' } },
-      { path: 'users', name: 'users', component: UserManagement, meta: { title: '用户管理' } },
-      { path: 'ltJobs/wjJobs', name: 'manual-crawl', component: ManualCrawlView, meta: { title: '手动采集' } },
-      { path: 'ltJobs/wjProductJob', name: 'scheduled-crawl', component: ScheduledCrawlView, meta: { title: '定时采集' } },
-      { path: 'ltJobs/upGoodsJob', name: 'listing-jobs', component: ListingTaskView, meta: { title: '上架任务' } },
-      { path: 'ltJobs/syncJob', name: 'sync-jobs', component: SyncTaskView, meta: { title: '同步任务' } },
-      { path: 'ltShop/wjMerchantGoods', name: 'pending-products', component: ProductWorkflowView, props: { status: 'pending', title: '待审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '待审核商品' } },
-      { path: 'ltShop/wjMerchantGoodsTrue', name: 'approved-products', component: ProductWorkflowView, props: { status: 'approved', title: '已审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '已审核商品' } },
-      { path: 'ltShop/wjMerchantGoodsError', name: 'error-products', component: ProductWorkflowView, props: { status: 'error', title: '异常商品', eyebrow: 'Rakuten Shop' }, meta: { title: '异常商品' } },
-      { path: 'ltShop/GoodsUp', name: 'listed-products', component: ProductWorkflowView, props: { status: 'listed', title: '店铺商品', eyebrow: 'Rakuten Shop' }, meta: { title: '店铺商品' } },
-      { path: 'ltHj/wjMerchant', name: 'store-manager', component: StoreManagerView, meta: { title: '店铺信息' } },
-      { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理' } },
-      { path: 'system/role', name: 'system-roles', component: RoleManagementView, meta: { title: '角色管理' } },
+      { path: 'tasks', name: 'tasks', component: CrawlTaskManager, meta: { title: '采集任务', permission: 'crawler.manage' } },
+      { path: 'products', name: 'products', component: ProductResultTable, meta: { title: '商品结果', permission: 'products.manage' } },
+      { path: 'users', name: 'users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
+      { path: 'ltJobs/wjJobs', name: 'manual-crawl', component: ManualCrawlView, meta: { title: '手动采集', permission: 'crawler.manage' } },
+      { path: 'ltJobs/wjProductJob', name: 'scheduled-crawl', component: ScheduledCrawlView, meta: { title: '定时采集', permission: 'crawler.manage' } },
+      { path: 'ltJobs/upGoodsJob', name: 'listing-jobs', component: ListingTaskView, meta: { title: '上架任务', permission: 'products.manage' } },
+      { path: 'ltJobs/syncJob', name: 'sync-jobs', component: SyncTaskView, meta: { title: '同步任务', anyPermission: ['products.manage', 'stores.manage'] } },
+      { path: 'ltShop/wjMerchantGoods', name: 'pending-products', component: ProductWorkflowView, props: { status: 'pending', title: '待审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '待审核商品', permission: 'products.manage' } },
+      { path: 'ltShop/wjMerchantGoodsTrue', name: 'approved-products', component: ProductWorkflowView, props: { status: 'approved', title: '已审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '已审核商品', permission: 'products.manage' } },
+      { path: 'ltShop/wjMerchantGoodsError', name: 'error-products', component: ProductWorkflowView, props: { status: 'error', title: '异常商品', eyebrow: 'Rakuten Shop' }, meta: { title: '异常商品', permission: 'products.manage' } },
+      { path: 'ltShop/GoodsUp', name: 'listed-products', component: ProductWorkflowView, props: { status: 'listed', title: '店铺商品', eyebrow: 'Rakuten Shop' }, meta: { title: '店铺商品', permission: 'stores.manage' } },
+      { path: 'ltHj/wjMerchant', name: 'store-manager', component: StoreManagerView, meta: { title: '店铺信息', permission: 'stores.manage' } },
+      { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
+      { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },
     ],
   },

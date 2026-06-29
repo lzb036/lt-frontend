@@ -58,6 +58,7 @@ const statusCopy = computed(() => {
     pending: { label: '待审核', tag: 'warning', empty: '暂无待审核商品' },
     approved: { label: '已审核', tag: 'success', empty: '暂无已审核商品' },
     error: { label: '异常', tag: 'danger', empty: '暂无异常商品' },
+    listing: { label: '上架中', tag: 'info', empty: '暂无上架中商品' },
     listed: { label: '店铺商品', tag: 'success', empty: '暂无店铺商品' },
     rejected: { label: '已拒绝', tag: 'danger', empty: '暂无拒绝商品' },
   }
@@ -277,14 +278,6 @@ async function confirmReviewStatus(productIds: number[], status: ReviewStatus, o
   }
 }
 
-async function changeStatus(status: ReviewStatus, message = '') {
-  if (message) {
-    await applyReviewStatus(selectedIds.value, status, message)
-    return
-  }
-  await confirmReviewStatus(selectedIds.value, status)
-}
-
 async function approveSelected() {
   await confirmReviewStatus(selectedIds.value, 'approved', {
     title: '批量审核通过',
@@ -300,6 +293,15 @@ async function approveProduct(product: ProductItem) {
     message: `确认将商品「${productDisplayName(product)}」审核通过？该操作只修改本地数据库。`,
     confirmButtonText: '审核通过',
     type: 'success',
+  })
+}
+
+async function recheckSelected() {
+  await confirmReviewStatus(selectedIds.value, 'pending', {
+    title: '重新审核',
+    message: `确认将选中的 ${selectedIds.value.length} 个异常商品移回待审核商品？该操作只修改本地数据库。`,
+    confirmButtonText: '重新审核',
+    type: 'warning',
   })
 }
 
@@ -552,13 +554,38 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
   }
   if (task.status === 'partial') {
     ElMessage.warning(task.message || '上架任务部分成功，请到上架任务中查看异常信息')
+    removeVisibleProducts(productIds)
     return
   }
   if (task.status === 'failed') {
     ElMessage.error(task.errorDetail || task.message || '上架任务执行失败，请到上架任务中查看错误信息')
     return
   }
+  removeVisibleProducts(productIds)
+  watchListingTaskCompletion(task.id)
   ElMessage.success('上架任务已创建，请到上架任务中查看进度')
+}
+
+function watchListingTaskCompletion(taskId: string) {
+  if (!taskId || props.status !== 'approved') {
+    return
+  }
+  let attempts = 0
+  const timer = window.setInterval(async () => {
+    attempts += 1
+    try {
+      const tasks = await api.listListingTasks()
+      const task = tasks.find((item) => item.id === taskId)
+      if (!task || !['queued', 'running'].includes(task.status) || attempts >= 30) {
+        window.clearInterval(timer)
+        await refreshAll({ loadStores: false })
+      }
+    } catch {
+      if (attempts >= 3) {
+        window.clearInterval(timer)
+      }
+    }
+  }, 2000)
 }
 
 function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
@@ -831,14 +858,22 @@ function sanitizedDescriptionHtml(value: string) {
       </div>
       <div class="head-actions">
         <div v-if="status === 'pending'" class="batch-action-group">
-          <el-button type="success" :icon="Finished" :loading="operating" @click="approveSelected">
+          <el-button type="success" :icon="Finished" :disabled="selectedIds.length < 1" :loading="operating" @click="approveSelected">
             批量审核通过
           </el-button>
-          <el-button type="warning" :icon="EditPen" :loading="operating" @click="markError()">
+          <el-button type="warning" :icon="EditPen" :disabled="selectedIds.length < 1" :loading="operating" @click="markError()">
             批量标记异常
           </el-button>
-          <el-button type="danger" plain :icon="Delete" :loading="operating" @click="removeSelected">
+          <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
             批量删除
+          </el-button>
+        </div>
+        <div v-if="status === 'error'" class="batch-action-group">
+          <el-button type="primary" :icon="Refresh" :disabled="selectedIds.length < 1" :loading="operating" @click="recheckSelected">
+            重新审核
+          </el-button>
+          <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
+            删除商品
           </el-button>
         </div>
         <div v-if="status === 'listed'" class="batch-action-group">
@@ -1010,15 +1045,6 @@ function sanitizedDescriptionHtml(value: string) {
             重置
           </el-button>
         </div>
-      </div>
-
-      <div v-if="status === 'error'" class="action-bar">
-        <el-button v-if="status === 'error'" type="primary" :icon="Refresh" :loading="operating" @click="changeStatus('pending')">
-          重新审核
-        </el-button>
-        <el-button type="danger" plain :icon="Delete" :loading="operating" @click="removeSelected">
-          删除商品
-        </el-button>
       </div>
 
       <el-table
@@ -1442,13 +1468,6 @@ function sanitizedDescriptionHtml(value: string) {
 
 .full-control {
   width: 100%;
-}
-
-.action-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
 }
 
 .product-image {

@@ -1,7 +1,7 @@
 export type UserRole = 'superadmin' | 'operator'
 export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url'
 export type TaskStatus = 'queued' | 'running' | 'success' | 'partial' | 'failed'
-export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listed' | 'rejected'
+export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
@@ -24,6 +24,9 @@ export interface UserPermissions {
   manageUsers: boolean
   manageOwnSecrets: boolean
   manageCrawler: boolean
+  manageProducts: boolean
+  manageStores: boolean
+  manageSettings: boolean
 }
 
 export interface AuthSession {
@@ -31,6 +34,7 @@ export interface AuthSession {
   displayName: string
   role: UserRole
   enabled: boolean
+  permissionCodes: string[]
   permissions: UserPermissions
   createdAt?: string | null
   updatedAt?: string | null
@@ -334,6 +338,7 @@ export interface CreateTaskPayload {
 }
 
 export interface StorePayload {
+  ownerUsername?: string
   aliasName: string
   platform: string
   enabled: boolean

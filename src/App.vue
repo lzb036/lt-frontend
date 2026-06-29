@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { RouterView, useRouter } from 'vue-router'
 
 import LoginView from './components/auth/LoginView.vue'
 import { useAuth } from './composables/useAuth'
+import { canAccessRouteMeta } from './utils/permissions'
 
 const {
   authenticated,
@@ -22,8 +23,17 @@ const router = useRouter()
 onMounted(async () => {
   try {
     await fetchSession()
+    guardCurrentRoute()
   } catch {
   }
+})
+
+watch(session, () => {
+  guardCurrentRoute()
+})
+
+watch(() => router.currentRoute.value.fullPath, () => {
+  guardCurrentRoute()
 })
 
 async function handleLogin(payload: { username: string; password: string }) {
@@ -34,6 +44,18 @@ async function handleLogin(payload: { username: string; password: string }) {
   } catch {
     ElMessage.error(authError.value || '登录失败')
   }
+}
+
+function guardCurrentRoute() {
+  if (!session.value) {
+    return
+  }
+  const blocked = router.currentRoute.value.matched.some((record) => !canAccessRouteMeta(session.value, record.meta))
+  if (!blocked) {
+    return
+  }
+  void router.replace('/dashboard')
+  ElMessage.warning('当前账号没有访问该页面的权限')
 }
 
 async function handleLogout() {

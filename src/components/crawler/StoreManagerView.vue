@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, shallowRef } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { AvailabilityStatus } from '../../types/crawler'
+import type { AuthSession, AvailabilityStatus, UserAccount } from '../../types/crawler'
 import type { StoreAccount, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
+
+const props = defineProps<{
+  session: AuthSession | null
+}>()
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const verifying = shallowRef(false)
 const stores = shallowRef<StoreAccount[]>([])
+const users = shallowRef<UserAccount[]>([])
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
+const selectedOwnerUsername = ref('')
 const {
   currentPage,
   pageSize,
@@ -28,6 +34,7 @@ const {
 } = useServerPagination()
 
 const form = reactive<StorePayload>({
+  ownerUsername: '',
   aliasName: '',
   platform: 'rakuten',
   enabled: true,
@@ -35,15 +42,41 @@ const form = reactive<StorePayload>({
   rakutenServiceSecret: '',
   rakutenLicenseKey: '',
 })
+const isSuperadmin = computed(() => props.session?.role === 'superadmin')
+const childUsers = computed(() => users.value.filter((user) => user.role !== 'superadmin'))
+const hasSelectedOwner = computed(() => !isSuperadmin.value || Boolean(selectedOwnerUsername.value))
 
-onMounted(() => {
+onMounted(async () => {
+  if (isSuperadmin.value) {
+    await loadUsers()
+  }
   void loadStores()
 })
 
+async function loadUsers() {
+  try {
+    users.value = await api.listUsers()
+    if (!selectedOwnerUsername.value) {
+      selectedOwnerUsername.value = childUsers.value[0]?.username || ''
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载用户失败'))
+  }
+}
+
 async function loadStores() {
+  if (isSuperadmin.value && !selectedOwnerUsername.value) {
+    stores.value = []
+    setPageResult({ total: 0, page: 1, pageSize: pageSize.value })
+    return
+  }
   loading.value = true
   try {
-    const result = await api.listStoresPage({ page: currentPage.value, pageSize: pageSize.value })
+    const result = await api.listStoresPage({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      ownerUsername: isSuperadmin.value ? selectedOwnerUsername.value : undefined,
+    })
     stores.value = result.items
     setPageResult(result)
   } catch (error) {
@@ -55,6 +88,7 @@ async function loadStores() {
 
 function resetForm() {
   editingId.value = null
+  form.ownerUsername = isSuperadmin.value ? selectedOwnerUsername.value : undefined
   form.aliasName = ''
   form.platform = 'rakuten'
   form.enabled = true
@@ -64,12 +98,17 @@ function resetForm() {
 }
 
 function openCreateDialog() {
+  if (isSuperadmin.value && !selectedOwnerUsername.value) {
+    ElMessage.warning('请先创建并选择子公司用户')
+    return
+  }
   resetForm()
   dialogOpen.value = true
 }
 
 function openEditDialog(row: StoreAccount) {
   editingId.value = row.id
+  form.ownerUsername = row.ownerUsername
   form.aliasName = row.aliasName
   form.platform = row.platform
   form.enabled = row.enabled
@@ -80,6 +119,10 @@ function openEditDialog(row: StoreAccount) {
 }
 
 async function saveStore() {
+  if (isSuperadmin.value && !form.ownerUsername) {
+    ElMessage.warning('请选择店铺所属用户')
+    return
+  }
   if (!editingId.value && (!form.rakutenServiceSecret?.trim() || !form.rakutenLicenseKey?.trim())) {
     ElMessage.warning('新增店铺时必须填写乐天 Secret 和乐天 Key')
     return
@@ -100,7 +143,7 @@ async function saveStore() {
 async function syncStore(row: StoreAccount) {
   loading.value = true
   try {
-    const result = await api.syncStore(row.id)
+    const result = await api.syncStore(row.id, isSuperadmin.value ? row.ownerUsername : undefined)
     await loadStores()
     if (result.store.lastError) {
       ElMessage.warning(result.store.lastError)
@@ -115,9 +158,13 @@ async function syncStore(row: StoreAccount) {
 }
 
 async function checkStoreKeys() {
+  if (isSuperadmin.value && !selectedOwnerUsername.value) {
+    ElMessage.warning('请先选择子公司用户')
+    return
+  }
   verifying.value = true
   try {
-    const result = await api.verifyStores()
+    const result = await api.verifyStores(isSuperadmin.value ? selectedOwnerUsername.value : undefined)
     await loadStores()
     if (result.summary.error > 0) {
       ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
@@ -160,7 +207,7 @@ async function removeStore(row: StoreAccount) {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    await api.deleteStore(row.id)
+    await api.deleteStore(row.id, isSuperadmin.value ? row.ownerUsername : undefined)
     await loadStores()
     ElMessage.success('店铺已删除')
   } catch (error) {
@@ -174,6 +221,16 @@ function handlePageSizeChange() {
   resetPage()
   void loadStores()
 }
+
+function handleOwnerChange() {
+  resetPage()
+  void loadStores()
+}
+
+function userDisplayName(username: string) {
+  const user = users.value.find((item) => item.username === username)
+  return user ? `${user.displayName || user.username}（${user.username}）` : username
+}
 </script>
 
 <template>
@@ -184,13 +241,28 @@ function handlePageSizeChange() {
         <h1>店铺信息</h1>
       </div>
       <div class="head-actions">
-        <el-button :icon="Refresh" :loading="loading" @click="loadStores">
+        <el-select
+          v-if="isSuperadmin"
+          v-model="selectedOwnerUsername"
+          class="owner-select"
+          filterable
+          placeholder="选择子公司用户"
+          @change="handleOwnerChange"
+        >
+          <el-option
+            v-for="user in childUsers"
+            :key="user.username"
+            :label="user.displayName || user.username"
+            :value="user.username"
+          />
+        </el-select>
+        <el-button :icon="Refresh" :loading="loading" :disabled="!hasSelectedOwner" @click="loadStores">
           刷新
         </el-button>
-        <el-button :icon="Connection" :loading="verifying" @click="checkStoreKeys">
+        <el-button :icon="Connection" :loading="verifying" :disabled="!hasSelectedOwner" @click="checkStoreKeys">
           密钥检测
         </el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">
+        <el-button type="primary" :icon="Plus" :disabled="!hasSelectedOwner" @click="openCreateDialog">
           新增店铺
         </el-button>
       </div>
@@ -198,6 +270,11 @@ function handlePageSizeChange() {
 
     <section class="work-panel">
       <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="650">
+        <el-table-column v-if="isSuperadmin" label="所属用户" min-width="160">
+          <template #default="{ row }">
+            {{ userDisplayName(row.ownerUsername) }}
+          </template>
+        </el-table-column>
         <el-table-column label="店铺编号" min-width="140">
           <template #default="{ row }">
             <CopyableTableText :value="row.storeCode" />
@@ -269,6 +346,14 @@ function handlePageSizeChange() {
 
     <el-dialog v-model="dialogOpen" :title="editingId ? '编辑店铺信息' : '新增店铺信息'" width="760px">
       <div class="dialog-form">
+        <el-select v-if="isSuperadmin" v-model="form.ownerUsername" class="full-row" filterable placeholder="选择店铺所属用户" :disabled="Boolean(editingId)">
+          <el-option
+            v-for="user in childUsers"
+            :key="user.username"
+            :label="user.displayName || user.username"
+            :value="user.username"
+          />
+        </el-select>
         <el-input v-model="form.aliasName" placeholder="店铺别称" />
         <el-input v-model="form.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
         <el-input v-model="form.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
@@ -290,6 +375,14 @@ function handlePageSizeChange() {
 }
 
 .page-head,
+.head-actions {
+  flex-wrap: wrap;
+}
+
+.owner-select {
+  width: 220px;
+}
+
 .head-actions {
   display: flex;
   align-items: center;

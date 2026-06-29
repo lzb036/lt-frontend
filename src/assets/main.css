@@ -767,17 +767,11 @@ a {
 }
 
 .shell-brand em,
-.header-copy,
-.user-name,
 .eyebrow,
 .page-head h1,
 .page-head > .el-button,
 .page-head .head-actions > .el-button:first-child {
   display: none !important;
-}
-
-.shell-header .header-user {
-  margin-left: auto;
 }
 
 ::-webkit-scrollbar {

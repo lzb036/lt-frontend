@@ -53,12 +53,12 @@ export function useCollectorApi() {
     return toPageResult(response.data, 'users')
   }
 
-  async function createUser(payload: { username: string; password: string; displayName: string }) {
+  async function createUser(payload: { username: string; password: string; displayName: string; permissions?: string[] }) {
     const response = await apiClient.post<{ user: UserAccount }>('/users', payload)
     return response.data
   }
 
-  async function updateUser(username: string, payload: { displayName?: string; enabled?: boolean }) {
+  async function updateUser(username: string, payload: { displayName?: string; enabled?: boolean; permissions?: string[] }) {
     const response = await apiClient.put<{ user: UserAccount }>(`/users/${encodeURIComponent(username)}`, payload)
     return response.data
   }
@@ -286,12 +286,12 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function listStores() {
-    const response = await apiClient.get<{ stores: StoreAccount[] }>('/crawler/stores')
+  async function listStores(params?: { ownerUsername?: string }) {
+    const response = await apiClient.get<{ stores: StoreAccount[] }>('/crawler/stores', { params })
     return response.data.stores
   }
 
-  async function listStoresPage(params: PageParams) {
+  async function listStoresPage(params: PageParams & { ownerUsername?: string }) {
     const response = await apiClient.get<ApiPageResponse<'stores', StoreAccount>>('/crawler/stores', { params })
     return toPageResult(response.data, 'stores')
   }
@@ -304,21 +304,25 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function deleteStore(id: number) {
-    await apiClient.delete<{ deleted: boolean }>(`/crawler/stores/${id}`)
+  async function deleteStore(id: number, ownerUsername?: string) {
+    await apiClient.delete<{ deleted: boolean }>(`/crawler/stores/${id}`, { params: { ownerUsername } })
   }
 
-  async function syncStore(id: number) {
+  async function syncStore(id: number, ownerUsername?: string) {
     const response = await apiClient.post<{
       store: StoreAccount
       syncTask: SyncTask
       syncedCount: number
-    }>(`/crawler/stores/${id}/sync`)
+    }>(`/crawler/stores/${id}/sync`, null, { params: { ownerUsername } })
     return response.data
   }
 
-  async function verifyStores() {
-    const response = await apiClient.post<{ stores: StoreAccount[]; summary: StoreVerifySummary }>('/crawler/stores/verify')
+  async function verifyStores(ownerUsername?: string) {
+    const response = await apiClient.post<{ stores: StoreAccount[]; summary: StoreVerifySummary }>(
+      '/crawler/stores/verify',
+      null,
+      { params: { ownerUsername } },
+    )
     return response.data
   }
 

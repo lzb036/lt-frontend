@@ -441,15 +441,15 @@ function statusType(status: string) {
 
     <section class="work-panel">
       <div class="filter-row">
-        <el-input v-model="filters.target" :prefix-icon="Search" clearable placeholder="采集内容" @keydown.enter="searchTasks" />
-        <el-select v-model="filters.status" clearable placeholder="采集状态" @change="searchTasks">
+        <el-input v-model="filters.target" class="filter-target-field" :prefix-icon="Search" clearable placeholder="采集内容" @keydown.enter="searchTasks" />
+        <el-select v-model="filters.status" class="filter-select-field" clearable placeholder="采集状态" @change="searchTasks">
           <el-option label="待执行" value="queued" />
           <el-option label="采集中" value="running" />
           <el-option label="成功" value="success" />
           <el-option label="部分成功" value="partial" />
           <el-option label="失败" value="failed" />
         </el-select>
-        <el-select v-model="filters.sourceType" clearable placeholder="采集方式" @change="searchTasks">
+        <el-select v-model="filters.sourceType" class="filter-select-field" clearable placeholder="采集方式" @change="searchTasks">
           <el-option v-for="item in sourceTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <div class="filter-date-field">
@@ -662,23 +662,33 @@ function statusType(status: string) {
 }
 
 .filter-row {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  gap: 14px 16px;
 }
 
-.filter-row {
-  margin-bottom: 14px;
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 160px) minmax(150px, 180px) minmax(260px, 320px) max-content;
+.filter-target-field {
+  flex: 1 1 460px;
+  min-width: 280px;
+}
+
+.filter-select-field {
+  flex: 0 1 180px;
+  min-width: 150px;
 }
 
 .filter-actions {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 10px;
+  justify-content: flex-start;
 }
 
 .filter-date-field {
+  flex: 0 1 520px;
   min-width: 0;
 }
 
@@ -743,13 +753,12 @@ function statusType(status: string) {
 }
 
 @media (max-width: 1280px) {
-  .filter-row {
-    grid-template-columns: minmax(0, 1fr) minmax(140px, 160px) minmax(150px, 180px);
+  .filter-target-field {
+    flex-basis: 520px;
   }
 
-  .filter-actions {
-    grid-column: 1 / -1;
-    justify-self: flex-end;
+  .filter-date-field {
+    flex-basis: 520px;
   }
 }
 
@@ -763,12 +772,15 @@ function statusType(status: string) {
   }
 
   .filter-row {
-    grid-template-columns: 1fr;
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .filter-actions {
-    grid-column: auto;
-    justify-self: stretch;
+  .filter-target-field,
+  .filter-select-field,
+  .filter-date-field {
+    width: 100%;
+    min-width: 0;
   }
 
   .filter-actions .el-button {

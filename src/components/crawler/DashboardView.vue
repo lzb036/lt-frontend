@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, shallowRef } from 'vue'
-import { ElMessage } from 'element-plus'
-import { AlarmClock, CircleCheck, Connection, Document, Finished, OfficeBuilding, Refresh, ShoppingCartFull, Warning } from '@element-plus/icons-vue'
+import { computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { AlarmClock, CircleCheck, Connection, Document, Finished, OfficeBuilding, Refresh, ShoppingCartFull, SwitchButton, Warning } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type { AuthSession, CrawlTask, ListingTask, ProductItem, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { hasAnyPermission, hasPermission, isSuperadmin as isSuperadminSession } from '../../utils/permissions'
 
-defineProps<{
+const props = defineProps<{
   session: AuthSession | null
+}>()
+
+const emit = defineEmits<{
+  logout: []
 }>()
 
 const api = useCollectorApi()
@@ -19,6 +24,7 @@ const stores = shallowRef<StoreAccount[]>([])
 const listingTasks = shallowRef<ListingTask[]>([])
 const syncTasks = shallowRef<SyncTask[]>([])
 const todayReference = shallowRef(new Date())
+const systemNow = shallowRef(new Date())
 
 const todayTasks = computed(() => tasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt)))
 const todayProducts = computed(() => products.value.filter((product) => hasTodayTimestamp(product.createdAt, product.updatedAt)))
@@ -43,9 +49,28 @@ const queuedSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) =>
 const runningSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) => task.status === 'running').length)
 const successSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) => task.status === 'success').length)
 const failedSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) => task.status === 'failed').length)
+const isSuperadmin = computed(() => isSuperadminSession(props.session))
+const canViewCrawler = computed(() => hasPermission(props.session, 'crawler.manage'))
+const canViewProducts = computed(() => hasPermission(props.session, 'products.manage'))
+const canViewStores = computed(() => hasPermission(props.session, 'stores.manage'))
+const canViewSyncTasks = computed(() => hasAnyPermission(props.session, ['products.manage', 'stores.manage']))
+const displayName = computed(() => props.session?.displayName || props.session?.username || '未登录')
+const formattedSystemTime = computed(() => formatSystemDateTime(systemNow.value))
+
+let systemClockTimer: number | undefined
 
 onMounted(() => {
+  systemNow.value = new Date()
+  systemClockTimer = window.setInterval(() => {
+    systemNow.value = new Date()
+  }, 1000)
   void refreshDashboard()
+})
+
+onUnmounted(() => {
+  if (systemClockTimer !== undefined) {
+    window.clearInterval(systemClockTimer)
+  }
 })
 
 async function refreshDashboard() {
@@ -53,11 +78,11 @@ async function refreshDashboard() {
   todayReference.value = new Date()
   try {
     const [storeValues, taskValues, productValues, listingTaskValues, syncTaskValues] = await Promise.all([
-      api.listStores(),
-      api.listTasks(),
-      api.listProducts({}),
-      api.listListingTasks(),
-      api.listSyncTasks(),
+      canViewStores.value ? api.listStores() : Promise.resolve([]),
+      canViewCrawler.value ? api.listTasks() : Promise.resolve([]),
+      canViewProducts.value ? api.listProducts({}) : Promise.resolve([]),
+      canViewProducts.value ? api.listListingTasks() : Promise.resolve([]),
+      canViewSyncTasks.value ? api.listSyncTasks() : Promise.resolve([]),
     ])
     tasks.value = taskValues
     products.value = productValues
@@ -96,6 +121,34 @@ function parseDateValue(value: string | null | undefined) {
   const date = new Date(normalizedValue)
   return Number.isNaN(date.getTime()) ? null : date
 }
+
+function formatSystemDateTime(value: Date) {
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const year = value.getFullYear()
+  const month = padDatePart(value.getMonth() + 1)
+  const day = padDatePart(value.getDate())
+  const hours = padDatePart(value.getHours())
+  const minutes = padDatePart(value.getMinutes())
+  const seconds = padDatePart(value.getSeconds())
+  return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds} ${weekdays[value.getDay()]}`
+}
+
+function padDatePart(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+async function confirmLogout() {
+  try {
+    await ElMessageBox.confirm('确认退出当前账号？', '退出登录', {
+      confirmButtonText: '退出登录',
+      cancelButtonText: '取消',
+      type: 'warning',
+      distinguishCancelAndClose: true,
+    })
+    emit('logout')
+  } catch {
+  }
+}
 </script>
 
 <template>
@@ -106,6 +159,9 @@ function parseDateValue(value: string | null | undefined) {
         <h1 class="dashboard-title">今日系统数据统计</h1>
       </div>
       <div class="dashboard-actions">
+        <span class="system-clock">{{ formattedSystemTime }}</span>
+        <span class="role-tag">{{ isSuperadmin ? '超级管理员' : '子公司用户' }}</span>
+        <span class="user-name">{{ displayName }}</span>
         <el-button
           type="primary"
           :icon="Refresh"
@@ -113,6 +169,13 @@ function parseDateValue(value: string | null | undefined) {
           @click="refreshDashboard"
         >
           重新加载
+        </el-button>
+        <el-button
+          :icon="SwitchButton"
+          plain
+          @click="confirmLogout"
+        >
+          退出
         </el-button>
       </div>
     </div>
@@ -348,11 +411,42 @@ function parseDateValue(value: string | null | undefined) {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .dashboard-actions :deep(.el-button) {
   display: inline-flex !important;
+}
+
+.system-clock {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel-muted);
+  color: var(--text-main);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.role-tag {
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.user-name {
+  color: var(--text-main);
+  font-weight: 800;
 }
 
 .dashboard-metric-stack {
@@ -463,6 +557,10 @@ function parseDateValue(value: string | null | undefined) {
   .page-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .dashboard-actions {
+    justify-content: flex-start;
   }
 
   .metric-row-3,
