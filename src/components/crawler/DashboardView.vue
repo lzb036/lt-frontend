@@ -4,9 +4,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { AlarmClock, CircleCheck, Connection, Document, Finished, OfficeBuilding, Refresh, ShoppingCartFull, SwitchButton, Warning } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import type { AuthSession, CrawlTask, ListingTask, ProductItem, StoreAccount, SyncTask } from '../../types/crawler'
+import type { AuthSession, DashboardSummary } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
-import { hasAnyPermission, hasPermission, isSuperadmin as isSuperadminSession } from '../../utils/permissions'
+import { isSuperadmin as isSuperadminSession } from '../../utils/permissions'
 
 const props = defineProps<{
   session: AuthSession | null
@@ -18,42 +18,28 @@ const emit = defineEmits<{
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
-const tasks = shallowRef<CrawlTask[]>([])
-const products = shallowRef<ProductItem[]>([])
-const stores = shallowRef<StoreAccount[]>([])
-const listingTasks = shallowRef<ListingTask[]>([])
-const syncTasks = shallowRef<SyncTask[]>([])
-const todayReference = shallowRef(new Date())
+const summary = shallowRef<DashboardSummary | null>(null)
 const systemNow = shallowRef(new Date())
 
-const todayTasks = computed(() => tasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt)))
-const todayProducts = computed(() => products.value.filter((product) => hasTodayTimestamp(product.createdAt, product.updatedAt)))
-const todayListingTasks = computed(() => listingTasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt, task.updatedAt)))
-const todaySyncTasks = computed(() => syncTasks.value.filter((task) => hasTodayTimestamp(task.createdAt, task.startedAt, task.finishedAt, task.updatedAt)))
-
-const queuedTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'queued').length)
-const runningTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'running').length)
-const totalStoreCount = computed(() => stores.value.length)
-const enabledStoreCount = computed(() => stores.value.filter((store) => store.enabled).length)
-const errorStoreCount = computed(() => stores.value.filter((store) => store.availabilityStatus === 'error').length)
-const successTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'success').length)
-const failedTaskCount = computed(() => todayTasks.value.filter((task) => task.status === 'failed').length)
-const pendingProductCount = computed(() => todayProducts.value.filter((product) => product.reviewStatus === 'pending').length)
-const approvedProductCount = computed(() => todayProducts.value.filter((product) => product.reviewStatus === 'approved').length)
-const errorProductCount = computed(() => todayProducts.value.filter((product) => product.reviewStatus === 'error').length)
-const queuedListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'queued').length)
-const runningListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'running').length)
-const successListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'success').length)
-const failedListingTaskCount = computed(() => todayListingTasks.value.filter((task) => task.status === 'failed').length)
-const queuedSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) => task.status === 'queued').length)
-const runningSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) => task.status === 'running').length)
-const successSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) => task.status === 'success').length)
-const failedSyncTaskCount = computed(() => todaySyncTasks.value.filter((task) => task.status === 'failed').length)
+const queuedTaskCount = computed(() => summary.value?.crawlTasks.queued ?? 0)
+const runningTaskCount = computed(() => summary.value?.crawlTasks.running ?? 0)
+const totalStoreCount = computed(() => summary.value?.stores.total ?? 0)
+const enabledStoreCount = computed(() => summary.value?.stores.enabled ?? 0)
+const errorStoreCount = computed(() => summary.value?.stores.error ?? 0)
+const successTaskCount = computed(() => summary.value?.crawlTasks.success ?? 0)
+const failedTaskCount = computed(() => summary.value?.crawlTasks.failed ?? 0)
+const pendingProductCount = computed(() => summary.value?.products.pending ?? 0)
+const approvedProductCount = computed(() => summary.value?.products.approved ?? 0)
+const errorProductCount = computed(() => summary.value?.products.error ?? 0)
+const queuedListingTaskCount = computed(() => summary.value?.listingTasks.queued ?? 0)
+const runningListingTaskCount = computed(() => summary.value?.listingTasks.running ?? 0)
+const successListingTaskCount = computed(() => summary.value?.listingTasks.success ?? 0)
+const failedListingTaskCount = computed(() => summary.value?.listingTasks.failed ?? 0)
+const queuedSyncTaskCount = computed(() => summary.value?.syncTasks.queued ?? 0)
+const runningSyncTaskCount = computed(() => summary.value?.syncTasks.running ?? 0)
+const successSyncTaskCount = computed(() => summary.value?.syncTasks.success ?? 0)
+const failedSyncTaskCount = computed(() => summary.value?.syncTasks.failed ?? 0)
 const isSuperadmin = computed(() => isSuperadminSession(props.session))
-const canViewCrawler = computed(() => hasPermission(props.session, 'crawler.manage'))
-const canViewProducts = computed(() => hasPermission(props.session, 'products.manage'))
-const canViewStores = computed(() => hasPermission(props.session, 'stores.manage'))
-const canViewSyncTasks = computed(() => hasAnyPermission(props.session, ['products.manage', 'stores.manage']))
 const displayName = computed(() => props.session?.displayName || props.session?.username || '未登录')
 const formattedSystemTime = computed(() => formatSystemDateTime(systemNow.value))
 
@@ -75,51 +61,14 @@ onUnmounted(() => {
 
 async function refreshDashboard() {
   loading.value = true
-  todayReference.value = new Date()
   try {
-    const [storeValues, taskValues, productValues, listingTaskValues, syncTaskValues] = await Promise.all([
-      canViewStores.value ? api.listStores() : Promise.resolve([]),
-      canViewCrawler.value ? api.listTasks() : Promise.resolve([]),
-      canViewProducts.value ? api.listProducts({}) : Promise.resolve([]),
-      canViewProducts.value ? api.listListingTasks() : Promise.resolve([]),
-      canViewSyncTasks.value ? api.listSyncTasks() : Promise.resolve([]),
-    ])
-    tasks.value = taskValues
-    products.value = productValues
-    stores.value = storeValues
-    listingTasks.value = listingTaskValues
-    syncTasks.value = syncTaskValues
+    summary.value = await api.getDashboardSummary()
     ElMessage.success('仪表盘数据已刷新')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '刷新仪表盘失败'))
   } finally {
     loading.value = false
   }
-}
-
-function hasTodayTimestamp(...values: Array<string | null | undefined>) {
-  return values.some((value) => isTodayTimestamp(value))
-}
-
-function isTodayTimestamp(value: string | null | undefined) {
-  const date = parseDateValue(value)
-  if (!date) {
-    return false
-  }
-  const reference = todayReference.value
-  return date.getFullYear() === reference.getFullYear()
-    && date.getMonth() === reference.getMonth()
-    && date.getDate() === reference.getDate()
-}
-
-function parseDateValue(value: string | null | undefined) {
-  const rawValue = value?.trim()
-  if (!rawValue) {
-    return null
-  }
-  const normalizedValue = (rawValue.includes('T') ? rawValue : rawValue.replace(' ', 'T')).replace(/(\.\d{3})\d+/, '$1')
-  const date = new Date(normalizedValue)
-  return Number.isNaN(date.getTime()) ? null : date
 }
 
 function formatSystemDateTime(value: Date) {
