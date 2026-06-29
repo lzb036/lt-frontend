@@ -710,7 +710,7 @@ async function deleteDetailImage(index: number) {
 function sanitizedDescriptionHtml(value: string) {
   const parser = new DOMParser()
   const documentValue = parser.parseFromString(value || '', 'text/html')
-  for (const element of Array.from(documentValue.body.querySelectorAll('script, style, iframe, object, embed, link, meta'))) {
+  for (const element of Array.from(documentValue.body.querySelectorAll('script, style, iframe, object, embed, link, meta, svg, canvas, video, audio'))) {
     element.remove()
   }
   for (const element of Array.from(documentValue.body.querySelectorAll('*'))) {
@@ -997,10 +997,10 @@ function sanitizedDescriptionHtml(value: string) {
                     :readonly="!detailEditable()"
                   />
                 </el-form-item>
-                <el-form-item label="商品说明">
+                <el-form-item label="商品副标题">
                   <el-input
                     v-model="detailForm.tagline"
-                    maxlength="500"
+                    maxlength="174"
                     show-word-limit
                     type="textarea"
                     :autosize="{ minRows: 2, maxRows: 3 }"
@@ -1106,13 +1106,13 @@ function sanitizedDescriptionHtml(value: string) {
                 <input ref="imageFileInputRef" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/gif" @change="handleReplaceImage" />
               </div>
             </el-tab-pane>
-            <el-tab-pane label="商品说明">
+            <el-tab-pane label="商品详情说明">
               <div class="description-list">
                 <div v-for="description in selectedProductDetail.detail.descriptions" :key="description.label" class="description-item">
-                  <strong>{{ description.label }}</strong>
+                  <strong>{{ description.label === '商品说明' ? '商品详情说明' : description.label }}</strong>
                   <div class="description-html" v-html="sanitizedDescriptionHtml(description.value)" />
                 </div>
-                <el-empty v-if="selectedProductDetail.detail.descriptions.length < 1" description="暂无商品说明" />
+                <el-empty v-if="selectedProductDetail.detail.descriptions.length < 1" description="暂无商品详情说明" />
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -1201,7 +1201,7 @@ function sanitizedDescriptionHtml(value: string) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 14px 16px;
 }
 
 .filter-field {
@@ -1262,8 +1262,23 @@ function sanitizedDescriptionHtml(value: string) {
   font-weight: 700;
 }
 
+.filter-row-with-store .filter-store-field {
+  flex: 0 0 232px;
+}
+
+.filter-row-with-store .filter-status-field {
+  flex: 0 0 192px;
+}
+
+.filter-row-with-store .filter-range-field {
+  flex: 0 1 478px;
+  max-width: 478px;
+}
+
 .filter-row-with-store .filter-keyword-field {
-  margin-left: 12px;
+  flex: 0 1 420px;
+  max-width: 420px;
+  margin-left: 0;
 }
 
 .filter-row:not(.filter-row-with-store) .filter-keyword-field {
@@ -1450,6 +1465,7 @@ function sanitizedDescriptionHtml(value: string) {
 
 .description-html :deep(img),
 .description-html :deep(video) {
+  display: block;
   max-width: 100%;
   height: auto;
 }
