@@ -52,15 +52,23 @@ async function refreshTasks() {
 }
 
 async function retryTask(row: ListingTask) {
-  loading.value = true
   try {
-    await api.retryListingTask(row.id)
-    await loadTasks()
-    ElMessage.success('上架任务已重试')
+    await ElMessageBox.confirm(
+      `确认重试上架任务「${row.taskName || row.id}」？`,
+      '重试上架任务',
+      {
+        confirmButtonText: '重试',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    const result = await api.retryListingTask(row.id)
+    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.listingTask : task))
+    ElMessage.success('上架任务已提交后台重试')
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '重试上架任务失败'))
-  } finally {
-    loading.value = false
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '重试上架任务失败'))
+    }
   }
 }
 

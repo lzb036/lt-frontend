@@ -318,16 +318,13 @@ async function restartTask(row: CrawlTask) {
         type: 'warning',
       },
     )
-    loading.value = true
-    await api.restartTask(row.id)
-    await loadTasks()
-    ElMessage.success('任务已重新执行')
+    const result = await api.restartTask(row.id)
+    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.task : task))
+    ElMessage.success('重新采集任务已提交后台执行')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
     }
-  } finally {
-    loading.value = false
   }
 }
 
@@ -507,7 +504,7 @@ function statusType(status: string) {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column label="操作" width="118">
+        <el-table-column label="操作" width="118" fixed="right">
           <template #default="{ row }">
             <el-button :icon="VideoPlay" link type="primary" @click="restartTask(row)">
               重新采集

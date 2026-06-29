@@ -413,40 +413,6 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
   }
 }
 
-async function updateCurrentStoreListingStatus(listingStatus: 'listed' | 'unlisted') {
-  if (!filters.storeId) {
-    ElMessage.warning('请先在筛选栏选择店铺')
-    return
-  }
-  const store = stores.value.find((item) => item.id === filters.storeId)
-  const storeName = store?.aliasName || store?.storeName || '当前店铺'
-  const actionText = listingStatus === 'listed' ? '上架' : '下架'
-  try {
-    await ElMessageBox.confirm(
-      `确认将「${storeName}」的全部店铺商品${actionText}？该操作会逐个同步写入乐天 RMS。`,
-      `全部${actionText}`,
-      {
-        confirmButtonText: `全部${actionText}`,
-        cancelButtonText: '取消',
-        type: listingStatus === 'listed' ? 'success' : 'warning',
-      },
-    )
-    operating.value = true
-    const result = await api.updateStoreListingStatus({
-      storeId: filters.storeId,
-      listingStatus,
-    })
-    ElMessage.success(result.summary.message || `${actionText}任务已创建，请到同步任务中查看进度`)
-    clearSelection()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, `全部${actionText}失败`))
-    }
-  } finally {
-    operating.value = false
-  }
-}
-
 async function createListingTask() {
   if (selectedIds.value.length < 1) {
     ElMessage.warning('请先选择要上架的商品')
@@ -896,24 +862,6 @@ function sanitizedDescriptionHtml(value: string) {
             @click="updateSelectedListingStatus('unlisted')"
           >
             批量下架
-          </el-button>
-          <el-button
-            type="warning"
-            :icon="Warning"
-            :disabled="!filters.storeId"
-            :loading="operating"
-            @click="updateCurrentStoreListingStatus('unlisted')"
-          >
-            全部下架
-          </el-button>
-          <el-button
-            type="success"
-            :icon="Top"
-            :disabled="!filters.storeId"
-            :loading="operating"
-            @click="updateCurrentStoreListingStatus('listed')"
-          >
-            全部上架
           </el-button>
         </div>
         <el-button

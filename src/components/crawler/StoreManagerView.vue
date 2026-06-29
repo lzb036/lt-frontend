@@ -5,8 +5,7 @@ import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { AuthSession, AvailabilityStatus, UserAccount } from '../../types/crawler'
-import type { StoreAccount, StorePayload } from '../../types/crawler'
+import type { AuthSession, AvailabilityStatus, StoreAccount, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -18,11 +17,10 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const verifying = shallowRef(false)
+const syncingId = shallowRef<number | null>(null)
 const stores = shallowRef<StoreAccount[]>([])
-const users = shallowRef<UserAccount[]>([])
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
-const selectedOwnerUsername = ref('')
 const {
   currentPage,
   pageSize,
@@ -43,39 +41,18 @@ const form = reactive<StorePayload>({
   rakutenLicenseKey: '',
 })
 const isSuperadmin = computed(() => props.session?.role === 'superadmin')
-const childUsers = computed(() => users.value.filter((user) => user.role !== 'superadmin'))
-const hasSelectedOwner = computed(() => !isSuperadmin.value || Boolean(selectedOwnerUsername.value))
+const operationColumnWidth = computed(() => (isSuperadmin.value ? 230 : 130))
 
-onMounted(async () => {
-  if (isSuperadmin.value) {
-    await loadUsers()
-  }
+onMounted(() => {
   void loadStores()
 })
 
-async function loadUsers() {
-  try {
-    users.value = await api.listUsers()
-    if (!selectedOwnerUsername.value) {
-      selectedOwnerUsername.value = childUsers.value[0]?.username || ''
-    }
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载用户失败'))
-  }
-}
-
 async function loadStores() {
-  if (isSuperadmin.value && !selectedOwnerUsername.value) {
-    stores.value = []
-    setPageResult({ total: 0, page: 1, pageSize: pageSize.value })
-    return
-  }
   loading.value = true
   try {
     const result = await api.listStoresPage({
       page: currentPage.value,
       pageSize: pageSize.value,
-      ownerUsername: isSuperadmin.value ? selectedOwnerUsername.value : undefined,
     })
     stores.value = result.items
     setPageResult(result)
@@ -88,7 +65,7 @@ async function loadStores() {
 
 function resetForm() {
   editingId.value = null
-  form.ownerUsername = isSuperadmin.value ? selectedOwnerUsername.value : undefined
+  form.ownerUsername = undefined
   form.aliasName = ''
   form.platform = 'rakuten'
   form.enabled = true
@@ -98,8 +75,7 @@ function resetForm() {
 }
 
 function openCreateDialog() {
-  if (isSuperadmin.value && !selectedOwnerUsername.value) {
-    ElMessage.warning('请先创建并选择子公司用户')
+  if (!isSuperadmin.value) {
     return
   }
   resetForm()
@@ -107,8 +83,11 @@ function openCreateDialog() {
 }
 
 function openEditDialog(row: StoreAccount) {
+  if (!isSuperadmin.value) {
+    return
+  }
   editingId.value = row.id
-  form.ownerUsername = row.ownerUsername
+  form.ownerUsername = undefined
   form.aliasName = row.aliasName
   form.platform = row.platform
   form.enabled = row.enabled
@@ -119,8 +98,7 @@ function openEditDialog(row: StoreAccount) {
 }
 
 async function saveStore() {
-  if (isSuperadmin.value && !form.ownerUsername) {
-    ElMessage.warning('请选择店铺所属用户')
+  if (!isSuperadmin.value) {
     return
   }
   if (!editingId.value && (!form.rakutenServiceSecret?.trim() || !form.rakutenLicenseKey?.trim())) {
@@ -129,7 +107,7 @@ async function saveStore() {
   }
   saving.value = true
   try {
-    await api.saveStore({ ...form }, editingId.value ?? undefined)
+    await api.saveStore({ ...form, ownerUsername: undefined }, editingId.value ?? undefined)
     await loadStores()
     dialogOpen.value = false
     ElMessage.success('店铺已保存')
@@ -141,9 +119,9 @@ async function saveStore() {
 }
 
 async function syncStore(row: StoreAccount) {
-  loading.value = true
+  syncingId.value = row.id
   try {
-    const result = await api.syncStore(row.id, isSuperadmin.value ? row.ownerUsername : undefined)
+    const result = await api.syncStore(row.id)
     await loadStores()
     if (result.store.lastError) {
       ElMessage.warning(result.store.lastError)
@@ -153,18 +131,14 @@ async function syncStore(row: StoreAccount) {
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '商品同步失败'))
   } finally {
-    loading.value = false
+    syncingId.value = null
   }
 }
 
 async function checkStoreKeys() {
-  if (isSuperadmin.value && !selectedOwnerUsername.value) {
-    ElMessage.warning('请先选择子公司用户')
-    return
-  }
   verifying.value = true
   try {
-    const result = await api.verifyStores(isSuperadmin.value ? selectedOwnerUsername.value : undefined)
+    const result = await api.verifyStores()
     await loadStores()
     if (result.summary.error > 0) {
       ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
@@ -200,14 +174,22 @@ function countText(value?: number | null) {
   return value == null ? '-' : value.toLocaleString()
 }
 
+function handlePageSizeChange() {
+  resetPage()
+  void loadStores()
+}
+
 async function removeStore(row: StoreAccount) {
+  if (!isSuperadmin.value) {
+    return
+  }
   try {
-    await ElMessageBox.confirm(`确认删除店铺「${row.storeName}」？`, '删除店铺', {
+    await ElMessageBox.confirm(`确认删除店铺「${row.storeName || row.aliasName}」？`, '删除店铺', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',
     })
-    await api.deleteStore(row.id, isSuperadmin.value ? row.ownerUsername : undefined)
+    await api.deleteStore(row.id)
     await loadStores()
     ElMessage.success('店铺已删除')
   } catch (error) {
@@ -215,21 +197,6 @@ async function removeStore(row: StoreAccount) {
       ElMessage.error(toApiErrorMessage(error, '删除店铺失败'))
     }
   }
-}
-
-function handlePageSizeChange() {
-  resetPage()
-  void loadStores()
-}
-
-function handleOwnerChange() {
-  resetPage()
-  void loadStores()
-}
-
-function userDisplayName(username: string) {
-  const user = users.value.find((item) => item.username === username)
-  return user ? `${user.displayName || user.username}（${user.username}）` : username
 }
 </script>
 
@@ -241,28 +208,13 @@ function userDisplayName(username: string) {
         <h1>店铺信息</h1>
       </div>
       <div class="head-actions">
-        <el-select
-          v-if="isSuperadmin"
-          v-model="selectedOwnerUsername"
-          class="owner-select"
-          filterable
-          placeholder="选择子公司用户"
-          @change="handleOwnerChange"
-        >
-          <el-option
-            v-for="user in childUsers"
-            :key="user.username"
-            :label="user.displayName || user.username"
-            :value="user.username"
-          />
-        </el-select>
-        <el-button :icon="Refresh" :loading="loading" :disabled="!hasSelectedOwner" @click="loadStores">
+        <el-button :icon="Refresh" :loading="loading" @click="loadStores">
           刷新
         </el-button>
-        <el-button :icon="Connection" :loading="verifying" :disabled="!hasSelectedOwner" @click="checkStoreKeys">
+        <el-button :icon="Connection" :loading="verifying" @click="checkStoreKeys">
           密钥检测
         </el-button>
-        <el-button type="primary" :icon="Plus" :disabled="!hasSelectedOwner" @click="openCreateDialog">
+        <el-button v-if="isSuperadmin" type="primary" :icon="Plus" @click="openCreateDialog">
           新增店铺
         </el-button>
       </div>
@@ -270,11 +222,6 @@ function userDisplayName(username: string) {
 
     <section class="work-panel">
       <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="650">
-        <el-table-column v-if="isSuperadmin" label="所属用户" min-width="160">
-          <template #default="{ row }">
-            {{ userDisplayName(row.ownerUsername) }}
-          </template>
-        </el-table-column>
         <el-table-column label="店铺编号" min-width="140">
           <template #default="{ row }">
             <CopyableTableText :value="row.storeCode" />
@@ -317,17 +264,25 @@ function userDisplayName(username: string) {
           </template>
         </el-table-column>
         <el-table-column prop="lastSyncedAt" label="同步时间" min-width="170" />
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" :width="operationColumnWidth" fixed="right">
           <template #default="{ row }">
-            <el-button :icon="Connection" link type="primary" @click="syncStore(row)">
+            <el-button
+              :icon="Connection"
+              :loading="syncingId === row.id"
+              link
+              type="primary"
+              @click="syncStore(row)"
+            >
               商品同步
             </el-button>
-            <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
-              编辑
-            </el-button>
-            <el-button :icon="Delete" link type="danger" @click="removeStore(row)">
-              删除
-            </el-button>
+            <template v-if="isSuperadmin">
+              <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
+                编辑
+              </el-button>
+              <el-button :icon="Delete" link type="danger" @click="removeStore(row)">
+                删除
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -346,18 +301,10 @@ function userDisplayName(username: string) {
 
     <el-dialog v-model="dialogOpen" :title="editingId ? '编辑店铺信息' : '新增店铺信息'" width="760px">
       <div class="dialog-form">
-        <el-select v-if="isSuperadmin" v-model="form.ownerUsername" class="full-row" filterable placeholder="选择店铺所属用户" :disabled="Boolean(editingId)">
-          <el-option
-            v-for="user in childUsers"
-            :key="user.username"
-            :label="user.displayName || user.username"
-            :value="user.username"
-          />
-        </el-select>
         <el-input v-model="form.aliasName" placeholder="店铺别称" />
+        <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
         <el-input v-model="form.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
         <el-input v-model="form.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
-        <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
         <el-input v-model="form.description" class="full-row" type="textarea" :rows="3" placeholder="店铺介绍" />
       </div>
       <template #footer>
@@ -379,15 +326,19 @@ function userDisplayName(username: string) {
   flex-wrap: wrap;
 }
 
-.owner-select {
-  width: 220px;
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .head-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
+  margin-left: auto;
 }
 
 .eyebrow {
@@ -427,6 +378,7 @@ function userDisplayName(username: string) {
   .head-actions {
     align-items: flex-start;
     flex-direction: column;
+    margin-left: 0;
   }
 
   .dialog-form {

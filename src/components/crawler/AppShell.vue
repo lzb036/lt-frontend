@@ -17,7 +17,6 @@ import {
   ShoppingBag,
   ShoppingCartFull,
   Tickets,
-  Tools,
   UserFilled,
   Warning,
 } from '@element-plus/icons-vue'
@@ -110,12 +109,9 @@ const menuGroups = computed(() => {
   }
   if (isSuperadmin.value) {
     groups.push({
-      key: 'system',
-      label: '系统管理',
-      icon: Tools,
-      children: [
-        { path: '/system/user', label: '用户管理', icon: UserFilled },
-      ],
+      path: '/system/user',
+      label: '用户管理',
+      icon: UserFilled,
     })
   }
   if (hasPermission(props.session, 'settings.manage')) {

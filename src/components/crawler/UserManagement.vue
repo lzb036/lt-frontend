@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, EditPen, Lock, Plus, Refresh, User } from '@element-plus/icons-vue'
+import { CircleCheck, Connection, Delete, EditPen, Lock, Plus, Refresh, Shop, User } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { AuthSession, UserAccount } from '../../types/crawler'
+import type { AuthSession, AvailabilityStatus, StoreAccount, StorePayload, UserAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import CopyableTableText from './CopyableTableText.vue'
 
 const props = defineProps<{
   session: AuthSession | null
@@ -16,6 +17,7 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const users = shallowRef<UserAccount[]>([])
+const createDialogOpen = shallowRef(false)
 const editDialogOpen = shallowRef(false)
 const editingUser = shallowRef<UserAccount | null>(null)
 const {
@@ -26,6 +28,15 @@ const {
   total,
   resetPage,
   setPageResult,
+} = useServerPagination()
+const {
+  currentPage: storeCurrentPage,
+  pageSize: storePageSize,
+  pageSizes: storePageSizes,
+  paginationLayout: storePaginationLayout,
+  total: storeTotal,
+  resetPage: resetStorePage,
+  setPageResult: setStorePageResult,
 } = useServerPagination()
 
 const createForm = reactive({
@@ -47,6 +58,29 @@ const editForm = reactive({
   displayName: '',
   enabled: true,
   permissions: [] as string[],
+})
+
+const storeDialogOpen = shallowRef(false)
+const storeFormDialogOpen = shallowRef(false)
+const storeLoading = shallowRef(false)
+const storeSaving = shallowRef(false)
+const storeVerifying = shallowRef(false)
+const storeSyncingId = shallowRef<number | null>(null)
+const managedStoreUser = shallowRef<UserAccount | null>(null)
+const userStores = shallowRef<StoreAccount[]>([])
+const storeEditingId = shallowRef<number | null>(null)
+const storeForm = reactive<StorePayload>({
+  ownerUsername: '',
+  aliasName: '',
+  platform: 'rakuten',
+  enabled: true,
+  description: '',
+  rakutenServiceSecret: '',
+  rakutenLicenseKey: '',
+})
+const managedStoreTitle = computed(() => {
+  const user = managedStoreUser.value
+  return user ? `${user.displayName || user.username}（${user.username}）` : ''
 })
 
 onMounted(() => {
@@ -86,12 +120,21 @@ async function createUser() {
     createForm.displayName = ''
     createForm.password = ''
     createForm.permissions = ['crawler.manage', 'products.manage', 'stores.manage']
+    createDialogOpen.value = false
     ElMessage.success('用户已创建')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建用户失败'))
   } finally {
     saving.value = false
   }
+}
+
+function openCreateDialog() {
+  createForm.username = ''
+  createForm.displayName = ''
+  createForm.password = ''
+  createForm.permissions = ['crawler.manage', 'products.manage', 'stores.manage']
+  createDialogOpen.value = true
 }
 
 async function updateEnabled(row: UserAccount, enabled: boolean) {
@@ -157,6 +200,176 @@ function handlePageSizeChange() {
   resetPage()
   void loadUsers()
 }
+
+function openStoreDialog(row: UserAccount) {
+  if (row.role === 'superadmin') {
+    return
+  }
+  managedStoreUser.value = row
+  storeDialogOpen.value = true
+  resetStorePage()
+  void loadUserStores()
+}
+
+async function loadUserStores() {
+  if (!managedStoreUser.value) {
+    return
+  }
+  storeLoading.value = true
+  try {
+    const result = await api.listStoresPage({
+      page: storeCurrentPage.value,
+      pageSize: storePageSize.value,
+      ownerUsername: managedStoreUser.value.username,
+    })
+    userStores.value = result.items
+    setStorePageResult(result)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载用户店铺失败'))
+  } finally {
+    storeLoading.value = false
+  }
+}
+
+function resetStoreForm() {
+  storeEditingId.value = null
+  storeForm.ownerUsername = managedStoreUser.value?.username || ''
+  storeForm.aliasName = ''
+  storeForm.platform = 'rakuten'
+  storeForm.enabled = true
+  storeForm.description = ''
+  storeForm.rakutenServiceSecret = ''
+  storeForm.rakutenLicenseKey = ''
+}
+
+function openStoreCreateDialog() {
+  if (!managedStoreUser.value) {
+    return
+  }
+  resetStoreForm()
+  storeFormDialogOpen.value = true
+}
+
+function openStoreEditDialog(row: StoreAccount) {
+  storeEditingId.value = row.id
+  storeForm.ownerUsername = row.ownerUsername
+  storeForm.aliasName = row.aliasName
+  storeForm.platform = row.platform
+  storeForm.enabled = row.enabled
+  storeForm.description = row.description
+  storeForm.rakutenServiceSecret = ''
+  storeForm.rakutenLicenseKey = ''
+  storeFormDialogOpen.value = true
+}
+
+async function saveStore() {
+  if (!managedStoreUser.value) {
+    return
+  }
+  const ownerUsername = managedStoreUser.value.username
+  if (!storeEditingId.value && (!storeForm.rakutenServiceSecret?.trim() || !storeForm.rakutenLicenseKey?.trim())) {
+    ElMessage.warning('新增店铺时必须填写乐天 Secret 和乐天 Key')
+    return
+  }
+  storeSaving.value = true
+  try {
+    await api.saveStore({ ...storeForm, ownerUsername }, storeEditingId.value ?? undefined)
+    await loadUserStores()
+    storeFormDialogOpen.value = false
+    ElMessage.success('店铺已保存')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '保存店铺失败'))
+  } finally {
+    storeSaving.value = false
+  }
+}
+
+async function syncStore(row: StoreAccount) {
+  if (!managedStoreUser.value) {
+    return
+  }
+  storeSyncingId.value = row.id
+  try {
+    const result = await api.syncStore(row.id, managedStoreUser.value.username)
+    await loadUserStores()
+    if (result.store.lastError) {
+      ElMessage.warning(result.store.lastError)
+    } else {
+      ElMessage.success(`同步任务已完成，同步 ${result.syncedCount} 条`)
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '商品同步失败'))
+  } finally {
+    storeSyncingId.value = null
+  }
+}
+
+async function checkStoreKeys() {
+  if (!managedStoreUser.value) {
+    return
+  }
+  storeVerifying.value = true
+  try {
+    const result = await api.verifyStores(managedStoreUser.value.username)
+    await loadUserStores()
+    if (result.summary.error > 0) {
+      ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
+    } else {
+      ElMessage.success('密钥检测完成，全部店铺可用')
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '密钥检测失败'))
+  } finally {
+    storeVerifying.value = false
+  }
+}
+
+async function removeStore(row: StoreAccount) {
+  if (!managedStoreUser.value) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确认删除店铺「${row.storeName || row.aliasName}」？`, '删除店铺', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await api.deleteStore(row.id, managedStoreUser.value.username)
+    await loadUserStores()
+    ElMessage.success('店铺已删除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '删除店铺失败'))
+    }
+  }
+}
+
+function handleStorePageSizeChange() {
+  resetStorePage()
+  void loadUserStores()
+}
+
+function availabilityLabel(status: AvailabilityStatus) {
+  const labels: Record<AvailabilityStatus, string> = {
+    available: '可用',
+    error: '异常',
+    unchecked: '未检测',
+  }
+  return labels[status] ?? '未检测'
+}
+
+function availabilityTagType(status: AvailabilityStatus) {
+  const tagTypes: Record<AvailabilityStatus, 'success' | 'danger' | 'info'> = {
+    available: 'success',
+    error: 'danger',
+    unchecked: 'info',
+  }
+  return tagTypes[status] ?? 'info'
+}
+
+function countText(value?: number | null) {
+  return value == null ? '-' : value.toLocaleString()
+}
 </script>
 
 <template>
@@ -166,14 +379,24 @@ function handlePageSizeChange() {
         <p class="eyebrow">Users</p>
         <h1>用户管理</h1>
       </div>
-      <el-button
-        :icon="Refresh"
-        :loading="loading"
-        :disabled="!canManageUsers"
-        @click="loadUsers"
-      >
-        刷新
-      </el-button>
+      <div class="head-actions">
+        <el-button
+          :icon="Refresh"
+          :loading="loading"
+          :disabled="!canManageUsers"
+          @click="loadUsers"
+        >
+          刷新
+        </el-button>
+        <el-button
+          type="primary"
+          :icon="Plus"
+          :disabled="!canManageUsers"
+          @click="openCreateDialog"
+        >
+          新增用户
+        </el-button>
+      </div>
     </div>
 
     <el-alert
@@ -184,35 +407,7 @@ function handlePageSizeChange() {
       title="当前账号没有用户管理权限。"
     />
 
-    <section v-else class="work-panel">
-      <div class="panel-head">
-        <div>
-          <h2>创建子公司用户</h2>
-          <p>超级管理员创建用户后，可以为其分配功能权限，并在店铺管理中给该用户添加独立店铺。</p>
-        </div>
-        <el-tag type="info">店铺独立</el-tag>
-      </div>
-
-      <div class="create-row">
-        <el-input v-model="createForm.username" :prefix-icon="User" placeholder="用户名" />
-        <el-input v-model="createForm.displayName" placeholder="显示名称" />
-        <el-input v-model="createForm.password" :prefix-icon="Lock" type="password" show-password placeholder="初始密码" />
-        <el-select v-model="createForm.permissions" class="permission-select" multiple collapse-tags collapse-tags-tooltip placeholder="分配权限">
-          <el-option v-for="permission in permissionOptions" :key="permission.value" :label="permission.label" :value="permission.value" />
-        </el-select>
-        <el-button type="primary" :icon="Plus" :loading="saving" @click="createUser">
-          创建
-        </el-button>
-      </div>
-    </section>
-
     <section v-if="canManageUsers" class="work-panel">
-      <div class="panel-head">
-        <div>
-          <h2>账号列表</h2>
-          <p>账号启停不影响各用户已保存的独立配置。</p>
-        </div>
-      </div>
       <el-table v-loading="loading" :data="users" empty-text="暂无用户" height="520">
         <el-table-column prop="username" label="用户名" min-width="150" />
         <el-table-column prop="displayName" label="显示名称" min-width="160" />
@@ -240,8 +435,11 @@ function handlePageSizeChange() {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" width="290" fixed="right">
           <template #default="{ row }">
+            <el-button :disabled="row.role === 'superadmin'" :icon="Shop" link type="primary" @click="openStoreDialog(row)">
+              店铺
+            </el-button>
             <el-button :disabled="row.role === 'superadmin'" :icon="EditPen" link type="primary" @click="openEditDialog(row)">
               权限
             </el-button>
@@ -264,6 +462,29 @@ function handlePageSizeChange() {
       </div>
     </section>
 
+    <el-dialog v-model="createDialogOpen" title="新增用户" width="620px" destroy-on-close>
+      <el-form label-width="92px">
+        <el-form-item label="用户名">
+          <el-input v-model="createForm.username" :prefix-icon="User" placeholder="请输入用户名" />
+        </el-form-item>
+        <el-form-item label="显示名称">
+          <el-input v-model="createForm.displayName" placeholder="请输入显示名称" />
+        </el-form-item>
+        <el-form-item label="初始密码">
+          <el-input v-model="createForm.password" :prefix-icon="Lock" type="password" show-password placeholder="请输入至少 6 位初始密码" />
+        </el-form-item>
+        <el-form-item label="功能权限">
+          <el-select v-model="createForm.permissions" class="full-control" multiple collapse-tags collapse-tags-tooltip placeholder="分配权限">
+            <el-option v-for="permission in permissionOptions" :key="permission.value" :label="permission.label" :value="permission.value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogOpen = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="createUser">创建</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="editDialogOpen" title="用户权限设置" width="560px">
       <el-form :model="editForm" label-width="90px">
         <el-form-item label="显示名称">
@@ -283,6 +504,125 @@ function handlePageSizeChange() {
         <el-button type="primary" :loading="saving" @click="saveUserSettings">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="storeDialogOpen"
+      :title="`用户店铺管理 - ${managedStoreTitle}`"
+      width="1180px"
+      destroy-on-close
+    >
+      <div class="store-dialog-stack">
+        <div class="store-dialog-head">
+          <div class="head-actions">
+            <el-button :icon="Refresh" :loading="storeLoading" @click="loadUserStores">
+              刷新
+            </el-button>
+            <el-button :icon="Connection" :loading="storeVerifying" @click="checkStoreKeys">
+              密钥检测
+            </el-button>
+            <el-button type="primary" :icon="Plus" @click="openStoreCreateDialog">
+              新增店铺
+            </el-button>
+          </div>
+        </div>
+
+        <el-table v-loading="storeLoading" :data="userStores" empty-text="暂无店铺" height="460">
+          <el-table-column label="店铺编号" min-width="140">
+            <template #default="{ row }">
+              <CopyableTableText :value="row.storeCode" />
+            </template>
+          </el-table-column>
+          <el-table-column label="店铺名称" min-width="170">
+            <template #default="{ row }">
+              <CopyableTableText :value="row.storeName" />
+            </template>
+          </el-table-column>
+          <el-table-column label="店铺别称" min-width="150">
+            <template #default="{ row }">
+              <CopyableTableText :value="row.aliasName" />
+            </template>
+          </el-table-column>
+          <el-table-column label="已用文件夹数" width="130" align="left">
+            <template #default="{ row }">
+              {{ countText(row.cabinetUsedFolderCount) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="剩余文件夹数" width="130" align="left">
+            <template #default="{ row }">
+              {{ countText(row.cabinetRemainingFolderCount) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="可用性状态" width="120">
+            <template #default="{ row }">
+              <CopyableTableText :value="row.lastError || ''" :display="availabilityLabel(row.availabilityStatus)" :always="Boolean(row.lastError)">
+                <el-tag :type="availabilityTagType(row.availabilityStatus)">
+                  {{ availabilityLabel(row.availabilityStatus) }}
+                </el-tag>
+              </CopyableTableText>
+            </template>
+          </el-table-column>
+          <el-table-column label="启用状态" width="110">
+            <template #default="{ row }">
+              <el-tag :type="row.enabled ? 'success' : 'info'">
+                {{ row.enabled ? '启用' : '停用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="lastSyncedAt" label="同步时间" min-width="170" />
+          <el-table-column label="操作" width="230" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                :icon="Connection"
+                :loading="storeSyncingId === row.id"
+                link
+                type="primary"
+                @click="syncStore(row)"
+              >
+                商品同步
+              </el-button>
+              <el-button :icon="EditPen" link type="primary" @click="openStoreEditDialog(row)">
+                编辑
+              </el-button>
+              <el-button :icon="Delete" link type="danger" @click="removeStore(row)">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-row">
+          <el-pagination
+            v-model:current-page="storeCurrentPage"
+            v-model:page-size="storePageSize"
+            :page-sizes="storePageSizes"
+            :total="storeTotal"
+            :layout="storePaginationLayout"
+            @current-change="loadUserStores"
+            @size-change="handleStorePageSizeChange"
+          />
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-dialog
+      v-model="storeFormDialogOpen"
+      :title="storeEditingId ? '编辑店铺信息' : '新增店铺信息'"
+      width="760px"
+      append-to-body
+      destroy-on-close
+    >
+      <div class="dialog-form">
+        <el-input v-model="storeForm.aliasName" placeholder="店铺别称" />
+        <el-switch v-model="storeForm.enabled" active-text="启用" inactive-text="停用" />
+        <el-input v-model="storeForm.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
+        <el-input v-model="storeForm.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
+        <el-input v-model="storeForm.description" class="full-row" type="textarea" :rows="3" placeholder="店铺介绍" />
+      </div>
+      <template #footer>
+        <el-button @click="storeFormDialogOpen = false">取消</el-button>
+        <el-button type="primary" :loading="storeSaving" @click="saveStore">保存</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -293,11 +633,19 @@ function handlePageSizeChange() {
 }
 
 .page-head,
-.panel-head {
+.store-dialog-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .eyebrow {
@@ -307,8 +655,7 @@ function handlePageSizeChange() {
   font-weight: 800;
 }
 
-.page-head h1,
-.panel-head h2 {
+.page-head h1 {
   margin: 0;
   color: var(--text-main);
   font-weight: 800;
@@ -316,16 +663,6 @@ function handlePageSizeChange() {
 
 .page-head h1 {
   font-size: 26px;
-}
-
-.panel-head h2 {
-  font-size: 17px;
-}
-
-.panel-head p {
-  margin: 5px 0 0;
-  color: var(--text-soft);
-  font-size: 13px;
 }
 
 .work-panel {
@@ -336,16 +673,24 @@ function handlePageSizeChange() {
   padding: 18px;
 }
 
-.create-row {
+.store-dialog-stack {
   display: grid;
-  margin-top: 16px;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) max-content;
+  gap: 14px;
+}
+
+.dialog-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.permission-select,
+.full-row,
 .full-control {
   width: 100%;
+}
+
+.full-row {
+  grid-column: 1 / -1;
 }
 
 .permission-tags {
@@ -354,31 +699,19 @@ function handlePageSizeChange() {
   gap: 6px;
 }
 
-@media (max-width: 1120px) {
-  .create-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .create-row .el-button {
-    grid-column: 1 / -1;
-    justify-self: flex-end;
-  }
-}
-
 @media (max-width: 760px) {
-  .create-row {
-    grid-template-columns: 1fr;
-  }
-
-  .create-row .el-button {
-    grid-column: auto;
-    justify-self: stretch;
-  }
-
   .page-head,
-  .panel-head {
+  .store-dialog-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .head-actions {
+    justify-content: flex-start;
+  }
+
+  .dialog-form {
+    grid-template-columns: 1fr;
   }
 }
 </style>
