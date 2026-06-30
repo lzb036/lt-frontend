@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
@@ -15,6 +15,7 @@ const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const tasks = shallowRef<ListingTask[]>([])
 const selectedTasks = shallowRef<ListingTask[]>([])
+let progressTimer: number | undefined
 const {
   currentPage,
   pageSize,
@@ -29,17 +30,58 @@ onMounted(() => {
   void loadTasks()
 })
 
-async function loadTasks() {
-  loading.value = true
+onBeforeUnmount(() => {
+  stopProgressPolling()
+})
+
+watch(tasks, syncProgressPolling)
+
+async function loadTasks(options: { silent?: boolean } = {}) {
+  if (!options.silent) {
+    loading.value = true
+  }
   try {
     const result = await api.listListingTasksPage({ page: currentPage.value, pageSize: pageSize.value })
     tasks.value = result.items
     setPageResult(result)
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载上架任务失败'))
+    if (!options.silent) {
+      ElMessage.error(toApiErrorMessage(error, '加载上架任务失败'))
+    }
   } finally {
-    loading.value = false
+    if (!options.silent) {
+      loading.value = false
+    }
   }
+}
+
+function hasRunningTask() {
+  return tasks.value.some((task) => task.status === 'queued' || task.status === 'running')
+}
+
+function syncProgressPolling() {
+  if (hasRunningTask()) {
+    startProgressPolling()
+  } else {
+    stopProgressPolling()
+  }
+}
+
+function startProgressPolling() {
+  if (progressTimer) {
+    return
+  }
+  progressTimer = window.setInterval(() => {
+    void loadTasks({ silent: true })
+  }, 2000)
+}
+
+function stopProgressPolling() {
+  if (!progressTimer) {
+    return
+  }
+  window.clearInterval(progressTimer)
+  progressTimer = undefined
 }
 
 async function refreshTasks() {

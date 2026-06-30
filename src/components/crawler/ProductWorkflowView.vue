@@ -5,7 +5,7 @@ import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
+import type { ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -27,6 +27,7 @@ const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
 const hiddenProducts = shallowRef<Map<number, ProductItem>>(new Map())
+const optimisticProductSnapshots = shallowRef<Map<number, ProductItem>>(new Map())
 const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
 const listingProductIds = shallowRef<Set<number>>(new Set())
@@ -82,6 +83,7 @@ watch(
   () => {
     selectedIds.value = []
     hiddenProducts.value = new Map()
+    optimisticProductSnapshots.value = new Map()
     resetPage()
     void refreshAll()
   },
@@ -232,6 +234,79 @@ function removeVisibleProducts(productIds: number[]) {
   const beforeCount = products.value.length
   products.value = products.value.filter((product) => !ids.has(product.id))
   reduceTotal(beforeCount - products.value.length)
+}
+
+function rememberProductSnapshots(productIds: number[]) {
+  if (productIds.length < 1) {
+    return
+  }
+  const ids = new Set(productIds)
+  const nextSnapshots = new Map(optimisticProductSnapshots.value)
+  for (const product of products.value) {
+    if (ids.has(product.id) && !nextSnapshots.has(product.id)) {
+      nextSnapshots.set(product.id, { ...product })
+    }
+  }
+  optimisticProductSnapshots.value = nextSnapshots
+}
+
+function restoreProductSnapshots(productIds: number[]) {
+  if (productIds.length < 1 || optimisticProductSnapshots.value.size < 1) {
+    return
+  }
+  const ids = new Set(productIds)
+  const nextSnapshots = new Map(optimisticProductSnapshots.value)
+  const restoredProducts: ProductItem[] = []
+  for (const productId of ids) {
+    const snapshot = nextSnapshots.get(productId)
+    if (snapshot) {
+      restoredProducts.push(snapshot)
+      nextSnapshots.delete(productId)
+    }
+  }
+  if (restoredProducts.length > 0) {
+    const beforeCount = products.value.length
+    const restoredById = new Map(restoredProducts.map((product) => [product.id, product]))
+    const existingIds = new Set(products.value.map((product) => product.id))
+    const missingRestoredProducts = restoredProducts.filter((product) => !existingIds.has(product.id))
+    products.value = [
+      ...missingRestoredProducts,
+      ...products.value.map((product) => restoredById.get(product.id) || product),
+    ].filter(currentFiltersMatch)
+    if (products.value.length > beforeCount) {
+      total.value += products.value.length - beforeCount
+    }
+  }
+  optimisticProductSnapshots.value = nextSnapshots
+}
+
+function clearProductSnapshots(productIds: number[]) {
+  if (productIds.length < 1 || optimisticProductSnapshots.value.size < 1) {
+    return
+  }
+  const ids = new Set(productIds)
+  const nextSnapshots = new Map(optimisticProductSnapshots.value)
+  for (const productId of ids) {
+    nextSnapshots.delete(productId)
+  }
+  optimisticProductSnapshots.value = nextSnapshots
+}
+
+function applyOptimisticListingStatus(productIds: number[], listingStatus: RakutenListingStatus) {
+  if (productIds.length < 1) {
+    return
+  }
+  rememberProductSnapshots(productIds)
+  const ids = new Set(productIds)
+  const beforeCount = products.value.length
+  products.value = products.value
+    .map((product) => (ids.has(product.id) ? { ...product, rakutenListingStatus: listingStatus } : product))
+    .filter(currentFiltersMatch)
+  reduceTotal(beforeCount - products.value.length)
+  if (selectedProductDetail.value && ids.has(selectedProductDetail.value.id)) {
+    selectedProductDetail.value = { ...selectedProductDetail.value, rakutenListingStatus: listingStatus }
+  }
+  selectedIds.value = selectedIds.value.filter((productId) => !ids.has(productId))
 }
 
 function hideProducts(productIds: number[]) {
@@ -395,6 +470,7 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     ElMessage.warning('请先选择商品')
     return
   }
+  const shouldOptimisticHide = props.status === 'listed'
   try {
     const deleteMessage = props.status === 'listed'
       ? `确认删除选中的 ${productIds.length} 个店铺商品？该操作会同步删除乐天商品，并尝试删除商品关联的 R-Cabinet 图片。`
@@ -406,10 +482,13 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
       cancelButtonText: '取消',
       type: 'warning',
     })
+    if (shouldOptimisticHide) {
+      hideProducts(productIds)
+      clearSelection()
+    }
     operating.value = true
     const result = await api.deleteProducts(productIds)
     if (result.syncTask) {
-      hideProducts(productIds)
       ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || '批量删除任务已创建'))
       clearSelection()
       watchDeleteSyncTaskCompletion(result.syncTask.id, productIds)
@@ -421,13 +500,20 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
       ElMessage.success(result.summary.message)
     }
     mergeVisibleProducts(result.products || [])
-    removeVisibleProducts(result.deletedIds || [])
+    if (shouldOptimisticHide) {
+      clearHiddenProducts(result.deletedIds?.length ? result.deletedIds : productIds)
+    } else {
+      removeVisibleProducts(result.deletedIds || [])
+    }
     clearSelection()
     if (products.value.length < 1 && total.value > 0) {
       void refreshAll({ loadStores: false })
     }
   } catch (error) {
     if (error !== 'cancel') {
+      if (shouldOptimisticHide) {
+        restoreHiddenProducts(productIds)
+      }
       ElMessage.error(toApiErrorMessage(error, '删除商品失败'))
     }
   } finally {
@@ -448,10 +534,11 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
     ElMessage.warning('请先选择商品')
     return
   }
+  const productIds = [...selectedIds.value]
   const actionText = listingStatus === 'listed' ? '上架' : '下架'
   try {
     await ElMessageBox.confirm(
-      `确认将选中的 ${selectedIds.value.length} 个商品批量${actionText}？该操作会写入乐天 RMS。`,
+      `确认将选中的 ${productIds.length} 个商品批量${actionText}？该操作会写入乐天 RMS。`,
       `批量${actionText}`,
       {
         confirmButtonText: actionText,
@@ -459,15 +546,18 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
         type: listingStatus === 'listed' ? 'success' : 'warning',
       },
     )
+    applyOptimisticListingStatus(productIds, listingStatus)
+    clearSelection()
     operating.value = true
     const result = await api.updateProductsListingStatus({
-      productIds: selectedIds.value,
+      productIds,
       listingStatus,
     })
     ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || `批量${actionText}任务已创建`))
-    clearSelection()
+    watchListingStatusSyncTaskCompletion(result.syncTask.id, productIds, listingStatus)
   } catch (error) {
     if (error !== 'cancel') {
+      restoreProductSnapshots(productIds)
       ElMessage.error(toApiErrorMessage(error, `批量${actionText}失败`))
     }
   } finally {
@@ -489,8 +579,23 @@ async function createListingTask() {
     ElMessage.warning('请先选择上架店铺')
     return
   }
+  try {
+    await ElMessageBox.confirm(
+      `确认将选中的 ${productIds.length} 个商品创建上架任务？`,
+      '批量上架',
+      {
+        confirmButtonText: '上架',
+        cancelButtonText: '取消',
+        type: 'success',
+      },
+    )
+  } catch (error) {
+    return
+  }
   operating.value = true
   setListingProductsBusy(productIds, true)
+  hideProducts(productIds)
+  clearSelection()
   try {
     const result = await api.createListingTask({
       productIds,
@@ -498,9 +603,9 @@ async function createListingTask() {
       taskName: listingForm.taskName.trim(),
     })
     handleListingTaskResult(result.listingTask, productIds)
-    clearSelection()
     maybeRefreshAfterOptimisticAction()
   } catch (error) {
+    restoreHiddenProducts(productIds)
     ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
   } finally {
     setListingProductsBusy(productIds, false)
@@ -529,6 +634,8 @@ async function createListingTaskForProduct(product: ProductItem) {
     )
     operating.value = true
     setListingProductsBusy([product.id], true)
+    hideProducts([product.id])
+    clearSelection()
     const result = await api.createListingTask({
       productIds: [product.id],
       storeId: listingForm.storeId,
@@ -539,6 +646,7 @@ async function createListingTaskForProduct(product: ProductItem) {
     maybeRefreshAfterOptimisticAction()
   } catch (error) {
     if (error !== 'cancel') {
+      restoreHiddenProducts([product.id])
       ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
     }
   } finally {
@@ -570,6 +678,20 @@ function hasSelectedListingProductBusy() {
   return selectedIds.value.some((productId) => listingProductIds.value.has(productId))
 }
 
+function taskOutcomeIds(task: Pick<ListingTask | SyncTask, 'status' | 'successIds' | 'failedIds'>, productIds: number[]) {
+  if (task.status === 'success') {
+    return { successIds: task.successIds?.length ? task.successIds : productIds, failedIds: [] }
+  }
+  if (task.status === 'failed') {
+    return { successIds: [], failedIds: task.failedIds?.length ? task.failedIds : productIds }
+  }
+  const failedIdSet = new Set(task.failedIds || [])
+  const successIds = task.successIds?.length ? task.successIds : productIds.filter((productId) => !failedIdSet.has(productId))
+  const successIdSet = new Set(successIds)
+  const failedIds = task.failedIds?.length ? task.failedIds : productIds.filter((productId) => !successIdSet.has(productId))
+  return { successIds, failedIds }
+}
+
 function handleListingTaskResult(task: ListingTask, productIds: number[]) {
   if (task.status === 'success') {
     clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
@@ -578,8 +700,7 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
     return
   }
   if (task.status === 'partial') {
-    const successIds = task.successIds?.length ? task.successIds : productIds.filter((productId) => !(task.failedIds || []).includes(productId))
-    const failedIds = task.failedIds?.length ? task.failedIds : productIds.filter((productId) => !successIds.includes(productId))
+    const { successIds, failedIds } = taskOutcomeIds(task, productIds)
     clearHiddenProducts(successIds)
     restoreHiddenProducts(failedIds)
     ElMessage.warning(task.message || '上架任务部分成功，请到上架任务中查看异常信息')
@@ -661,6 +782,53 @@ function watchDeleteSyncTaskCompletion(taskId: string, productIds: number[]) {
   }, 2000)
 }
 
+function watchListingStatusSyncTaskCompletion(taskId: string, productIds: number[], listingStatus: RakutenListingStatus) {
+  if (!taskId || props.status !== 'listed') {
+    return
+  }
+  let attempts = 0
+  const timer = window.setInterval(async () => {
+    attempts += 1
+    try {
+      const tasks = await api.listSyncTasks()
+      const task = tasks.find((item) => item.id === taskId)
+      if (!task) {
+        return
+      }
+      if (['queued', 'running'].includes(task.status) && attempts < 60) {
+        return
+      }
+      window.clearInterval(timer)
+      handleListingStatusSyncTaskResult(task, productIds, listingStatus)
+    } catch {
+      if (attempts >= 3) {
+        window.clearInterval(timer)
+        restoreProductSnapshots(productIds)
+      }
+    }
+  }, 2000)
+}
+
+function handleListingStatusSyncTaskResult(task: SyncTask, productIds: number[], listingStatus: RakutenListingStatus) {
+  const actionText = listingStatus === 'listed' ? '上架' : '下架'
+  if (task.status === 'success') {
+    clearProductSnapshots(task.successIds?.length ? task.successIds : productIds)
+    ElMessage.success(task.message || `批量${actionText}已完成`)
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
+  if (task.status === 'partial') {
+    const { successIds, failedIds } = taskOutcomeIds(task, productIds)
+    clearProductSnapshots(successIds)
+    restoreProductSnapshots(failedIds)
+    ElMessage.warning(task.errorDetail || task.message || `批量${actionText}部分成功，请到同步任务中查看异常信息`)
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
+  restoreProductSnapshots(productIds)
+  ElMessage.error(task.errorDetail || task.message || `批量${actionText}失败，请到同步任务中查看错误信息`)
+}
+
 function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
   if (task.status === 'success') {
     clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
@@ -669,8 +837,7 @@ function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
     return
   }
   if (task.status === 'partial') {
-    const successIds = task.successIds?.length ? task.successIds : productIds.filter((productId) => !(task.failedIds || []).includes(productId))
-    const failedIds = task.failedIds?.length ? task.failedIds : productIds.filter((productId) => !successIds.includes(productId))
+    const { successIds, failedIds } = taskOutcomeIds(task, productIds)
     clearHiddenProducts(successIds)
     restoreHiddenProducts(failedIds)
     ElMessage.warning(task.errorDetail || task.message || '批量删除部分成功，请到同步任务中查看异常信息')

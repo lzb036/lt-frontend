@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Refresh, Search, View, VideoPlay } from '@element-plus/icons-vue'
 
@@ -21,6 +21,7 @@ const editingId = ref<number | null>(null)
 const tasks = shallowRef<CrawlTask[]>([])
 const schedules = shallowRef<ScheduledCrawl[]>([])
 const selectedTasks = shallowRef<CrawlTask[]>([])
+let progressTimer: number | undefined
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '实时', value: 'realtime' },
@@ -63,12 +64,20 @@ onMounted(() => {
   void refreshAll()
 })
 
+onBeforeUnmount(() => {
+  stopProgressPolling()
+})
+
+watch(tasks, syncProgressPolling)
+
 async function refreshAll() {
   await Promise.all([loadTasks(), loadSchedules()])
 }
 
-async function loadTasks() {
-  loading.value = true
+async function loadTasks(options: { silent?: boolean } = {}) {
+  if (!options.silent) {
+    loading.value = true
+  }
   try {
     const result = await api.listTasksPage({
       page: currentPage.value,
@@ -83,10 +92,43 @@ async function loadTasks() {
     tasks.value = result.items
     setPageResult(result)
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载定时采集记录失败'))
+    if (!options.silent) {
+      ElMessage.error(toApiErrorMessage(error, '加载定时采集记录失败'))
+    }
   } finally {
-    loading.value = false
+    if (!options.silent) {
+      loading.value = false
+    }
   }
+}
+
+function hasRunningTask() {
+  return tasks.value.some((task) => task.status === 'queued' || task.status === 'running')
+}
+
+function syncProgressPolling() {
+  if (hasRunningTask()) {
+    startProgressPolling()
+  } else {
+    stopProgressPolling()
+  }
+}
+
+function startProgressPolling() {
+  if (progressTimer) {
+    return
+  }
+  progressTimer = window.setInterval(() => {
+    void loadTasks({ silent: true })
+  }, 2000)
+}
+
+function stopProgressPolling() {
+  if (!progressTimer) {
+    return
+  }
+  window.clearInterval(progressTimer)
+  progressTimer = undefined
 }
 
 async function refreshTasks() {
@@ -317,6 +359,9 @@ function createdAtToValue() {
 }
 
 function taskResultText(row: CrawlTask) {
+  if (row.status === 'queued' || row.status === 'running') {
+    return `总 ${row.totalCount || 0}`
+  }
   return `总 ${row.totalCount || 0} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
 }
 
