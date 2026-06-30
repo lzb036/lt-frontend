@@ -296,6 +296,8 @@ export interface ListingTask {
   successCount: number
   failedCount: number
   productIds: number[]
+  successIds?: number[]
+  failedIds?: number[]
   message: string
   errorDetail?: string | null
   startedAt?: string | null
@@ -315,6 +317,9 @@ export interface SyncTask {
   totalCount: number
   successCount: number
   failedCount: number
+  payload?: Record<string, unknown>
+  successIds?: number[]
+  failedIds?: number[]
   message: string
   errorDetail?: string | null
   startedAt?: string | null

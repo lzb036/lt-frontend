@@ -26,6 +26,7 @@ const imageFileInputRef = ref<HTMLInputElement | null>(null)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
+const hiddenProducts = shallowRef<Map<number, ProductItem>>(new Map())
 const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
 const listingProductIds = shallowRef<Set<number>>(new Set())
@@ -65,6 +66,13 @@ const statusCopy = computed(() => {
   return map[props.status]
 })
 
+const visibleProducts = computed(() => {
+  if (!['approved', 'listed'].includes(props.status) || hiddenProducts.value.size < 1) {
+    return products.value
+  }
+  return products.value.filter((product) => !hiddenProducts.value.has(product.id))
+})
+
 onMounted(() => {
   void refreshAll()
 })
@@ -73,6 +81,7 @@ watch(
   () => props.status,
   () => {
     selectedIds.value = []
+    hiddenProducts.value = new Map()
     resetPage()
     void refreshAll()
   },
@@ -112,12 +121,27 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       pageSize: pageSize.value,
     })
     products.value = result.items
+    reconcileHiddenProducts(result.items)
     setPageResult(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载商品失败'))
   } finally {
     loading.value = false
   }
+}
+
+function reconcileHiddenProducts(nextProducts: ProductItem[]) {
+  if (hiddenProducts.value.size < 1) {
+    return
+  }
+  const nextIds = new Set(nextProducts.map((product) => product.id))
+  const nextHidden = new Map(hiddenProducts.value)
+  for (const productId of nextHidden.keys()) {
+    if (!nextIds.has(productId)) {
+      nextHidden.delete(productId)
+    }
+  }
+  hiddenProducts.value = nextHidden
 }
 
 function resetFilters() {
@@ -205,8 +229,44 @@ function removeVisibleProducts(productIds: number[]) {
     return
   }
   const ids = new Set(productIds)
+  const beforeCount = products.value.length
   products.value = products.value.filter((product) => !ids.has(product.id))
-  reduceTotal(ids.size)
+  reduceTotal(beforeCount - products.value.length)
+}
+
+function hideProducts(productIds: number[]) {
+  if (!['approved', 'listed'].includes(props.status) || productIds.length < 1) {
+    return
+  }
+  const ids = new Set(productIds)
+  const nextHidden = new Map(hiddenProducts.value)
+  for (const product of products.value) {
+    if (ids.has(product.id)) {
+      nextHidden.set(product.id, product)
+    }
+  }
+  hiddenProducts.value = nextHidden
+  selectedIds.value = selectedIds.value.filter((productId) => !ids.has(productId))
+}
+
+function restoreHiddenProducts(productIds: number[]) {
+  if (productIds.length < 1 || hiddenProducts.value.size < 1) {
+    return
+  }
+  const ids = new Set(productIds)
+  const nextHidden = new Map(hiddenProducts.value)
+  for (const productId of ids) {
+    nextHidden.delete(productId)
+  }
+  hiddenProducts.value = nextHidden
+}
+
+function clearHiddenProducts(productIds: number[]) {
+  if (productIds.length < 1 || hiddenProducts.value.size < 1) {
+    return
+  }
+  restoreHiddenProducts(productIds)
+  removeVisibleProducts(productIds)
 }
 
 function productDisplayName(product: ProductItem) {
@@ -349,8 +409,10 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     operating.value = true
     const result = await api.deleteProducts(productIds)
     if (result.syncTask) {
+      hideProducts(productIds)
       ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || '批量删除任务已创建'))
       clearSelection()
+      watchDeleteSyncTaskCompletion(result.syncTask.id, productIds)
       return
     }
     if (result.summary.failedCount > 0) {
@@ -437,9 +499,7 @@ async function createListingTask() {
     })
     handleListingTaskResult(result.listingTask, productIds)
     clearSelection()
-    if (products.value.length < 1 && total.value > 0) {
-      void refreshAll({ loadStores: false })
-    }
+    maybeRefreshAfterOptimisticAction()
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
   } finally {
@@ -476,9 +536,7 @@ async function createListingTaskForProduct(product: ProductItem) {
     })
     handleListingTaskResult(result.listingTask, [product.id])
     clearSelection()
-    if (products.value.length < 1 && total.value > 0) {
-      void refreshAll({ loadStores: false })
-    }
+    maybeRefreshAfterOptimisticAction()
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
@@ -514,25 +572,31 @@ function hasSelectedListingProductBusy() {
 
 function handleListingTaskResult(task: ListingTask, productIds: number[]) {
   if (task.status === 'success') {
-    removeVisibleProducts(productIds)
+    clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
     ElMessage.success(task.message || '上架任务已完成')
+    maybeRefreshAfterOptimisticAction()
     return
   }
   if (task.status === 'partial') {
+    const successIds = task.successIds?.length ? task.successIds : productIds.filter((productId) => !(task.failedIds || []).includes(productId))
+    const failedIds = task.failedIds?.length ? task.failedIds : productIds.filter((productId) => !successIds.includes(productId))
+    clearHiddenProducts(successIds)
+    restoreHiddenProducts(failedIds)
     ElMessage.warning(task.message || '上架任务部分成功，请到上架任务中查看异常信息')
-    removeVisibleProducts(productIds)
+    maybeRefreshAfterOptimisticAction()
     return
   }
   if (task.status === 'failed') {
+    restoreHiddenProducts(productIds)
     ElMessage.error(task.errorDetail || task.message || '上架任务执行失败，请到上架任务中查看错误信息')
     return
   }
-  removeVisibleProducts(productIds)
-  watchListingTaskCompletion(task.id)
+  hideProducts(productIds)
+  watchListingTaskCompletion(task.id, productIds)
   ElMessage.success('上架任务已创建，请到上架任务中查看进度')
 }
 
-function watchListingTaskCompletion(taskId: string) {
+function watchListingTaskCompletion(taskId: string, productIds: number[]) {
   if (!taskId || props.status !== 'approved') {
     return
   }
@@ -542,13 +606,22 @@ function watchListingTaskCompletion(taskId: string) {
     try {
       const tasks = await api.listListingTasks()
       const task = tasks.find((item) => item.id === taskId)
-      if (!task || !['queued', 'running'].includes(task.status) || attempts >= 30) {
-        window.clearInterval(timer)
+      if (!task) {
+        return
+      }
+      if (['queued', 'running'].includes(task.status) && attempts < 60) {
+        return
+      }
+      window.clearInterval(timer)
+      if (['queued', 'running'].includes(task.status)) {
         await refreshAll({ loadStores: false })
+      } else {
+        handleListingTaskResult(task, productIds)
       }
     } catch {
       if (attempts >= 3) {
         window.clearInterval(timer)
+        restoreHiddenProducts(productIds)
       }
     }
   }, 2000)
@@ -559,6 +632,59 @@ function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
     return fallback
   }
   return `${fallback}，请到同步任务中查看进度`
+}
+
+function watchDeleteSyncTaskCompletion(taskId: string, productIds: number[]) {
+  if (!taskId || props.status !== 'listed') {
+    return
+  }
+  let attempts = 0
+  const timer = window.setInterval(async () => {
+    attempts += 1
+    try {
+      const tasks = await api.listSyncTasks()
+      const task = tasks.find((item) => item.id === taskId)
+      if (!task) {
+        return
+      }
+      if (['queued', 'running'].includes(task.status) && attempts < 60) {
+        return
+      }
+      window.clearInterval(timer)
+      handleDeleteSyncTaskResult(task, productIds)
+    } catch {
+      if (attempts >= 3) {
+        window.clearInterval(timer)
+        restoreHiddenProducts(productIds)
+      }
+    }
+  }, 2000)
+}
+
+function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
+  if (task.status === 'success') {
+    clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
+    ElMessage.success(task.message || '批量删除已完成')
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
+  if (task.status === 'partial') {
+    const successIds = task.successIds?.length ? task.successIds : productIds.filter((productId) => !(task.failedIds || []).includes(productId))
+    const failedIds = task.failedIds?.length ? task.failedIds : productIds.filter((productId) => !successIds.includes(productId))
+    clearHiddenProducts(successIds)
+    restoreHiddenProducts(failedIds)
+    ElMessage.warning(task.errorDetail || task.message || '批量删除部分成功，请到同步任务中查看异常信息')
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
+  restoreHiddenProducts(productIds)
+  ElMessage.error(task.errorDetail || task.message || '批量删除失败，请到同步任务中查看错误信息')
+}
+
+function maybeRefreshAfterOptimisticAction() {
+  if (visibleProducts.value.length < 1 && total.value > 0) {
+    void refreshAll({ loadStores: false })
+  }
 }
 
 function priceText(product: ProductItem) {
@@ -998,7 +1124,7 @@ function sanitizedDescriptionHtml(value: string) {
       <el-table
         ref="productTableRef"
         v-loading="loading"
-        :data="products"
+        :data="visibleProducts"
         :empty-text="statusCopy.empty"
         height="620"
         @selection-change="handleSelectionChange"
@@ -1233,7 +1359,8 @@ function sanitizedDescriptionHtml(value: string) {
               <div class="description-list">
                 <div v-for="description in selectedProductDetail.detail.descriptions" :key="description.label" class="description-item">
                   <strong>{{ description.label === '商品说明' ? '商品详情说明' : description.label }}</strong>
-                  <div class="description-html" v-html="sanitizedDescriptionHtml(description.value)" />
+                  <div v-if="description.value" class="description-html" v-html="sanitizedDescriptionHtml(description.value)" />
+                  <div v-else class="description-empty">暂无内容</div>
                 </div>
                 <el-empty v-if="selectedProductDetail.detail.descriptions.length < 1" description="暂无商品详情说明" />
               </div>
@@ -1587,6 +1714,12 @@ function sanitizedDescriptionHtml(value: string) {
   color: var(--text-muted);
   line-height: 1.7;
   overflow: auto;
+}
+
+.description-empty {
+  color: var(--text-subtle);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 .description-html :deep(img),
