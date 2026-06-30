@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { AuthSession, AvailabilityStatus, StoreAccount, StorePayload, UserAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { confirmStoreDeletion } from '../../utils/confirmStoreDeletion'
 import CopyableTableText from './CopyableTableText.vue'
 
 const props = defineProps<{
@@ -329,16 +330,15 @@ async function removeStore(row: StoreAccount) {
     return
   }
   try {
-    await ElMessageBox.confirm(`确认删除店铺「${row.storeName || row.aliasName}」？`, '删除店铺', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
+    await confirmStoreDeletion({
+      storeName: row.storeName || row.aliasName || row.storeCode,
+      ownerLabel: managedStoreTitle.value,
     })
     await api.deleteStore(row.id, managedStoreUser.value.username)
     await loadUserStores()
     ElMessage.success('店铺已删除')
   } catch (error) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && error !== 'close') {
       ElMessage.error(toApiErrorMessage(error, '删除店铺失败'))
     }
   }

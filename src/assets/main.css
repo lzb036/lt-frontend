@@ -925,6 +925,65 @@ a {
   border-radius: var(--radius-sm);
 }
 
+.store-delete-confirm {
+  display: grid;
+  gap: 12px;
+  color: var(--text-main);
+}
+
+.store-delete-confirm p {
+  margin: 0;
+}
+
+.store-delete-confirm__warning {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.store-delete-confirm__meta,
+.store-delete-confirm__desc {
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.store-delete-confirm__desc {
+  border: 1px solid color-mix(in srgb, var(--danger), transparent 70%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger), transparent 92%);
+  padding: 10px 12px;
+  color: color-mix(in srgb, var(--danger), var(--text-main) 28%);
+}
+
+.store-delete-confirm__captcha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  align-items: center;
+  gap: 12px;
+}
+
+.store-delete-confirm__code {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent), white 78%), var(--panel-bg)),
+    repeating-linear-gradient(-15deg, transparent 0, transparent 6px, color-mix(in srgb, var(--accent), transparent 88%) 6px, color-mix(in srgb, var(--accent), transparent 88%) 8px);
+  color: var(--accent-active);
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.store-delete-confirm__code:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
 .el-dialog {
   border-radius: var(--radius-md);
   background: var(--panel-bg);
@@ -1018,5 +1077,9 @@ a {
   .pagination-row {
     justify-content: flex-start;
     overflow-x: auto;
+  }
+
+  .store-delete-confirm__captcha {
+    grid-template-columns: 1fr;
   }
 }
