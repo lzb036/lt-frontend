@@ -7,6 +7,7 @@ export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
 export type RankingPeriod = 'realtime' | 'daily' | 'weekly' | 'monthly'
+export type CrawlLimit = 'all' | number
 
 export interface PageParams {
   page: number
@@ -198,6 +199,11 @@ export interface ProductDetailEditPayload {
   title: string
   tagline: string
   variants: ProductVariantEditPayload[]
+  imageChanges?: {
+    images: string[]
+    replacements: Array<{ from: string; to: string }>
+    removeUrls: string[]
+  }
 }
 
 export interface ProductVariantSelector {
@@ -374,6 +380,8 @@ export interface CreateTaskPayload {
   sourceId?: number | null
   sourceType?: SourceType | null
   target?: string | null
+  rankingPeriod?: RankingPeriod | null
+  crawlLimit?: CrawlLimit | null
   mode?: string
 }
 
@@ -395,6 +403,7 @@ export interface ScheduledCrawlPayload {
   sourceType: SourceType
   target: string
   rankingPeriod: RankingPeriod
+  crawlLimit?: CrawlLimit | null
   enabled: boolean
   intervalMinutes: number
   scheduleTime: string

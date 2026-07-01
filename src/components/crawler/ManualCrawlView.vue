@@ -5,7 +5,7 @@ import { Delete, Plus, QuestionFilled, Refresh, Search, VideoPlay } from '@eleme
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
+import type { CrawlLimit, CrawlTask, CreateTaskPayload, SourceType } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
@@ -31,6 +31,9 @@ const form = reactive({
   target: '',
   targets: [''],
   rankingPeriod: 'daily' as RankingPeriod,
+  crawlLimit: 'all' as CrawlLimit,
+  crawlLimitMode: 'all' as 'all' | 'custom',
+  crawlLimitCount: 30,
 })
 
 const {
@@ -69,6 +72,7 @@ const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
 
 const productTargetError = '单个商品采集支持普通乐天商品链接、Rakuten Fashion 商品链接、带参数链接、店铺编码/商品编号。'
 const shopTargetError = '店铺采集请输入店铺展示名称、店铺url代码、店铺url或sid。'
+const shopTargetPlaceholder = '请输入店铺展示名称、url代码、url或sid'
 
 onMounted(() => {
   void loadTasks()
@@ -165,6 +169,8 @@ async function createTask() {
     const payload: CreateTaskPayload = {
       sourceType: form.sourceType,
       target: buildCreateTarget(normalizedTarget),
+      rankingPeriod: form.sourceType === 'shop' ? form.rankingPeriod : null,
+      crawlLimit: form.sourceType === 'shop' ? currentCrawlLimit() : null,
       mode: 'manual',
     }
     await api.createTask(payload)
@@ -230,12 +236,18 @@ function resetCreateForm() {
   form.target = ''
   form.targets = ['']
   form.rankingPeriod = 'daily'
+  form.crawlLimit = 'all'
+  form.crawlLimitMode = 'all'
+  form.crawlLimitCount = 30
 }
 
 function handleSourceTypeChange() {
   form.target = ''
   form.targets = ['']
   form.rankingPeriod = 'daily'
+  form.crawlLimit = 'all'
+  form.crawlLimitMode = 'all'
+  form.crawlLimitCount = 30
 }
 
 function addProductInput() {
@@ -256,7 +268,7 @@ function normalizeCreateTarget() {
 
 function buildShopTarget(keyword: string) {
   const periodLabel = rankingPeriodOptions.find((item) => item.value === form.rankingPeriod)?.label || '日榜'
-  return `店铺:${keyword} ${periodLabel} 全部`
+  return `店铺:${keyword} ${periodLabel} ${crawlLimitLabel(currentCrawlLimit())}`
 }
 
 function buildCreateTarget(target: string) {
@@ -264,6 +276,14 @@ function buildCreateTarget(target: string) {
     return buildShopTarget(normalizeRakutenShopTarget(target))
   }
   return target
+}
+
+function crawlLimitLabel(value: CrawlLimit | null | undefined) {
+  return value === 'all' || value === null || value === undefined ? '全部' : `前 ${value}`
+}
+
+function currentCrawlLimit(): CrawlLimit {
+  return form.crawlLimitMode === 'all' ? 'all' : Math.max(1, Math.floor(Number(form.crawlLimitCount || 1)))
 }
 
 function parseRakutenShopTarget(value: string) {
@@ -436,13 +456,42 @@ function sourceTypeLabel(value: SourceType) {
 }
 
 function taskResultText(row: CrawlTask) {
-  if (row.status === 'queued' || row.status === 'running') {
-    return `总 ${row.totalCount || 0}`
+  if (effectiveTaskStatus(row) === 'queued' || effectiveTaskStatus(row) === 'running') {
+    return `总 ${taskTotalText(row, true)}`
   }
-  return `总 ${row.totalCount || 0} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
+  return `总 ${taskTotalText(row)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
 }
 
-function statusLabel(status: string) {
+function taskTotalText(row: CrawlTask, pending = false) {
+  const total = Number(row.totalCount || 0)
+  return total > 0 ? String(total) : pending ? '待获取' : '0'
+}
+
+function effectiveTaskStatus(row: CrawlTask) {
+  const status = row.status
+  if (status === 'queued' || status === 'running') {
+    return status
+  }
+  const total = Math.max(0, Number(row.totalCount || 0))
+  const success = Math.max(0, Number(row.successCount || 0))
+  const failed = Math.max(0, Number(row.failedCount || 0))
+  if (total > 0 && failed >= total && success === 0) {
+    return 'failed'
+  }
+  if (success > 0 && failed > 0) {
+    return 'partial'
+  }
+  if (failed > 0 && success === 0) {
+    return 'failed'
+  }
+  if (success > 0 && failed === 0) {
+    return 'success'
+  }
+  return status
+}
+
+function statusLabel(row: CrawlTask) {
+  const status = effectiveTaskStatus(row)
   const labels: Record<string, string> = {
     queued: '待执行',
     running: '采集中',
@@ -453,7 +502,8 @@ function statusLabel(status: string) {
   return labels[status] || status
 }
 
-function statusType(status: string) {
+function statusType(row: CrawlTask) {
+  const status = effectiveTaskStatus(row)
   if (status === 'success') {
     return 'success'
   }
@@ -538,8 +588,8 @@ function statusType(status: string) {
         </el-table-column>
         <el-table-column label="采集状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">
-              {{ statusLabel(row.status) }}
+            <el-tag :type="statusType(row)">
+              {{ statusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -603,7 +653,7 @@ function statusType(status: string) {
           <el-input
             v-model="form.target"
             :prefix-icon="Search"
-            placeholder="请输入店铺展示名称、url代码、url或sid"
+            :placeholder="shopTargetPlaceholder"
             @keydown.enter="createTask"
           />
         </el-form-item>
@@ -611,6 +661,23 @@ function statusType(status: string) {
           <el-select v-model="form.rankingPeriod" class="full-control" placeholder="选择榜单时间">
             <el-option v-for="item in rankingPeriodOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+        </el-form-item>
+        <el-form-item v-if="form.sourceType === 'shop'" label="采集数量">
+          <div class="crawl-limit-control">
+            <el-radio-group v-model="form.crawlLimitMode">
+              <el-radio-button label="all">全部</el-radio-button>
+              <el-radio-button label="custom">指定数量</el-radio-button>
+            </el-radio-group>
+            <el-input-number
+              v-if="form.crawlLimitMode === 'custom'"
+              v-model="form.crawlLimitCount"
+              class="crawl-limit-input"
+              :min="1"
+              :max="99999"
+              :step="10"
+              controls-position="right"
+            />
+          </div>
         </el-form-item>
         <el-form-item v-if="form.sourceType === 'product_url'">
           <template #label>
@@ -741,6 +808,18 @@ function statusType(status: string) {
 
 .full-control {
   width: 100%;
+}
+
+.crawl-limit-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.crawl-limit-input {
+  width: 180px;
 }
 
 .product-input-stack {

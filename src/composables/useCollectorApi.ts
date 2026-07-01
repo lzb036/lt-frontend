@@ -236,20 +236,15 @@ export function useCollectorApi() {
     return response.data.product
   }
 
-  async function replaceProductImage(productId: number, imageIndex: number, file: File) {
+  async function uploadProductImageDraft(productId: number, file: File) {
     const formData = new FormData()
     formData.append('file', file)
-    const response = await apiClient.post<{ product: ProductDetail }>(
-      `/crawler/products/${productId}/images/${imageIndex}/replace`,
+    const response = await apiClient.post<{ url: string }>(
+      `/crawler/products/${productId}/images/draft`,
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } },
     )
-    return response.data.product
-  }
-
-  async function deleteProductImage(productId: number, imageIndex: number) {
-    const response = await apiClient.delete<{ product: ProductDetail }>(`/crawler/products/${productId}/images/${imageIndex}`)
-    return response.data.product
+    return response.data
   }
 
   function productImageDownloadUrl(productId: number, imageIndex: number) {
@@ -465,8 +460,7 @@ export function useCollectorApi() {
     updateProductPrice,
     updateProductDetail,
     updateProductLocalDetail,
-    replaceProductImage,
-    deleteProductImage,
+    uploadProductImageDraft,
     productImageDownloadUrl,
     updateProductsListingStatus,
     updateStoreListingStatus,

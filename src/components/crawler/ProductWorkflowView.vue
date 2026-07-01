@@ -9,6 +9,16 @@ import type { ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVa
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
+type PendingImageOperation =
+  | { type: 'replace'; sourceUrl: string; file: File; previewUrl: string }
+  | { type: 'delete'; sourceUrl: string }
+
+interface ImageDraftItem {
+  sourceIndex: number
+  sourceUrl: string
+  currentUrl: string
+}
+
 const props = defineProps<{
   status: ReviewStatus
   title: string
@@ -31,6 +41,9 @@ const optimisticProductSnapshots = shallowRef<Map<number, ProductItem>>(new Map(
 const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
 const listingProductIds = shallowRef<Set<number>>(new Set())
+const detailImageDraft = shallowRef<ImageDraftItem[]>([])
+const draftPreviewUrls = shallowRef<Set<string>>(new Set())
+const pendingImageOperations = shallowRef<PendingImageOperation[]>([])
 const detailForm = reactive({
   productId: null as number | null,
   title: '',
@@ -86,6 +99,15 @@ watch(
     optimisticProductSnapshots.value = new Map()
     resetPage()
     void refreshAll()
+  },
+)
+
+watch(
+  () => detailVisible.value,
+  (visible) => {
+    if (!visible) {
+      resetImageDraft()
+    }
   },
 )
 
@@ -475,8 +497,8 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     const deleteMessage = props.status === 'listed'
       ? `确认删除选中的 ${productIds.length} 个店铺商品？该操作会同步删除乐天商品，并尝试删除商品关联的 R-Cabinet 图片。`
       : product
-        ? `确认删除商品「${productDisplayName(product)}」？该操作只删除本地数据库记录。`
-        : `确认批量删除选中的 ${productIds.length} 个商品？该操作只删除本地数据库记录。`
+        ? `确认删除商品「${productDisplayName(product)}」？该操作会删除本地数据库记录和本地图片文件。`
+        : `确认批量删除选中的 ${productIds.length} 个商品？该操作会删除本地数据库记录和本地图片文件。`
     await ElMessageBox.confirm(deleteMessage, '删除商品', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
@@ -898,10 +920,12 @@ async function openProductDetail(product: ProductItem) {
   detailLoading.value = true
   selectedProductDetail.value = null
   resetDetailForm()
+  resetImageDraft()
   try {
     const detail = await api.getProductDetail(product.id)
     selectedProductDetail.value = detail
     fillDetailForm(detail)
+    fillImageDraft(detail)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载商品详情失败'))
     detailVisible.value = false
@@ -917,6 +941,20 @@ function resetDetailForm() {
   detailForm.variants = []
 }
 
+function clearDraftPreviewUrls() {
+  for (const url of draftPreviewUrls.value) {
+    URL.revokeObjectURL(url)
+  }
+  draftPreviewUrls.value = new Set()
+}
+
+function resetImageDraft() {
+  clearDraftPreviewUrls()
+  detailImageDraft.value = []
+  pendingImageOperations.value = []
+  replacingImageIndex.value = null
+}
+
 function fillDetailForm(product: ProductDetail) {
   detailForm.productId = product.id
   detailForm.title = product.detail.title || product.title || ''
@@ -928,6 +966,10 @@ function fillDetailForm(product: ProductDetail) {
   }))
 }
 
+function fillImageDraft(product: ProductDetail) {
+  detailImageDraft.value = detailImageUrlsFromProduct(product).map((url, index) => ({ sourceIndex: index, sourceUrl: url, currentUrl: url }))
+}
+
 function detailVariantForm(variant: ProductVariant) {
   return detailForm.variants.find((item) => item.variantId === variant.variantId)
 }
@@ -937,7 +979,7 @@ function detailEditable() {
 }
 
 function imageEditable() {
-  return props.status === 'pending' || props.status === 'approved'
+  return props.status === 'pending'
 }
 
 function detailSaveButtonText() {
@@ -970,16 +1012,20 @@ async function submitDetailChange() {
   }
   detailSaving.value = true
   try {
+    const imageChanges = props.status === 'pending' ? await buildPendingImagePayload() : undefined
     const payload = {
       title: detailForm.title.trim(),
       tagline: detailForm.tagline.trim(),
       variants,
+      imageChanges,
     }
     const product = props.status === 'listed'
       ? await api.updateProductDetail(detailForm.productId, payload)
       : await api.updateProductLocalDetail(detailForm.productId, payload)
     selectedProductDetail.value = product
     fillDetailForm(product)
+    resetImageDraft()
+    fillImageDraft(product)
     products.value = products.value.map((item) => (item.id === product.id ? product : item))
     ElMessage.success(props.status === 'listed' ? '商品详情已同步到乐天' : '商品详情已保存')
   } catch (error) {
@@ -1009,7 +1055,7 @@ function variantSelectorText(variant: ProductVariant) {
   return values.join(' ')
 }
 
-function detailImageUrls(product: ProductDetail | null) {
+function detailImageUrlsFromProduct(product: ProductDetail | null) {
   if (!product) {
     return []
   }
@@ -1020,12 +1066,62 @@ function detailImageUrls(product: ProductDetail | null) {
   return urls
 }
 
+function detailImageUrls(product: ProductDetail | null) {
+  if (imageEditable()) {
+    return detailImageDraft.value.map((image) => image.currentUrl)
+  }
+  return detailImageUrlsFromProduct(product)
+}
+
+function appendPendingImageOperation(operation: PendingImageOperation) {
+  const nextOperations = pendingImageOperations.value.filter((item) => item.sourceUrl !== operation.sourceUrl)
+  nextOperations.push(operation)
+  pendingImageOperations.value = nextOperations
+}
+
+async function buildPendingImagePayload() {
+  if (pendingImageOperations.value.length < 1) {
+    return undefined
+  }
+  const replaceMap: Record<string, string> = {}
+  for (const operation of pendingImageOperations.value) {
+    if (operation.type === 'replace') {
+      const draft = await api.uploadProductImageDraft(detailForm.productId!, operation.file)
+      replaceMap[operation.previewUrl] = draft.url
+      replaceMap[operation.sourceUrl] = draft.url
+    }
+  }
+  const images = detailImageDraft.value
+    .map((image) => replaceMap[image.currentUrl] || image.currentUrl)
+    .filter(Boolean)
+  const sourceUrls = new Set(detailImageUrlsFromProduct(selectedProductDetail.value))
+  const currentSourceUrls = new Set(detailImageDraft.value.map((image) => image.sourceUrl))
+  const removeUrls = [...sourceUrls].filter((url) => !currentSourceUrls.has(url))
+  const replacements = pendingImageOperations.value
+    .filter((operation): operation is Extract<PendingImageOperation, { type: 'replace' }> => operation.type === 'replace')
+    .map((operation) => ({ from: operation.sourceUrl, to: replaceMap[operation.sourceUrl] || '' }))
+    .filter((operation) => operation.to)
+  return { images, replacements, removeUrls }
+}
+
 function productPageUrl(product: ProductDetail) {
   return product.detail.rakutenItemUrl || product.rakutenItemUrl || product.detail.sourceUrl || product.sourceUrl
 }
 
 function downloadProductImage(index: number) {
   if (!selectedProductDetail.value) {
+    return
+  }
+  if (imageEditable()) {
+    const image = detailImageDraft.value[index]
+    if (!image) {
+      return
+    }
+    if (image.currentUrl.startsWith('blob:')) {
+      window.open(image.currentUrl, '_blank', 'noopener')
+      return
+    }
+    window.open(api.productImageDownloadUrl(selectedProductDetail.value.id, image.sourceIndex), '_blank', 'noopener')
     return
   }
   window.open(api.productImageDownloadUrl(selectedProductDetail.value.id, index), '_blank', 'noopener')
@@ -1045,21 +1141,27 @@ function triggerReplaceImage(index: number) {
 async function handleReplaceImage(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
-  const productId = selectedProductDetail.value?.id
   const imageIndex = replacingImageIndex.value
-  if (!file || !productId || imageIndex == null) {
+  if (!file || imageIndex == null) {
     return
   }
-  imageOperating.value = true
   try {
-    const product = await api.replaceProductImage(productId, imageIndex, file)
-    selectedProductDetail.value = product
-    products.value = products.value.map((item) => (item.id === product.id ? product : item))
-    ElMessage.success('图片已替换')
+    const image = detailImageDraft.value[imageIndex]
+    if (!image) {
+      ElMessage.warning('图片不存在')
+      return
+    }
+    const previewUrl = URL.createObjectURL(file)
+    const nextPreviewUrls = new Set(draftPreviewUrls.value)
+    nextPreviewUrls.add(previewUrl)
+    draftPreviewUrls.value = nextPreviewUrls
+    appendPendingImageOperation({ type: 'replace', sourceUrl: image.sourceUrl, file, previewUrl })
+    detailImageDraft.value = detailImageDraft.value.map((item, index) => (
+      index === imageIndex ? { ...item, currentUrl: previewUrl } : item
+    ))
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '替换图片失败'))
   } finally {
-    imageOperating.value = false
     replacingImageIndex.value = null
     input.value = ''
   }
@@ -1070,16 +1172,18 @@ async function deleteDetailImage(index: number) {
     return
   }
   try {
-    await ElMessageBox.confirm('确认删除这张商品图片？该操作只会先修改本地待上架商品数据。', '删除图片', {
+    await ElMessageBox.confirm('确认删除这张商品图片？点击保存后才会生效。', '删除图片', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     })
-    imageOperating.value = true
-    const product = await api.deleteProductImage(selectedProductDetail.value.id, index)
-    selectedProductDetail.value = product
-    products.value = products.value.map((item) => (item.id === product.id ? product : item))
-    ElMessage.success('图片已删除')
+    const image = detailImageDraft.value[index]
+    if (!image) {
+      ElMessage.warning('图片不存在')
+      return
+    }
+    appendPendingImageOperation({ type: 'delete', sourceUrl: image.sourceUrl })
+    detailImageDraft.value = detailImageDraft.value.filter((_, itemIndex) => itemIndex !== index)
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '删除图片失败'))

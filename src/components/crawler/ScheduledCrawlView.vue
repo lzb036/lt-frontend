@@ -5,7 +5,7 @@ import { Delete, Edit, Plus, Refresh, Search, View, VideoPlay } from '@element-p
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { CrawlTask, RankingPeriod, ScheduledCrawl, ScheduledCrawlPayload } from '../../types/crawler'
+import type { CrawlLimit, CrawlTask, RankingPeriod, ScheduledCrawl, ScheduledCrawlPayload } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
@@ -44,10 +44,16 @@ const form = reactive<ScheduledCrawlPayload>({
   sourceType: 'shop',
   target: '',
   rankingPeriod: 'daily',
+  crawlLimit: 'all',
   enabled: true,
   intervalMinutes: 1440,
   scheduleTime: '09:00',
   notes: '',
+})
+
+const crawlLimitForm = reactive({
+  mode: 'all' as 'all' | 'custom',
+  count: 30,
 })
 
 const {
@@ -161,6 +167,9 @@ function resetForm() {
   form.sourceType = 'shop'
   form.target = ''
   form.rankingPeriod = 'daily'
+  form.crawlLimit = 'all'
+  crawlLimitForm.mode = 'all'
+  crawlLimitForm.count = 30
   form.enabled = true
   form.intervalMinutes = 1440
   form.scheduleTime = '09:00'
@@ -186,6 +195,8 @@ function openEditDialog(row: ScheduledCrawl) {
   form.sourceType = 'shop'
   form.target = row.crawlContent || normalizeScheduleTarget(row.target)
   form.rankingPeriod = rankingPeriodFromTarget(row.target)
+  form.crawlLimit = crawlLimitFromTarget(row.target)
+  setCrawlLimitForm(form.crawlLimit)
   form.enabled = row.enabled
   form.intervalMinutes = 1440
   form.scheduleTime = row.scheduleTime || '09:00'
@@ -194,7 +205,7 @@ function openEditDialog(row: ScheduledCrawl) {
 }
 
 function normalizeScheduleTarget(value: string) {
-  return String(value || '').replace(/^店铺[:：]/, '').replace(/\s+(实时|日榜|周榜|月榜)\s+全部$/, '').trim()
+  return String(value || '').replace(/^店铺[:：]/, '').replace(/\s+(实时|日榜|周榜|月榜)(?:\s+(?:全部|全量|前\s*[0-9]{1,3}))?$/, '').trim()
 }
 
 function rankingPeriodFromTarget(value: string): RankingPeriod {
@@ -215,6 +226,36 @@ function rankingPeriodLabel(value: RankingPeriod) {
   return rankingPeriodOptions.find((item) => item.value === value)?.label || '日榜'
 }
 
+function crawlLimitFromTarget(value: string): CrawlLimit {
+  const target = String(value || '')
+  if (/\s(?:全部|全量)\s*$/.test(target)) {
+    return 'all'
+  }
+  const match = target.match(/\s前\s*([0-9]{1,5})\s*$/)
+  if (!match) {
+    return 'all'
+  }
+  return Math.max(1, Number(match[1]))
+}
+
+function crawlLimitLabel(value: CrawlLimit | null | undefined) {
+  return value === 'all' || value === null || value === undefined ? '全部' : `前${value}个`
+}
+
+function setCrawlLimitForm(value: CrawlLimit | null | undefined) {
+  if (value === 'all' || value === null || value === undefined) {
+    crawlLimitForm.mode = 'all'
+    crawlLimitForm.count = 30
+    return
+  }
+  crawlLimitForm.mode = 'custom'
+  crawlLimitForm.count = Math.max(1, Math.floor(Number(value || 1)))
+}
+
+function currentCrawlLimit(): CrawlLimit {
+  return crawlLimitForm.mode === 'all' ? 'all' : Math.max(1, Math.floor(Number(crawlLimitForm.count || 1)))
+}
+
 async function saveSchedule() {
   if (!form.name.trim() || !form.target.trim()) {
     ElMessage.warning('请填写任务名称和店铺信息')
@@ -232,6 +273,7 @@ async function saveSchedule() {
       target: form.target.trim(),
       sourceType: 'shop',
       rankingPeriod: form.rankingPeriod,
+      crawlLimit: currentCrawlLimit(),
       intervalMinutes: 1440,
       crawlContent: form.target.trim(),
       crawlCondition: '店铺采集',
@@ -359,13 +401,42 @@ function createdAtToValue() {
 }
 
 function taskResultText(row: CrawlTask) {
-  if (row.status === 'queued' || row.status === 'running') {
-    return `总 ${row.totalCount || 0}`
+  if (effectiveTaskStatus(row) === 'queued' || effectiveTaskStatus(row) === 'running') {
+    return `总 ${taskTotalText(row, true)}`
   }
-  return `总 ${row.totalCount || 0} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
+  return `总 ${taskTotalText(row)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
 }
 
-function statusLabel(status: string) {
+function taskTotalText(row: CrawlTask, pending = false) {
+  const total = Number(row.totalCount || 0)
+  return total > 0 ? String(total) : pending ? '待获取' : '0'
+}
+
+function effectiveTaskStatus(row: CrawlTask) {
+  const status = row.status
+  if (status === 'queued' || status === 'running') {
+    return status
+  }
+  const total = Math.max(0, Number(row.totalCount || 0))
+  const success = Math.max(0, Number(row.successCount || 0))
+  const failed = Math.max(0, Number(row.failedCount || 0))
+  if (total > 0 && failed >= total && success === 0) {
+    return 'failed'
+  }
+  if (success > 0 && failed > 0) {
+    return 'partial'
+  }
+  if (failed > 0 && success === 0) {
+    return 'failed'
+  }
+  if (success > 0 && failed === 0) {
+    return 'success'
+  }
+  return status
+}
+
+function statusLabel(row: CrawlTask) {
+  const status = effectiveTaskStatus(row)
   const labels: Record<string, string> = {
     queued: '待执行',
     running: '采集中',
@@ -376,7 +447,8 @@ function statusLabel(status: string) {
   return labels[status] || status
 }
 
-function statusType(status: string) {
+function statusType(row: CrawlTask) {
+  const status = effectiveTaskStatus(row)
   if (status === 'success') {
     return 'success'
   }
@@ -490,8 +562,8 @@ function handlePageSizeChange() {
         </el-table-column>
         <el-table-column label="采集状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">
-              {{ statusLabel(row.status) }}
+            <el-tag :type="statusType(row)">
+              {{ statusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -543,6 +615,23 @@ function handlePageSizeChange() {
             <el-option v-for="item in rankingPeriodOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="采集数量">
+          <div class="crawl-limit-control">
+            <el-radio-group v-model="crawlLimitForm.mode">
+              <el-radio-button label="all">全部</el-radio-button>
+              <el-radio-button label="custom">指定数量</el-radio-button>
+            </el-radio-group>
+            <el-input-number
+              v-if="crawlLimitForm.mode === 'custom'"
+              v-model="crawlLimitForm.count"
+              class="crawl-limit-input"
+              :min="1"
+              :max="99999"
+              :step="10"
+              controls-position="right"
+            />
+          </div>
+        </el-form-item>
         <el-form-item label="每天执行时间">
           <el-time-picker
             v-model="form.scheduleTime"
@@ -582,6 +671,11 @@ function handlePageSizeChange() {
         <el-table-column label="榜单时间" width="110">
           <template #default="{ row }">
             {{ rankingPeriodLabel(rankingPeriodFromTarget(row.target)) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="采集数量" width="110">
+          <template #default="{ row }">
+            {{ crawlLimitLabel(crawlLimitFromTarget(row.target)) }}
           </template>
         </el-table-column>
         <el-table-column label="启用状态" width="110">
@@ -657,6 +751,18 @@ function handlePageSizeChange() {
 
 .full-control {
   width: 100%;
+}
+
+.crawl-limit-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.crawl-limit-input {
+  width: 180px;
 }
 
 @media (max-width: 1120px) {
