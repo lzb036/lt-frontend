@@ -1,7 +1,7 @@
 export type UserRole = 'superadmin' | 'operator'
 export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url'
 export type TaskStatus = 'queued' | 'running' | 'success' | 'partial' | 'failed'
-export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'rejected'
+export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'listed_master' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
@@ -153,10 +153,13 @@ export interface ProductItem {
   id: number
   ownerUsername: string
   taskId?: string | null
+  parentProductId?: number | null
+  listingTaskId?: string | null
   storeId?: number | null
   rakutenManageNumber?: string | null
   storeProductStatus: StoreProductStatus
   rakutenListingStatus: RakutenListingStatus
+  listedStores?: ProductListedStore[]
   storeLastSeenAt?: string | null
   title: string
   sourceUrl: string
@@ -175,6 +178,17 @@ export interface ProductItem {
   listedAt?: string | null
   createdAt?: string | null
   updatedAt?: string | null
+}
+
+export interface ProductListedStore {
+  storeId: number
+  storeCode: string
+  storeName: string
+  aliasName: string
+  manageNumber: string
+  itemNumber: string
+  productId?: number | null
+  listedAt?: string | null
 }
 
 export interface ProductVariant {

@@ -67,6 +67,9 @@ const listingForm = reactive({
   storeId: null as number | null,
   taskName: '',
 })
+const listingDialogVisible = shallowRef(false)
+const listingDialogProductIds = shallowRef<number[]>([])
+const listingDialogTitle = shallowRef('上架商品')
 
 const statusCopy = computed(() => {
   const map: Record<ReviewStatus, { label: string; tag: 'success' | 'warning' | 'danger' | 'info'; empty: string }> = {
@@ -75,13 +78,14 @@ const statusCopy = computed(() => {
     error: { label: '异常', tag: 'danger', empty: '暂无异常商品' },
     listing: { label: '上架中', tag: 'info', empty: '暂无上架中商品' },
     listed: { label: '店铺商品', tag: 'success', empty: '暂无店铺商品' },
+    listed_master: { label: '已上架', tag: 'success', empty: '暂无已上架商品' },
     rejected: { label: '已拒绝', tag: 'danger', empty: '暂无拒绝商品' },
   }
   return map[props.status]
 })
 
 const visibleProducts = computed(() => {
-  if (!['approved', 'listed'].includes(props.status) || hiddenProducts.value.size < 1) {
+  if (!['approved', 'listed', 'listed_master'].includes(props.status) || hiddenProducts.value.size < 1) {
     return products.value
   }
   return products.value.filter((product) => !hiddenProducts.value.has(product.id))
@@ -107,6 +111,8 @@ watch(
   (visible) => {
     if (!visible) {
       resetImageDraft()
+      resetDetailForm()
+      selectedProductDetail.value = null
     }
   },
 )
@@ -129,6 +135,9 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
         total.value = 0
         return
       }
+    }
+    if (props.status !== 'listed') {
+      filters.storeId = null
     }
     const result = await api.listProductsPage({
       status: props.status,
@@ -332,7 +341,7 @@ function applyOptimisticListingStatus(productIds: number[], listingStatus: Rakut
 }
 
 function hideProducts(productIds: number[]) {
-  if (!['approved', 'listed'].includes(props.status) || productIds.length < 1) {
+  if (!['approved', 'listed', 'listed_master'].includes(props.status) || productIds.length < 1) {
     return
   }
   const ids = new Set(productIds)
@@ -376,6 +385,7 @@ function reviewStatusLabel(status: ReviewStatus) {
     approved: '已审核',
     error: '异常',
     listed: '已上架',
+    listed_master: '已上架',
     rejected: '已拒绝',
   }
   return labels[status] || status
@@ -597,16 +607,25 @@ async function createListingTask() {
     ElMessage.warning('选中的商品正在创建上架任务，请稍后')
     return
   }
+  openListingDialog(productIds, props.status === 'listed_master' ? '批量重新上架' : '批量上架')
+}
+
+async function submitListingTask() {
+  const productIds = [...listingDialogProductIds.value]
+  if (productIds.length < 1) {
+    ElMessage.warning('请先选择要上架的商品')
+    return
+  }
   if (!listingForm.storeId) {
     ElMessage.warning('请先选择上架店铺')
     return
   }
   try {
     await ElMessageBox.confirm(
-      `确认将选中的 ${productIds.length} 个商品创建上架任务？`,
-      '批量上架',
+      `确认将选中的 ${productIds.length} 个商品创建${props.status === 'listed_master' ? '重新上架' : '上架'}任务？`,
+      listingDialogTitle.value,
       {
-        confirmButtonText: '上架',
+        confirmButtonText: props.status === 'listed_master' ? '重新上架' : '上架',
         cancelButtonText: '取消',
         type: 'success',
       },
@@ -616,7 +635,9 @@ async function createListingTask() {
   }
   operating.value = true
   setListingProductsBusy(productIds, true)
-  hideProducts(productIds)
+  if (shouldHideAfterListingTask()) {
+    hideProducts(productIds)
+  }
   clearSelection()
   try {
     const result = await api.createListingTask({
@@ -624,13 +645,19 @@ async function createListingTask() {
       storeId: listingForm.storeId,
       taskName: listingForm.taskName.trim(),
     })
+    listingDialogVisible.value = false
     handleListingTaskResult(result.listingTask, productIds)
     maybeRefreshAfterOptimisticAction()
   } catch (error) {
-    restoreHiddenProducts(productIds)
+    setListingProductsBusy(productIds, false)
+    if (shouldHideAfterListingTask()) {
+      restoreHiddenProducts(productIds)
+    }
     ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
   } finally {
-    setListingProductsBusy(productIds, false)
+    if (!shouldKeepBusyAfterListingTask()) {
+      setListingProductsBusy(productIds, false)
+    }
     operating.value = false
   }
 }
@@ -640,41 +667,23 @@ async function createListingTaskForProduct(product: ProductItem) {
     ElMessage.warning('该商品正在创建上架任务，请稍后')
     return
   }
-  if (!listingForm.storeId) {
-    ElMessage.warning('请先选择上架店铺')
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-      `确认将商品「${productDisplayName(product)}」创建上架任务？`,
-      '上架',
-      {
-        confirmButtonText: '上架',
-        cancelButtonText: '取消',
-        type: 'success',
-      },
-    )
-    operating.value = true
-    setListingProductsBusy([product.id], true)
-    hideProducts([product.id])
-    clearSelection()
-    const result = await api.createListingTask({
-      productIds: [product.id],
-      storeId: listingForm.storeId,
-      taskName: '',
-    })
-    handleListingTaskResult(result.listingTask, [product.id])
-    clearSelection()
-    maybeRefreshAfterOptimisticAction()
-  } catch (error) {
-    if (error !== 'cancel') {
-      restoreHiddenProducts([product.id])
-      ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
-    }
-  } finally {
-    setListingProductsBusy([product.id], false)
-    operating.value = false
-  }
+  openListingDialog([product.id], props.status === 'listed_master' ? `重新上架「${productDisplayName(product)}」` : `上架「${productDisplayName(product)}」`)
+}
+
+function openListingDialog(productIds: number[], title: string) {
+  listingDialogProductIds.value = [...productIds]
+  listingDialogTitle.value = title
+  listingForm.storeId = null
+  listingForm.taskName = ''
+  listingDialogVisible.value = true
+}
+
+function shouldHideAfterListingTask() {
+  return props.status === 'approved'
+}
+
+function shouldKeepBusyAfterListingTask() {
+  return props.status === 'approved' || props.status === 'listed_master'
 }
 
 function setListingProductsBusy(productIds: number[], busy: boolean) {
@@ -693,11 +702,20 @@ function setListingProductsBusy(productIds: number[], busy: boolean) {
 }
 
 function isListingProductBusy(product: ProductItem) {
-  return listingProductIds.value.has(product.id)
+  return listingProductIds.value.has(product.id) || Boolean(product.listingTaskId)
 }
 
 function hasSelectedListingProductBusy() {
-  return selectedIds.value.some((productId) => listingProductIds.value.has(productId))
+  const selectedIdSet = new Set(selectedIds.value)
+  return visibleProducts.value.some((product) => selectedIdSet.has(product.id) && isListingProductBusy(product))
+}
+
+function isProductSelectable(product: ProductItem) {
+  return !isListingProductBusy(product)
+}
+
+function productRowClassName({ row }: { row: ProductItem }) {
+  return isListingProductBusy(row) ? 'product-row-disabled' : ''
 }
 
 function taskOutcomeIds(task: Pick<ListingTask | SyncTask, 'status' | 'successIds' | 'failedIds'>, productIds: number[]) {
@@ -716,31 +734,48 @@ function taskOutcomeIds(task: Pick<ListingTask | SyncTask, 'status' | 'successId
 
 function handleListingTaskResult(task: ListingTask, productIds: number[]) {
   if (task.status === 'success') {
-    clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
+    clearListingTaskBusy(productIds)
+    if (shouldHideAfterListingTask()) {
+      clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
+    } else {
+      void refreshAll({ loadStores: false })
+    }
     ElMessage.success(task.message || '上架任务已完成')
     maybeRefreshAfterOptimisticAction()
     return
   }
   if (task.status === 'partial') {
     const { successIds, failedIds } = taskOutcomeIds(task, productIds)
-    clearHiddenProducts(successIds)
-    restoreHiddenProducts(failedIds)
+    clearListingTaskBusy(productIds)
+    if (shouldHideAfterListingTask()) {
+      clearHiddenProducts(successIds)
+      restoreHiddenProducts(failedIds)
+    } else {
+      void refreshAll({ loadStores: false })
+    }
     ElMessage.warning(task.message || '上架任务部分成功，请到上架任务中查看异常信息')
     maybeRefreshAfterOptimisticAction()
     return
   }
   if (task.status === 'failed') {
-    restoreHiddenProducts(productIds)
+    clearListingTaskBusy(productIds)
+    if (shouldHideAfterListingTask()) {
+      restoreHiddenProducts(productIds)
+    } else {
+      void refreshAll({ loadStores: false })
+    }
     ElMessage.error(task.errorDetail || task.message || '上架任务执行失败，请到上架任务中查看错误信息')
     return
   }
-  hideProducts(productIds)
+  if (shouldHideAfterListingTask()) {
+    hideProducts(productIds)
+  }
   watchListingTaskCompletion(task.id, productIds)
   ElMessage.success('上架任务已创建，请到上架任务中查看进度')
 }
 
 function watchListingTaskCompletion(taskId: string, productIds: number[]) {
-  if (!taskId || props.status !== 'approved') {
+  if (!taskId || !['approved', 'listed_master'].includes(props.status)) {
     return
   }
   let attempts = 0
@@ -764,10 +799,17 @@ function watchListingTaskCompletion(taskId: string, productIds: number[]) {
     } catch {
       if (attempts >= 3) {
         window.clearInterval(timer)
-        restoreHiddenProducts(productIds)
+        clearListingTaskBusy(productIds)
+        if (shouldHideAfterListingTask()) {
+          restoreHiddenProducts(productIds)
+        }
       }
     }
   }, 2000)
+}
+
+function clearListingTaskBusy(productIds: number[]) {
+  setListingProductsBusy(productIds, false)
 }
 
 function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
@@ -903,6 +945,16 @@ function storeDisplayName(product: ProductItem) {
 function storeRealName(product: ProductItem) {
   const store = stores.value.find((item) => item.id === product.storeId)
   return store?.storeName || product.shopName || '-'
+}
+
+function listedStoreLabel(store: { storeId: number; storeName?: string; aliasName?: string }) {
+  const current = stores.value.find((item) => item.id === store.storeId)
+  return current?.aliasName || store.aliasName || current?.storeName || store.storeName || `店铺 ${store.storeId}`
+}
+
+function listedStoreRealName(store: { storeId: number; storeName?: string; aliasName?: string }) {
+  const current = stores.value.find((item) => item.id === store.storeId)
+  return current?.storeName || store.storeName || listedStoreLabel(store)
 }
 
 function listingStatusCopy(product: ProductItem) {
@@ -1272,10 +1324,7 @@ function sanitizedDescriptionHtml(value: string) {
         >
           批量删除
         </el-button>
-        <div v-if="status === 'approved'" class="approved-head-actions">
-          <el-select v-model="listingForm.storeId" clearable filterable placeholder="选择上架店铺">
-            <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
-          </el-select>
+        <div v-if="status === 'approved' || status === 'listed_master'" class="approved-head-actions">
           <el-button
             type="primary"
             :icon="Upload"
@@ -1283,7 +1332,7 @@ function sanitizedDescriptionHtml(value: string) {
             :loading="operating"
             @click="createListingTask"
           >
-            批量上架
+            {{ status === 'listed_master' ? '批量重新上架' : '批量上架' }}
           </el-button>
           <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
             批量删除
@@ -1398,9 +1447,10 @@ function sanitizedDescriptionHtml(value: string) {
         :data="visibleProducts"
         :empty-text="statusCopy.empty"
         height="620"
+        :row-class-name="productRowClassName"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="46" />
+        <el-table-column type="selection" width="46" :selectable="isProductSelectable" />
         <el-table-column label="图片" width="86">
           <template #default="{ row }">
             <el-image
@@ -1430,6 +1480,23 @@ function sanitizedDescriptionHtml(value: string) {
             <CopyableTableText :value="storeRealName(row)" :display="storeDisplayName(row)" always />
           </template>
         </el-table-column>
+        <el-table-column v-if="status === 'listed_master'" label="已上架店铺" min-width="260">
+          <template #default="{ row }">
+            <div v-if="row.listedStores?.length" class="listed-store-tags">
+              <el-tooltip
+                v-for="store in row.listedStores"
+                :key="`${row.id}-${store.storeId}`"
+                :content="listedStoreRealName(store)"
+                placement="top"
+              >
+                <el-tag size="small" type="success">
+                  {{ listedStoreLabel(store) }}
+                </el-tag>
+              </el-tooltip>
+            </div>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="价格(日元)" width="140">
           <template #default="{ row }">
             {{ priceText(row) }}
@@ -1445,12 +1512,12 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column label="操作" :width="status === 'pending' ? 300 : status === 'approved' ? 220 : 120" fixed="right">
+        <el-table-column label="操作" :width="status === 'pending' ? 300 : ['approved', 'listed_master'].includes(status) ? 240 : 120" fixed="right">
           <template #default="{ row }">
-            <el-button :icon="View" link type="primary" @click="openProductDetail(row)">
+            <el-button :icon="View" link type="primary" :disabled="isListingProductBusy(row)" @click="openProductDetail(row)">
               查看详情
             </el-button>
-            <template v-if="status === 'approved'">
+            <template v-if="status === 'approved' || status === 'listed_master'">
               <el-button
                 :icon="Upload"
                 link
@@ -1459,9 +1526,9 @@ function sanitizedDescriptionHtml(value: string) {
                 :loading="isListingProductBusy(row)"
                 @click="createListingTaskForProduct(row)"
               >
-                上架
+                {{ status === 'listed_master' ? '重新上架' : '上架' }}
               </el-button>
-              <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
+              <el-button :icon="Delete" link type="danger" :disabled="isListingProductBusy(row)" @click="removeProduct(row)">
                 删除
               </el-button>
             </template>
@@ -1491,6 +1558,25 @@ function sanitizedDescriptionHtml(value: string) {
         />
       </div>
     </section>
+
+    <el-dialog v-model="listingDialogVisible" :title="listingDialogTitle" width="520px" append-to-body>
+      <el-form label-position="top" class="listing-dialog-form">
+        <el-form-item label="目标店铺">
+          <el-select v-model="listingForm.storeId" class="full-control" clearable filterable placeholder="选择上架店铺">
+            <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="任务名称">
+          <el-input v-model="listingForm.taskName" maxlength="255" placeholder="可选" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="listingDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="operating" @click="submitListingTask">
+          {{ status === 'listed_master' ? '创建重新上架任务' : '创建上架任务' }}
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="detailVisible" title="商品详情" width="980px" append-to-body>
       <div v-loading="detailLoading" class="detail-dialog">
@@ -1623,7 +1709,7 @@ function sanitizedDescriptionHtml(value: string) {
                   </div>
                 </div>
                 <el-empty v-if="detailImageUrls(selectedProductDetail).length < 1" description="暂无图片数据" />
-                <input ref="imageFileInputRef" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/gif" @change="handleReplaceImage" />
+                <input v-if="imageEditable()" ref="imageFileInputRef" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/gif" @change="handleReplaceImage" />
               </div>
             </el-tab-pane>
             <el-tab-pane label="商品详情说明">
@@ -1700,10 +1786,6 @@ function sanitizedDescriptionHtml(value: string) {
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.approved-head-actions :deep(.el-select) {
-  width: 220px;
 }
 
 .work-panel {
@@ -1833,6 +1915,22 @@ function sanitizedDescriptionHtml(value: string) {
   border-radius: 6px;
   color: var(--text-faint);
   font-size: 12px;
+}
+
+:deep(.product-row-disabled) {
+  opacity: 0.55;
+  background: var(--panel-muted);
+}
+
+.listed-store-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.listing-dialog-form {
+  display: grid;
+  gap: 4px;
 }
 
 .detail-dialog {
