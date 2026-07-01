@@ -18,7 +18,7 @@ const form = reactive({
   username: '',
   password: '',
   captcha: '',
-  rememberPassword: false,
+  rememberUsername: false,
 })
 const localError = shallowRef('')
 const captchaQuestion = shallowRef('')
@@ -45,9 +45,9 @@ watch(
 )
 
 watch(
-  () => form.rememberPassword,
-  (rememberPassword) => {
-    if (!rememberPassword) {
+  () => form.rememberUsername,
+  (rememberUsername) => {
+    if (!rememberUsername) {
       window.localStorage.removeItem(REMEMBERED_LOGIN_KEY)
     }
   },
@@ -110,13 +110,12 @@ function handleSubmit() {
 }
 
 function syncRememberedLogin() {
-  if (!form.rememberPassword) {
+  if (!form.rememberUsername) {
     window.localStorage.removeItem(REMEMBERED_LOGIN_KEY)
     return
   }
   window.localStorage.setItem(REMEMBERED_LOGIN_KEY, JSON.stringify({
     username: form.username.trim(),
-    password: form.password,
   }))
 }
 
@@ -128,8 +127,11 @@ function restoreRememberedLogin() {
   try {
     const value = JSON.parse(raw) as { username?: unknown; password?: unknown }
     form.username = typeof value.username === 'string' ? value.username : ''
-    form.password = typeof value.password === 'string' ? value.password : ''
-    form.rememberPassword = Boolean(form.username || form.password)
+    form.password = ''
+    form.rememberUsername = Boolean(form.username)
+    if ('password' in value) {
+      syncRememberedLogin()
+    }
   } catch {
     window.localStorage.removeItem(REMEMBERED_LOGIN_KEY)
   }
@@ -239,8 +241,8 @@ function restoreRememberedLogin() {
           </div>
 
           <div class="form-options">
-            <el-checkbox v-model="form.rememberPassword" class="remember-check">
-              记住密码
+            <el-checkbox v-model="form.rememberUsername" class="remember-check">
+              记住用户名
             </el-checkbox>
           </div>
 

@@ -76,6 +76,24 @@ export interface AuthSession {
   updatedAt?: string | null
 }
 
+export interface SystemHealth {
+  status: 'ok' | 'degraded'
+  name: string
+  version: string
+  checks: {
+    database: boolean
+    productImagesWritable: boolean
+    productImageDraftsWritable: boolean
+  }
+  settings: {
+    productImageDraftRetentionDays: number
+    taskQueueMode: string
+    taskQueueName: string
+    crawlerBatchSize: number
+    crawlerBatchPauseSeconds: number
+  }
+}
+
 export interface MaskedSecretMap {
   rakutenServiceSecret: string
   rakutenLicenseKey: string

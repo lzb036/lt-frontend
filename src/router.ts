@@ -9,6 +9,7 @@ import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
 import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
 import StoreManagerView from './components/crawler/StoreManagerView.vue'
+import SystemStatusView from './components/crawler/SystemStatusView.vue'
 import SyncTaskView from './components/crawler/SyncTaskView.vue'
 import ThemeSettingsView from './components/crawler/ThemeSettingsView.vue'
 import UserManagement from './components/crawler/UserManagement.vue'
@@ -36,6 +37,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltShop/GoodsUp', name: 'listed-products', component: ProductWorkflowView, props: { status: 'listed', title: '店铺商品', eyebrow: 'Rakuten Shop' }, meta: { title: '店铺商品', permission: 'stores.manage' } },
       { path: 'ltHj/wjMerchant', name: 'store-manager', component: StoreManagerView, meta: { title: '店铺信息', permission: 'stores.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
+      { path: 'system/status', name: 'system-status', component: SystemStatusView, meta: { title: '系统状态', permission: 'settings.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },
     ],

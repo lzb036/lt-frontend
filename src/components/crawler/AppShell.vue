@@ -12,6 +12,7 @@ import {
   OfficeBuilding,
   Refresh,
   Sell,
+  SetUp,
   Setting,
   Shop,
   ShoppingBag,
@@ -121,6 +122,7 @@ const menuGroups = computed(() => {
       label: '系统设置',
       icon: Setting,
       children: [
+        { path: '/system/status', label: '系统状态', icon: SetUp },
         { path: '/system/theme', label: '主题管理', icon: Setting },
       ],
     })
