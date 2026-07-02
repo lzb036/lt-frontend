@@ -457,7 +457,7 @@ function sourceTypeLabel(value: SourceType) {
 
 function taskResultText(row: CrawlTask) {
   const pending = row.status === 'queued' || row.status === 'running'
-  return `总 ${taskTotalText(row, pending)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
+  return `总 ${taskTotalText(row, pending)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0} / 警告 ${row.warningCount || 0}`
 }
 
 function taskTotalText(row: CrawlTask, pending = false) {

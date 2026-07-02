@@ -142,6 +142,7 @@ export interface CrawlTask {
   totalCount: number
   successCount: number
   failedCount: number
+  warningCount?: number
   message: string
   errorDetail?: string | null
   startedAt?: string | null
