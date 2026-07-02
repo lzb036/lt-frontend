@@ -1015,6 +1015,7 @@ function fillDetailForm(product: ProductDetail) {
     variantId: variant.variantId,
     standardPrice: Number(variant.standardPrice || 0),
     hidden: Boolean(variant.hidden),
+    singleProduct: Boolean(variant.singleProduct),
   }))
 }
 
@@ -1027,7 +1028,7 @@ function detailVariantForm(variant: ProductVariant) {
 }
 
 function detailEditable() {
-  return props.status === 'pending' || props.status === 'listed'
+  return ['pending', 'approved', 'error', 'listed_master', 'listed'].includes(props.status)
 }
 
 function imageEditable() {
@@ -1051,14 +1052,16 @@ async function submitDetailChange() {
     variantId: variant.variantId,
     standardPrice: Number(variant.standardPrice),
     hidden: Boolean(variant.hidden),
+    singleProduct: Boolean(variant.singleProduct),
   }))
   for (const variant of variants) {
+    const variantLabel = variant.singleProduct ? '价格' : `SKU ${variant.variantId} 价格`
     if (!Number.isFinite(variant.standardPrice) || variant.standardPrice <= 0) {
-      ElMessage.warning(`SKU ${variant.variantId} 价格必须大于 0`)
+      ElMessage.warning(`${variantLabel}必须大于 0`)
       return
     }
     if (!Number.isInteger(variant.standardPrice)) {
-      ElMessage.warning(`SKU ${variant.variantId} 价格必须为日元整数`)
+      ElMessage.warning(`${variantLabel}必须为日元整数`)
       return
     }
   }
@@ -1098,6 +1101,9 @@ function compactText(value: unknown) {
 }
 
 function variantSelectorText(variant: ProductVariant) {
+  if (variant.singleProduct) {
+    return '单品'
+  }
   const values = Object.values(variant.selectorValues || {})
     .map((value) => String(value || '').trim())
     .filter(Boolean)

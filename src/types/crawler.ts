@@ -76,24 +76,6 @@ export interface AuthSession {
   updatedAt?: string | null
 }
 
-export interface SystemHealth {
-  status: 'ok' | 'degraded'
-  name: string
-  version: string
-  checks: {
-    database: boolean
-    productImagesWritable: boolean
-    productImageDraftsWritable: boolean
-  }
-  settings: {
-    productImageDraftRetentionDays: number
-    taskQueueMode: string
-    taskQueueName: string
-    crawlerBatchSize: number
-    crawlerBatchPauseSeconds: number
-  }
-}
-
 export interface MaskedSecretMap {
   rakutenServiceSecret: string
   rakutenLicenseKey: string
@@ -215,6 +197,7 @@ export interface ProductVariant {
   articleNumber: string
   standardPrice: string
   hidden?: boolean | null
+  singleProduct?: boolean
   selectorValues: Record<string, string>
   specs: Record<string, unknown>[]
   attributes: Record<string, unknown>[]
@@ -225,6 +208,7 @@ export interface ProductVariantEditPayload {
   variantId: string
   standardPrice: number
   hidden: boolean
+  singleProduct?: boolean
 }
 
 export interface ProductDetailEditPayload {

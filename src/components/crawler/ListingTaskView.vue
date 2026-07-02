@@ -175,6 +175,10 @@ function statusType(status: string) {
   return 'info'
 }
 
+function taskFinished(row: ListingTask) {
+  return row.status !== 'queued' && row.status !== 'running'
+}
+
 function handlePageSizeChange() {
   resetPage()
   void loadTasks()
@@ -237,7 +241,7 @@ function handlePageSizeChange() {
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
         <el-table-column label="操作" width="118" fixed="right">
           <template #default="{ row }">
-            <el-button :icon="VideoPlay" link type="primary" @click="retryTask(row)">
+            <el-button v-if="taskFinished(row)" :icon="VideoPlay" link type="primary" @click="retryTask(row)">
               重试
             </el-button>
           </template>

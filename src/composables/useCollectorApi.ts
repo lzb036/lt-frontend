@@ -23,7 +23,6 @@ import type {
   StoreAccount,
   StorePayload,
   StoreVerifySummary,
-  SystemHealth,
   SyncTask,
   UserAccount,
 } from '../types/crawler'
@@ -45,11 +44,6 @@ function toPageResult<K extends string, T>(data: ApiPageResponse<K, T>, key: K):
 }
 
 export function useCollectorApi() {
-  async function getSystemHealth() {
-    const response = await apiClient.get<SystemHealth>('/health')
-    return response.data
-  }
-
   async function getDashboardSummary() {
     const response = await apiClient.get<{ summary: DashboardSummary }>('/crawler/dashboard/summary')
     return response.data.summary
@@ -440,7 +434,6 @@ export function useCollectorApi() {
   }
 
   return {
-    getSystemHealth,
     getDashboardSummary,
     listUsers,
     listUsersPage,

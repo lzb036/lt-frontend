@@ -456,10 +456,8 @@ function sourceTypeLabel(value: SourceType) {
 }
 
 function taskResultText(row: CrawlTask) {
-  if (effectiveTaskStatus(row) === 'queued' || effectiveTaskStatus(row) === 'running') {
-    return `总 ${taskTotalText(row, true)}`
-  }
-  return `总 ${taskTotalText(row)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
+  const pending = row.status === 'queued' || row.status === 'running'
+  return `总 ${taskTotalText(row, pending)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0}`
 }
 
 function taskTotalText(row: CrawlTask, pending = false) {
@@ -488,6 +486,10 @@ function effectiveTaskStatus(row: CrawlTask) {
     return 'success'
   }
   return status
+}
+
+function taskFinished(row: CrawlTask) {
+  return row.status !== 'queued' && row.status !== 'running'
 }
 
 function statusLabel(row: CrawlTask) {
@@ -601,7 +603,7 @@ function statusType(row: CrawlTask) {
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column label="操作" width="118" fixed="right">
           <template #default="{ row }">
-            <el-button :icon="VideoPlay" link type="primary" @click="restartTask(row)">
+            <el-button v-if="taskFinished(row)" :icon="VideoPlay" link type="primary" @click="restartTask(row)">
               重新采集
             </el-button>
           </template>
