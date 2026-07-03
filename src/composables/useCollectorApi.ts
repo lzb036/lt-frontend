@@ -5,6 +5,7 @@ import type {
   CrawlTask,
   CreateTaskPayload,
   DashboardSummary,
+  ListingPreflightResult,
   ListingTask,
   ListingTaskPayload,
   PageParams,
@@ -374,6 +375,11 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function preflightListingTask(payload: ListingTaskPayload) {
+    const response = await apiClient.post<ListingPreflightResult>('/crawler/listing-tasks/preflight', payload)
+    return response.data
+  }
+
   async function retryListingTask(taskId: string) {
     const response = await apiClient.post<{ listingTask: ListingTask }>(`/crawler/listing-tasks/${taskId}/retry`)
     return response.data
@@ -493,6 +499,7 @@ export function useCollectorApi() {
     runSchedule,
     listListingTasks,
     listListingTasksPage,
+    preflightListingTask,
     createListingTask,
     retryListingTask,
     cancelListingTask,

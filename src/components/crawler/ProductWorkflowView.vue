@@ -5,7 +5,7 @@ import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
+import type { ListingPreflightIssue, ListingPreflightResult, ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -17,6 +17,12 @@ interface ImageDraftItem {
   sourceIndex: number
   sourceUrl: string
   currentUrl: string
+}
+
+interface ListingPreflightIssueRow extends ListingPreflightIssue {
+  key: string
+  productCode: string
+  productTitle: string
 }
 
 const props = defineProps<{
@@ -70,6 +76,9 @@ const listingForm = reactive({
 const listingDialogVisible = shallowRef(false)
 const listingDialogProductIds = shallowRef<number[]>([])
 const listingDialogTitle = shallowRef('上架商品')
+const listingPreflightVisible = shallowRef(false)
+const listingPreflightLoading = shallowRef(false)
+const listingPreflightResult = shallowRef<ListingPreflightResult | null>(null)
 
 const statusCopy = computed(() => {
   const map: Record<ReviewStatus, { label: string; tag: 'success' | 'warning' | 'danger' | 'info'; empty: string }> = {
@@ -89,6 +98,28 @@ const visibleProducts = computed(() => {
     return products.value
   }
   return products.value.filter((product) => !hiddenProducts.value.has(product.id))
+})
+
+const listingPreflightIssueRows = computed<ListingPreflightIssueRow[]>(() => {
+  const result = listingPreflightResult.value
+  if (!result) {
+    return []
+  }
+  const globalRows = result.globalIssues.map((issue, index) => ({
+    ...issue,
+    key: `global-${index}`,
+    productCode: '全局',
+    productTitle: '',
+  }))
+  const productRows = result.products.flatMap((product) =>
+    product.issues.map((issue, index) => ({
+      ...issue,
+      key: `${product.productId}-${index}`,
+      productCode: product.productCode || String(product.productId),
+      productTitle: product.productTitle,
+    })),
+  )
+  return [...globalRows, ...productRows]
 })
 
 onMounted(() => {
@@ -620,6 +651,36 @@ async function submitListingTask() {
     ElMessage.warning('请先选择上架店铺')
     return
   }
+  listingPreflightLoading.value = true
+  try {
+    const result = await api.preflightListingTask({
+      productIds,
+      storeId: listingForm.storeId,
+      taskName: listingForm.taskName.trim(),
+    })
+    listingPreflightResult.value = result
+    if (!result.canProceed || result.summary.warningCount > 0) {
+      listingPreflightVisible.value = true
+      return
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '上架前体检失败'))
+    return
+  } finally {
+    listingPreflightLoading.value = false
+  }
+  await confirmAndCreateListingTask(productIds)
+}
+
+async function continueListingAfterPreflight() {
+  if (!listingPreflightResult.value?.canProceed) {
+    return
+  }
+  listingPreflightVisible.value = false
+  await confirmAndCreateListingTask([...listingDialogProductIds.value])
+}
+
+async function confirmAndCreateListingTask(productIds: number[]) {
   try {
     await ElMessageBox.confirm(
       `确认将选中的 ${productIds.length} 个商品创建${props.status === 'listed_master' ? '重新上架' : '上架'}任务？`,
@@ -675,6 +736,8 @@ function openListingDialog(productIds: number[], title: string) {
   listingDialogTitle.value = title
   listingForm.storeId = null
   listingForm.taskName = ''
+  listingPreflightResult.value = null
+  listingPreflightVisible.value = false
   listingDialogVisible.value = true
 }
 
@@ -708,6 +771,21 @@ function isListingProductBusy(product: ProductItem) {
 function hasSelectedListingProductBusy() {
   const selectedIdSet = new Set(selectedIds.value)
   return visibleProducts.value.some((product) => selectedIdSet.has(product.id) && isListingProductBusy(product))
+}
+
+function preflightSeverityType(issue: ListingPreflightIssueRow) {
+  return issue.severity === 'blocker' ? 'danger' : 'warning'
+}
+
+function preflightSeverityLabel(issue: ListingPreflightIssueRow) {
+  return issue.severity === 'blocker' ? '阻断' : '警告'
+}
+
+function preflightProductLabel(issue: ListingPreflightIssueRow) {
+  if (issue.productCode === '全局') {
+    return '全局'
+  }
+  return issue.productTitle ? `${issue.productCode} ${issue.productTitle}` : issue.productCode
 }
 
 function isProductSelectable(product: ProductItem) {
@@ -1613,8 +1691,60 @@ function sanitizedDescriptionHtml(value: string) {
       </el-form>
       <template #footer>
         <el-button @click="listingDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="operating" @click="submitListingTask">
+        <el-button type="primary" :loading="operating || listingPreflightLoading" @click="submitListingTask">
           {{ status === 'listed_master' ? '创建重新上架任务' : '创建上架任务' }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="listingPreflightVisible" title="上架前体检" width="760px" append-to-body>
+      <div v-if="listingPreflightResult" class="preflight-panel">
+        <el-alert
+          :title="listingPreflightResult.message"
+          :type="listingPreflightResult.canProceed ? 'warning' : 'error'"
+          :closable="false"
+          show-icon
+        />
+        <div class="preflight-summary">
+          <span>商品 {{ listingPreflightResult.summary.productCount }}</span>
+          <span>通过 {{ listingPreflightResult.summary.passedCount }}</span>
+          <span>阻断 {{ listingPreflightResult.summary.blockerCount }}</span>
+          <span>警告 {{ listingPreflightResult.summary.warningCount }}</span>
+        </div>
+        <el-table :data="listingPreflightIssueRows" max-height="360" border empty-text="暂无体检问题">
+          <el-table-column label="级别" width="86">
+            <template #default="{ row }">
+              <el-tag :type="preflightSeverityType(row)" size="small">
+                {{ preflightSeverityLabel(row) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="商品" min-width="180">
+            <template #default="{ row }">
+              <CopyableTableText :value="preflightProductLabel(row)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="位置" width="120">
+            <template #default="{ row }">
+              <span>{{ row.attributeName || row.field || row.variantId || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="问题" min-width="280">
+            <template #default="{ row }">
+              <CopyableTableText :value="row.message" />
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="listingPreflightVisible = false">关闭</el-button>
+        <el-button
+          v-if="listingPreflightResult?.canProceed"
+          type="primary"
+          :loading="operating"
+          @click="continueListingAfterPreflight"
+        >
+          继续创建任务
         </el-button>
       </template>
     </el-dialog>
@@ -1972,6 +2102,19 @@ function sanitizedDescriptionHtml(value: string) {
 .listing-dialog-form {
   display: grid;
   gap: 4px;
+}
+
+.preflight-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.preflight-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .detail-dialog {

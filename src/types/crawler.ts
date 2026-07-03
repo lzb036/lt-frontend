@@ -437,6 +437,52 @@ export interface ListingTaskPayload {
   taskName?: string
 }
 
+export type ListingPreflightSeverity = 'blocker' | 'warning'
+export type ListingPreflightProductStatus = 'passed' | 'warning' | 'blocked'
+
+export interface ListingPreflightIssue {
+  severity: ListingPreflightSeverity
+  code: string
+  message: string
+  field?: string
+  attributeName?: string
+  variantId?: string
+}
+
+export interface ListingPreflightProduct {
+  productId: number
+  productCode: string
+  productTitle: string
+  status: ListingPreflightProductStatus
+  issueCount: number
+  blockerCount: number
+  warningCount: number
+  issues: ListingPreflightIssue[]
+  preview: {
+    title?: string
+    genreId?: string
+    variantCount?: number
+    imageCount?: number
+    attributeGroup?: string
+  }
+}
+
+export interface ListingPreflightResult {
+  canProceed: boolean
+  message: string
+  summary: {
+    productCount: number
+    passedCount: number
+    blockedCount: number
+    warningProductCount: number
+    issueCount: number
+    blockerCount: number
+    warningCount: number
+  }
+  globalIssues: ListingPreflightIssue[]
+  products: ListingPreflightProduct[]
+}
+
 export interface RolePayload {
   name: string
   code: string
