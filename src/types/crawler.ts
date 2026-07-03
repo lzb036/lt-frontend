@@ -146,6 +146,7 @@ export interface CrawlTask {
   cancelRequested?: boolean
   message: string
   errorDetail?: string | null
+  warningDetail?: string | null
   startedAt?: string | null
   finishedAt?: string | null
   createdAt?: string | null

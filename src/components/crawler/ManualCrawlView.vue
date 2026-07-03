@@ -662,6 +662,11 @@ function statusType(row: CrawlTask) {
             <CopyableTableText :value="row.errorDetail" />
           </template>
         </el-table-column>
+        <el-table-column label="警告信息" min-width="280">
+          <template #default="{ row }">
+            <CopyableTableText :value="row.warningDetail" />
+          </template>
+        </el-table-column>
       </el-table>
       <div class="pagination-row">
         <el-pagination
