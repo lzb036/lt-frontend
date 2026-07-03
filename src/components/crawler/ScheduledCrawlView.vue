@@ -24,7 +24,6 @@ const selectedTasks = shallowRef<CrawlTask[]>([])
 let progressTimer: number | undefined
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
-  { label: '实时', value: 'realtime' },
   { label: '日榜', value: 'daily' },
   { label: '周榜', value: 'weekly' },
   { label: '月榜', value: 'monthly' },
@@ -210,9 +209,6 @@ function normalizeScheduleTarget(value: string) {
 
 function rankingPeriodFromTarget(value: string): RankingPeriod {
   const target = String(value || '')
-  if (/\s实时\s/.test(target)) {
-    return 'realtime'
-  }
   if (/\s周榜\s/.test(target)) {
     return 'weekly'
   }

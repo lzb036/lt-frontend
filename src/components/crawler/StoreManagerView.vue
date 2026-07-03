@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
@@ -120,6 +120,19 @@ async function saveStore() {
 }
 
 async function syncStore(row: StoreAccount) {
+  try {
+    await ElMessageBox.confirm(
+      `确认为店铺「${row.aliasName || row.storeName || row.storeCode}」创建商品同步任务？`,
+      '商品同步确认',
+      {
+        type: 'warning',
+        confirmButtonText: '确认同步',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
   syncingId.value = row.id
   try {
     const result = await api.syncStore(row.id)
@@ -127,7 +140,7 @@ async function syncStore(row: StoreAccount) {
     if (result.store.lastError) {
       ElMessage.warning(result.store.lastError)
     } else {
-      ElMessage.success(`同步任务已完成，同步 ${result.syncedCount} 条`)
+      ElMessage.success('已成功在后台创建同步任务。')
     }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '商品同步失败'))

@@ -6,7 +6,7 @@ export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
-export type RankingPeriod = 'realtime' | 'daily' | 'weekly' | 'monthly'
+export type RankingPeriod = 'daily' | 'weekly' | 'monthly'
 export type CrawlLimit = 'all' | number
 
 export interface PageParams {

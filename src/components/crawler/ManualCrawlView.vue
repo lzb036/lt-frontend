@@ -58,13 +58,12 @@ const sourceTypeLabels: Record<string, string> = {
   keyword: '关键词采集',
 }
 
-type RankingPeriod = 'realtime' | 'daily' | 'weekly' | 'monthly'
+type RankingPeriod = 'daily' | 'weekly' | 'monthly'
 type ProductTarget =
   | { type: 'market'; shopCode: string; itemNumber: string }
   | { type: 'fashion'; fashionCode: string }
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
-  { label: '实时', value: 'realtime' },
   { label: '日榜', value: 'daily' },
   { label: '周榜', value: 'weekly' },
   { label: '月榜', value: 'monthly' },

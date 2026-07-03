@@ -289,6 +289,19 @@ async function syncStore(row: StoreAccount) {
   if (!managedStoreUser.value) {
     return
   }
+  try {
+    await ElMessageBox.confirm(
+      `确认为店铺「${row.aliasName || row.storeName || row.storeCode}」创建商品同步任务？`,
+      '商品同步确认',
+      {
+        type: 'warning',
+        confirmButtonText: '确认同步',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
   storeSyncingId.value = row.id
   try {
     const result = await api.syncStore(row.id, managedStoreUser.value.username)
@@ -296,7 +309,7 @@ async function syncStore(row: StoreAccount) {
     if (result.store.lastError) {
       ElMessage.warning(result.store.lastError)
     } else {
-      ElMessage.success(`同步任务已完成，同步 ${result.syncedCount} 条`)
+      ElMessage.success('已成功在后台创建同步任务。')
     }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '商品同步失败'))
