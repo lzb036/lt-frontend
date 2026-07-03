@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Refresh, VideoPlay } from '@element-plus/icons-vue'
+import { CircleClose, Delete, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -114,6 +114,27 @@ async function retryTask(row: ListingTask) {
   }
 }
 
+async function cancelTask(row: ListingTask) {
+  try {
+    await ElMessageBox.confirm(
+      `确认终止上架任务「${row.taskName || row.id}」？已完成上架的商品不会自动回滚。`,
+      '终止上架任务',
+      {
+        confirmButtonText: '终止',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    const result = await api.cancelListingTask(row.id)
+    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.listingTask : task))
+    ElMessage.success('已请求终止任务')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '终止上架任务失败'))
+    }
+  }
+}
+
 function handleSelectionChange(rows: ListingTask[]) {
   selectedTasks.value = rows
 }
@@ -158,11 +179,16 @@ function statusLabel(status: string) {
     success: '成功',
     partial: '部分成功',
     failed: '失败',
+    cancelled: '已终止',
   }
   return labels[status] || status
 }
 
-function statusType(status: string) {
+function statusType(row: ListingTask) {
+  const status = row.status
+  if (row.cancelRequested) {
+    return 'warning'
+  }
   if (status === 'success') {
     return 'success'
   }
@@ -177,6 +203,18 @@ function statusType(status: string) {
 
 function taskFinished(row: ListingTask) {
   return row.status !== 'queued' && row.status !== 'running'
+}
+
+function taskCancelable(row: ListingTask) {
+  return (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
+}
+
+function taskWaitingCancel(row: ListingTask) {
+  return (row.status === 'queued' || row.status === 'running') && Boolean(row.cancelRequested)
+}
+
+function displayStatusLabel(row: ListingTask) {
+  return row.cancelRequested ? '终止中' : statusLabel(row.status)
 }
 
 function handlePageSizeChange() {
@@ -219,8 +257,8 @@ function handlePageSizeChange() {
         </el-table-column>
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">
-              {{ statusLabel(row.status) }}
+            <el-tag :type="statusType(row)">
+              {{ displayStatusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -239,8 +277,18 @@ function handlePageSizeChange() {
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column label="操作" width="118" fixed="right">
+        <el-table-column label="操作" width="128" fixed="right">
           <template #default="{ row }">
+            <el-button
+              v-if="taskCancelable(row) || taskWaitingCancel(row)"
+              :icon="CircleClose"
+              :disabled="taskWaitingCancel(row)"
+              link
+              type="danger"
+              @click="cancelTask(row)"
+            >
+              {{ taskWaitingCancel(row) ? '终止中' : '终止' }}
+            </el-button>
             <el-button v-if="taskFinished(row)" :icon="VideoPlay" link type="primary" @click="retryTask(row)">
               重试
             </el-button>

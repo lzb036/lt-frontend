@@ -1,6 +1,6 @@
 export type UserRole = 'superadmin' | 'operator'
 export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url'
-export type TaskStatus = 'queued' | 'running' | 'success' | 'partial' | 'failed'
+export type TaskStatus = 'queued' | 'running' | 'success' | 'partial' | 'failed' | 'cancelled'
 export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'listed_master' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
@@ -143,6 +143,7 @@ export interface CrawlTask {
   successCount: number
   failedCount: number
   warningCount?: number
+  cancelRequested?: boolean
   message: string
   errorDetail?: string | null
   startedAt?: string | null
@@ -321,6 +322,7 @@ export interface ListingTask {
   productIds: number[]
   successIds?: number[]
   failedIds?: number[]
+  cancelRequested?: boolean
   message: string
   errorDetail?: string | null
   startedAt?: string | null
@@ -343,6 +345,7 @@ export interface SyncTask {
   payload?: Record<string, unknown>
   successIds?: number[]
   failedIds?: number[]
+  cancelRequested?: boolean
   message: string
   errorDetail?: string | null
   startedAt?: string | null

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { CircleClose, Plus, Refresh, Search } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -103,6 +103,27 @@ async function createTask() {
   }
 }
 
+async function cancelTask(row: CrawlTask) {
+  try {
+    await ElMessageBox.confirm(
+      `确认终止采集任务「${row.target || '该任务'}」？已处理的数据不会回滚。`,
+      '终止采集任务',
+      {
+        confirmButtonText: '终止',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    const result = await api.cancelTask(row.id)
+    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.task : task))
+    ElMessage.success('已请求终止任务')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '终止任务失败'))
+    }
+  }
+}
+
 function sourceTypeLabel(value: SourceType) {
   return sourceTypeOptions.find((item) => item.value === value)?.label || value
 }
@@ -114,11 +135,16 @@ function statusLabel(status: string) {
     success: '成功',
     partial: '部分成功',
     failed: '失败',
+    cancelled: '已终止',
   }
   return labels[status] || status
 }
 
-function statusType(status: string) {
+function statusType(row: CrawlTask) {
+  const status = row.status
+  if (row.cancelRequested) {
+    return 'warning'
+  }
   if (status === 'success') {
     return 'success'
   }
@@ -129,6 +155,18 @@ function statusType(status: string) {
     return 'warning'
   }
   return 'info'
+}
+
+function displayStatusLabel(row: CrawlTask) {
+  return row.cancelRequested ? '终止中' : statusLabel(row.status)
+}
+
+function taskCancelable(row: CrawlTask) {
+  return (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
+}
+
+function taskWaitingCancel(row: CrawlTask) {
+  return (row.status === 'queued' || row.status === 'running') && Boolean(row.cancelRequested)
 }
 
 function handlePageSizeChange() {
@@ -203,8 +241,8 @@ function handlePageSizeChange() {
         </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">
-              {{ statusLabel(row.status) }}
+            <el-tag :type="statusType(row)">
+              {{ displayStatusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -220,6 +258,20 @@ function handlePageSizeChange() {
         <el-table-column label="错误" min-width="180">
           <template #default="{ row }">
             <CopyableTableText :value="row.errorDetail" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="taskCancelable(row) || taskWaitingCancel(row)"
+              :icon="CircleClose"
+              :disabled="taskWaitingCancel(row)"
+              link
+              type="danger"
+              @click="cancelTask(row)"
+            >
+              {{ taskWaitingCancel(row) ? '终止中' : '终止' }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Refresh } from '@element-plus/icons-vue'
+import { CircleClose, Delete, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -97,6 +97,27 @@ function handleSelectionChange(rows: SyncTask[]) {
   selectedTasks.value = rows
 }
 
+async function cancelTask(row: SyncTask) {
+  try {
+    await ElMessageBox.confirm(
+      `确认终止同步任务「${row.taskName || row.id}」？已完成同步的数据不会回滚。`,
+      '终止同步任务',
+      {
+        confirmButtonText: '终止',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    const result = await api.cancelSyncTask(row.id)
+    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.syncTask : task))
+    ElMessage.success('已请求终止任务')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '终止同步任务失败'))
+    }
+  }
+}
+
 async function deleteSelectedTasks() {
   if (selectedTasks.value.length < 1) {
     ElMessage.warning('请选择要删除的任务')
@@ -137,11 +158,16 @@ function statusLabel(status: string) {
     success: '成功',
     partial: '部分成功',
     failed: '失败',
+    cancelled: '已终止',
   }
   return labels[status] || status
 }
 
-function statusType(status: string) {
+function statusType(row: SyncTask) {
+  const status = row.status
+  if (row.cancelRequested) {
+    return 'warning'
+  }
   if (status === 'success') {
     return 'success'
   }
@@ -152,6 +178,18 @@ function statusType(status: string) {
     return 'warning'
   }
   return 'info'
+}
+
+function displayStatusLabel(row: SyncTask) {
+  return row.cancelRequested ? '终止中' : statusLabel(row.status)
+}
+
+function taskCancelable(row: SyncTask) {
+  return (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
+}
+
+function taskWaitingCancel(row: SyncTask) {
+  return (row.status === 'queued' || row.status === 'running') && Boolean(row.cancelRequested)
 }
 
 function taskTypeLabel(task: SyncTask) {
@@ -231,8 +269,8 @@ function handlePageSizeChange() {
         </el-table-column>
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">
-              {{ statusLabel(row.status) }}
+            <el-tag :type="statusType(row)">
+              {{ displayStatusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -242,6 +280,20 @@ function handlePageSizeChange() {
         <el-table-column label="错误信息" min-width="180">
           <template #default="{ row }">
             <CopyableTableText :value="row.errorDetail" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="taskCancelable(row) || taskWaitingCancel(row)"
+              :icon="CircleClose"
+              :disabled="taskWaitingCancel(row)"
+              link
+              type="danger"
+              @click="cancelTask(row)"
+            >
+              {{ taskWaitingCancel(row) ? '终止中' : '终止' }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>

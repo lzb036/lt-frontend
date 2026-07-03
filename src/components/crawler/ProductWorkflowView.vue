@@ -767,6 +767,21 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
     ElMessage.error(task.errorDetail || task.message || '上架任务执行失败，请到上架任务中查看错误信息')
     return
   }
+  if (task.status === 'cancelled') {
+    const successIds = task.successIds?.length ? task.successIds : []
+    const successIdSet = new Set(successIds)
+    const pendingIds = productIds.filter((productId) => !successIdSet.has(productId))
+    clearListingTaskBusy(productIds)
+    if (shouldHideAfterListingTask()) {
+      clearHiddenProducts(successIds)
+      restoreHiddenProducts(pendingIds)
+    } else {
+      void refreshAll({ loadStores: false })
+    }
+    ElMessage.warning(task.errorDetail || task.message || '上架任务已终止，请到上架任务中查看详情')
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
   if (shouldHideAfterListingTask()) {
     hideProducts(productIds)
   }
@@ -889,6 +904,16 @@ function handleListingStatusSyncTaskResult(task: SyncTask, productIds: number[],
     maybeRefreshAfterOptimisticAction()
     return
   }
+  if (task.status === 'cancelled') {
+    const successIds = task.successIds?.length ? task.successIds : []
+    const successIdSet = new Set(successIds)
+    const pendingIds = productIds.filter((productId) => !successIdSet.has(productId))
+    clearProductSnapshots(successIds)
+    restoreProductSnapshots(pendingIds)
+    ElMessage.warning(task.errorDetail || task.message || `批量${actionText}已终止，请到同步任务中查看详情`)
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
   restoreProductSnapshots(productIds)
   ElMessage.error(task.errorDetail || task.message || `批量${actionText}失败，请到同步任务中查看错误信息`)
 }
@@ -905,6 +930,16 @@ function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
     clearHiddenProducts(successIds)
     restoreHiddenProducts(failedIds)
     ElMessage.warning(task.errorDetail || task.message || '批量删除部分成功，请到同步任务中查看异常信息')
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
+  if (task.status === 'cancelled') {
+    const successIds = task.successIds?.length ? task.successIds : []
+    const successIdSet = new Set(successIds)
+    const pendingIds = productIds.filter((productId) => !successIdSet.has(productId))
+    clearHiddenProducts(successIds)
+    restoreHiddenProducts(pendingIds)
+    ElMessage.warning(task.errorDetail || task.message || '批量删除已终止，请到同步任务中查看详情')
     maybeRefreshAfterOptimisticAction()
     return
   }
