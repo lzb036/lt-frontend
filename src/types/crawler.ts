@@ -165,6 +165,7 @@ export interface ProductItem {
   listedStores?: ProductListedStore[]
   storeLastSeenAt?: string | null
   title: string
+  tagline?: string | null
   sourceUrl: string
   rakutenItemUrl?: string | null
   itemNumber: string
@@ -315,6 +316,9 @@ export interface ListingTask {
   id: string
   ownerUsername: string
   storeId?: number | null
+  storeCode?: string | null
+  storeName?: string | null
+  aliasName?: string | null
   taskName: string
   status: TaskStatus
   totalCount: number

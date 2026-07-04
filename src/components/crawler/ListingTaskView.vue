@@ -217,6 +217,18 @@ function displayStatusLabel(row: ListingTask) {
   return row.cancelRequested ? '终止中' : statusLabel(row.status)
 }
 
+function listingTaskStoreLabel(row: ListingTask) {
+  return row.aliasName || row.storeName || row.storeCode || (row.storeId ? `店铺 ${row.storeId}` : '-')
+}
+
+function listingTaskStoreCopy(row: ListingTask) {
+  const parts = [row.aliasName, row.storeName, row.storeCode]
+    .map((item) => item?.trim())
+    .filter((item): item is string => Boolean(item))
+  const dedupedParts = [...new Set(parts)]
+  return dedupedParts.length > 0 ? dedupedParts.join(' / ') : listingTaskStoreLabel(row)
+}
+
 function handlePageSizeChange() {
   resetPage()
   void loadTasks()
@@ -253,6 +265,11 @@ function handlePageSizeChange() {
         <el-table-column label="任务名称" min-width="220">
           <template #default="{ row }">
             <CopyableTableText :value="row.taskName" />
+          </template>
+        </el-table-column>
+        <el-table-column label="上架店铺" min-width="150">
+          <template #default="{ row }">
+            <CopyableTableText :value="listingTaskStoreCopy(row)" :display="listingTaskStoreLabel(row)" always />
           </template>
         </el-table-column>
         <el-table-column label="状态" width="120">

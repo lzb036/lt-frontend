@@ -5,7 +5,7 @@ import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingPreflightIssue, ListingPreflightResult, ListingTask, ProductDetail, ProductItem, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
+import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -19,10 +19,9 @@ interface ImageDraftItem {
   currentUrl: string
 }
 
-interface ListingPreflightIssueRow extends ListingPreflightIssue {
-  key: string
-  productCode: string
-  productTitle: string
+interface PendingInlineDraft {
+  title: string
+  tagline: string
 }
 
 const props = defineProps<{
@@ -39,6 +38,7 @@ const detailSaving = shallowRef(false)
 const imageOperating = shallowRef(false)
 const productTableRef = ref<{ clearSelection: () => void } | null>(null)
 const imageFileInputRef = ref<HTMLInputElement | null>(null)
+const inlineImageFileInputRef = ref<HTMLInputElement | null>(null)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
@@ -50,6 +50,9 @@ const listingProductIds = shallowRef<Set<number>>(new Set())
 const detailImageDraft = shallowRef<ImageDraftItem[]>([])
 const draftPreviewUrls = shallowRef<Set<string>>(new Set())
 const pendingImageOperations = shallowRef<PendingImageOperation[]>([])
+const pendingInlineDrafts = reactive<Record<number, PendingInlineDraft>>({})
+const pendingInlineSavingIds = shallowRef<Set<number>>(new Set())
+const replacingInlineImageProductId = shallowRef<number | null>(null)
 const detailForm = reactive({
   productId: null as number | null,
   title: '',
@@ -76,9 +79,6 @@ const listingForm = reactive({
 const listingDialogVisible = shallowRef(false)
 const listingDialogProductIds = shallowRef<number[]>([])
 const listingDialogTitle = shallowRef('上架商品')
-const listingPreflightVisible = shallowRef(false)
-const listingPreflightLoading = shallowRef(false)
-const listingPreflightResult = shallowRef<ListingPreflightResult | null>(null)
 
 const statusCopy = computed(() => {
   const map: Record<ReviewStatus, { label: string; tag: 'success' | 'warning' | 'danger' | 'info'; empty: string }> = {
@@ -98,28 +98,6 @@ const visibleProducts = computed(() => {
     return products.value
   }
   return products.value.filter((product) => !hiddenProducts.value.has(product.id))
-})
-
-const listingPreflightIssueRows = computed<ListingPreflightIssueRow[]>(() => {
-  const result = listingPreflightResult.value
-  if (!result) {
-    return []
-  }
-  const globalRows = result.globalIssues.map((issue, index) => ({
-    ...issue,
-    key: `global-${index}`,
-    productCode: '全局',
-    productTitle: '',
-  }))
-  const productRows = result.products.flatMap((product) =>
-    product.issues.map((issue, index) => ({
-      ...issue,
-      key: `${product.productId}-${index}`,
-      productCode: product.productCode || String(product.productId),
-      productTitle: product.productTitle,
-    })),
-  )
-  return [...globalRows, ...productRows]
 })
 
 onMounted(() => {
@@ -185,6 +163,7 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       pageSize: pageSize.value,
     })
     products.value = result.items
+    syncPendingInlineDrafts(result.items)
     reconcileHiddenProducts(result.items)
     setPageResult(result)
   } catch (error) {
@@ -206,6 +185,79 @@ function reconcileHiddenProducts(nextProducts: ProductItem[]) {
     }
   }
   hiddenProducts.value = nextHidden
+}
+
+function productTagline(product: ProductItem) {
+  return String(product.tagline || '')
+}
+
+function pendingInlineDraft(product: ProductItem) {
+  const existing = pendingInlineDrafts[product.id]
+  if (existing) {
+    return existing
+  }
+  const draft = {
+    title: product.title || '',
+    tagline: productTagline(product),
+  }
+  pendingInlineDrafts[product.id] = draft
+  return draft
+}
+
+function setPendingInlineDraft(product: ProductItem) {
+  pendingInlineDrafts[product.id] = {
+    title: product.title || '',
+    tagline: productTagline(product),
+  }
+}
+
+function syncPendingInlineDrafts(nextProducts: ProductItem[]) {
+  if (props.status !== 'pending') {
+    for (const key of Object.keys(pendingInlineDrafts)) {
+      delete pendingInlineDrafts[Number(key)]
+    }
+    return
+  }
+  const nextIds = new Set(nextProducts.map((product) => product.id))
+  for (const key of Object.keys(pendingInlineDrafts)) {
+    if (!nextIds.has(Number(key))) {
+      delete pendingInlineDrafts[Number(key)]
+    }
+  }
+  for (const product of nextProducts) {
+    setPendingInlineDraft(product)
+  }
+}
+
+function setPendingInlineDraftField(product: ProductItem, field: keyof PendingInlineDraft, value: string | number) {
+  pendingInlineDraft(product)[field] = String(value ?? '')
+}
+
+function setPendingInlineSaving(productId: number, saving: boolean) {
+  const next = new Set(pendingInlineSavingIds.value)
+  if (saving) {
+    next.add(productId)
+  } else {
+    next.delete(productId)
+  }
+  pendingInlineSavingIds.value = next
+}
+
+function isPendingInlineSaving(product: ProductItem) {
+  return pendingInlineSavingIds.value.has(product.id)
+}
+
+function mergeUpdatedProduct(product: ProductItem) {
+  products.value = products.value.map((item) => (item.id === product.id ? { ...item, ...product } : item))
+  if (props.status === 'pending') {
+    setPendingInlineDraft(product)
+  }
+  if (selectedProductDetail.value?.id === product.id && 'detail' in product) {
+    selectedProductDetail.value = product as ProductDetail
+    fillDetailForm(product as ProductDetail)
+    resetImageDraft()
+    fillImageDraft(product as ProductDetail)
+  }
 }
 
 function resetFilters() {
@@ -286,6 +338,7 @@ function mergeVisibleProducts(nextProducts: ProductItem[]) {
   products.value = products.value
     .map((product) => nextById.get(product.id) || product)
     .filter(currentFiltersMatch)
+  syncPendingInlineDrafts(products.value)
 }
 
 function removeVisibleProducts(productIds: number[]) {
@@ -651,33 +704,7 @@ async function submitListingTask() {
     ElMessage.warning('请先选择上架店铺')
     return
   }
-  listingPreflightLoading.value = true
-  try {
-    const result = await api.preflightListingTask({
-      productIds,
-      storeId: listingForm.storeId,
-      taskName: listingForm.taskName.trim(),
-    })
-    listingPreflightResult.value = result
-    if (!result.canProceed || result.summary.warningCount > 0) {
-      listingPreflightVisible.value = true
-      return
-    }
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '上架前体检失败'))
-    return
-  } finally {
-    listingPreflightLoading.value = false
-  }
   await confirmAndCreateListingTask(productIds)
-}
-
-async function continueListingAfterPreflight() {
-  if (!listingPreflightResult.value?.canProceed) {
-    return
-  }
-  listingPreflightVisible.value = false
-  await confirmAndCreateListingTask([...listingDialogProductIds.value])
 }
 
 async function confirmAndCreateListingTask(productIds: number[]) {
@@ -736,8 +763,6 @@ function openListingDialog(productIds: number[], title: string) {
   listingDialogTitle.value = title
   listingForm.storeId = null
   listingForm.taskName = ''
-  listingPreflightResult.value = null
-  listingPreflightVisible.value = false
   listingDialogVisible.value = true
 }
 
@@ -771,21 +796,6 @@ function isListingProductBusy(product: ProductItem) {
 function hasSelectedListingProductBusy() {
   const selectedIdSet = new Set(selectedIds.value)
   return visibleProducts.value.some((product) => selectedIdSet.has(product.id) && isListingProductBusy(product))
-}
-
-function preflightSeverityType(issue: ListingPreflightIssueRow) {
-  return issue.severity === 'blocker' ? 'danger' : 'warning'
-}
-
-function preflightSeverityLabel(issue: ListingPreflightIssueRow) {
-  return issue.severity === 'blocker' ? '阻断' : '警告'
-}
-
-function preflightProductLabel(issue: ListingPreflightIssueRow) {
-  if (issue.productCode === '全局') {
-    return '全局'
-  }
-  return issue.productTitle ? `${issue.productCode} ${issue.productTitle}` : issue.productCode
 }
 
 function isProductSelectable(product: ProductItem) {
@@ -1194,12 +1204,117 @@ async function submitDetailChange() {
     fillDetailForm(product)
     resetImageDraft()
     fillImageDraft(product)
-    products.value = products.value.map((item) => (item.id === product.id ? product : item))
+    mergeUpdatedProduct(product)
     ElMessage.success(props.status === 'listed' ? '商品详情已同步到乐天' : '商品详情已保存')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, props.status === 'listed' ? '同步修改商品详情失败' : '保存商品详情失败'))
   } finally {
     detailSaving.value = false
+  }
+}
+
+async function savePendingInlineText(product: ProductItem) {
+  if (props.status !== 'pending' || product.reviewStatus !== 'pending') {
+    return
+  }
+  const draft = pendingInlineDraft(product)
+  const title = draft.title.trim()
+  const tagline = draft.tagline.trim()
+  if (!title) {
+    ElMessage.warning('商品标题不能为空')
+    setPendingInlineDraft(product)
+    return
+  }
+  if (title === (product.title || '').trim() && tagline === productTagline(product).trim()) {
+    setPendingInlineDraft(product)
+    return
+  }
+  await savePendingInlineProduct(product, {
+    title,
+    tagline,
+    successMessage: '',
+    fallbackMessage: '保存商品信息失败',
+  })
+}
+
+async function savePendingInlineProduct(
+  product: ProductItem,
+  options: {
+    title: string
+    tagline: string
+    imageChanges?: ProductDetailEditPayload['imageChanges']
+    successMessage?: string
+    fallbackMessage: string
+  },
+) {
+  setPendingInlineSaving(product.id, true)
+  try {
+    const updatedProduct = await api.updateProductLocalDetail(product.id, {
+      title: options.title,
+      tagline: options.tagline,
+      variants: [],
+      imageChanges: options.imageChanges,
+    })
+    mergeUpdatedProduct(updatedProduct)
+    if (options.successMessage) {
+      ElMessage.success(options.successMessage)
+    }
+  } catch (error) {
+    setPendingInlineDraft(product)
+    ElMessage.error(toApiErrorMessage(error, options.fallbackMessage))
+  } finally {
+    setPendingInlineSaving(product.id, false)
+  }
+}
+
+function triggerInlineImageReplace(product: ProductItem) {
+  if (props.status !== 'pending' || isPendingInlineSaving(product)) {
+    return
+  }
+  replacingInlineImageProductId.value = product.id
+  if (inlineImageFileInputRef.value) {
+    inlineImageFileInputRef.value.value = ''
+    inlineImageFileInputRef.value.click()
+  }
+}
+
+async function handleInlineImageReplace(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  const productId = replacingInlineImageProductId.value
+  const product = productId == null ? null : products.value.find((item) => item.id === productId)
+  if (!file || !product) {
+    replacingInlineImageProductId.value = null
+    input.value = ''
+    return
+  }
+  setPendingInlineSaving(product.id, true)
+  try {
+    const detail = await api.getProductDetail(product.id)
+    const currentImages = detailImageUrlsFromProduct(detail)
+    const draft = await api.uploadProductImageDraft(product.id, file)
+    const draftState = pendingInlineDraft(product)
+    const title = draftState.title.trim() || detail.detail.title || product.title
+    const tagline = draftState.tagline.trim()
+    const sourceImage = currentImages[0] || ''
+    await savePendingInlineProduct(product, {
+      title,
+      tagline,
+      imageChanges: {
+        images: [draft.url, ...currentImages.slice(1)],
+        replacements: sourceImage ? [{ from: sourceImage, to: draft.url }] : [],
+        removeUrls: [],
+      },
+      successMessage: '商品图片已更新',
+      fallbackMessage: '替换商品图片失败',
+    })
+  } catch (error) {
+    setPendingInlineDraft(product)
+    ElMessage.error(toApiErrorMessage(error, '替换商品图片失败'))
+  } finally {
+    setPendingInlineSaving(product.id, false)
+    replacingInlineImageProductId.value = null
+    input.value = ''
   }
 }
 
@@ -1570,23 +1685,68 @@ function sanitizedDescriptionHtml(value: string) {
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="46" :selectable="isProductSelectable" />
-        <el-table-column label="图片" width="86">
+        <el-table-column label="图片" :width="status === 'pending' ? 126 : 86">
           <template #default="{ row }">
-            <el-image
-              v-if="row.imageUrl"
-              class="product-image"
-              :src="row.imageUrl"
-              fit="cover"
-              lazy
-              :preview-src-list="[row.imageUrl]"
-              preview-teleported
-            />
-            <span v-else class="image-empty">无图</span>
+            <div v-if="status === 'pending'" class="pending-image-editor">
+              <el-image
+                v-if="row.imageUrl"
+                class="pending-product-image"
+                :src="row.imageUrl"
+                fit="cover"
+                lazy
+                :preview-src-list="[row.imageUrl]"
+                preview-teleported
+              />
+              <span v-else class="pending-image-empty">无图</span>
+              <el-button
+                :icon="Upload"
+                size="small"
+                :loading="isPendingInlineSaving(row)"
+                :disabled="isPendingInlineSaving(row)"
+                @click="triggerInlineImageReplace(row)"
+              >
+                替换
+              </el-button>
+            </div>
+            <template v-else>
+              <el-image
+                v-if="row.imageUrl"
+                class="product-image"
+                :src="row.imageUrl"
+                fit="cover"
+                lazy
+                :preview-src-list="[row.imageUrl]"
+                preview-teleported
+              />
+              <span v-else class="image-empty">无图</span>
+            </template>
           </template>
         </el-table-column>
-        <el-table-column label="商品标题" min-width="300">
+        <el-table-column :label="status === 'pending' ? '商品标题 / 副标题' : '商品标题'" :min-width="status === 'pending' ? 460 : 300">
           <template #default="{ row }">
-            <CopyableTableText :value="row.title" />
+            <div v-if="status === 'pending'" class="pending-inline-fields">
+              <el-input
+                :model-value="pendingInlineDraft(row).title"
+                maxlength="500"
+                type="textarea"
+                :autosize="{ minRows: 1, maxRows: 3 }"
+                placeholder="商品标题"
+                :disabled="isPendingInlineSaving(row)"
+                @update:model-value="setPendingInlineDraftField(row, 'title', $event)"
+                @blur="savePendingInlineText(row)"
+              />
+              <el-input
+                :model-value="pendingInlineDraft(row).tagline"
+                maxlength="174"
+                type="textarea"
+                :autosize="{ minRows: 1, maxRows: 2 }"
+                placeholder="商品副标题"
+                :disabled="isPendingInlineSaving(row)"
+                @update:model-value="setPendingInlineDraftField(row, 'tagline', $event)"
+                @blur="savePendingInlineText(row)"
+              />
+            </div>
+            <CopyableTableText v-else :value="row.title" />
           </template>
         </el-table-column>
         <el-table-column v-if="status === 'listed'" label="商品编号" min-width="170">
@@ -1665,6 +1825,7 @@ function sanitizedDescriptionHtml(value: string) {
           </template>
         </el-table-column>
       </el-table>
+      <input v-if="status === 'pending'" ref="inlineImageFileInputRef" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/gif" @change="handleInlineImageReplace" />
       <div class="pagination-row">
         <el-pagination
           v-model:current-page="currentPage"
@@ -1691,60 +1852,8 @@ function sanitizedDescriptionHtml(value: string) {
       </el-form>
       <template #footer>
         <el-button @click="listingDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="operating || listingPreflightLoading" @click="submitListingTask">
+        <el-button type="primary" :loading="operating" @click="submitListingTask">
           {{ status === 'listed_master' ? '创建重新上架任务' : '创建上架任务' }}
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="listingPreflightVisible" title="上架前体检" width="760px" append-to-body>
-      <div v-if="listingPreflightResult" class="preflight-panel">
-        <el-alert
-          :title="listingPreflightResult.message"
-          :type="listingPreflightResult.canProceed ? 'warning' : 'error'"
-          :closable="false"
-          show-icon
-        />
-        <div class="preflight-summary">
-          <span>商品 {{ listingPreflightResult.summary.productCount }}</span>
-          <span>通过 {{ listingPreflightResult.summary.passedCount }}</span>
-          <span>阻断 {{ listingPreflightResult.summary.blockerCount }}</span>
-          <span>警告 {{ listingPreflightResult.summary.warningCount }}</span>
-        </div>
-        <el-table :data="listingPreflightIssueRows" max-height="360" border empty-text="暂无体检问题">
-          <el-table-column label="级别" width="86">
-            <template #default="{ row }">
-              <el-tag :type="preflightSeverityType(row)" size="small">
-                {{ preflightSeverityLabel(row) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="商品" min-width="180">
-            <template #default="{ row }">
-              <CopyableTableText :value="preflightProductLabel(row)" />
-            </template>
-          </el-table-column>
-          <el-table-column label="位置" width="120">
-            <template #default="{ row }">
-              <span>{{ row.attributeName || row.field || row.variantId || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="问题" min-width="280">
-            <template #default="{ row }">
-              <CopyableTableText :value="row.message" />
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-      <template #footer>
-        <el-button @click="listingPreflightVisible = false">关闭</el-button>
-        <el-button
-          v-if="listingPreflightResult?.canProceed"
-          type="primary"
-          :loading="operating"
-          @click="continueListingAfterPreflight"
-        >
-          继续创建任务
         </el-button>
       </template>
     </el-dialog>
@@ -2077,6 +2186,55 @@ function sanitizedDescriptionHtml(value: string) {
   background: var(--panel-muted);
 }
 
+.pending-image-editor {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  width: 84px;
+  padding: 4px 0;
+}
+
+.pending-product-image {
+  width: 78px;
+  height: 78px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel-muted);
+}
+
+.pending-image-empty {
+  display: inline-grid;
+  width: 78px;
+  height: 78px;
+  place-items: center;
+  border: 1px dashed var(--panel-border);
+  border-radius: 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.pending-image-editor :deep(.el-button) {
+  width: 78px;
+  margin-left: 0;
+}
+
+.pending-inline-fields {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.pending-inline-fields :deep(.el-textarea__inner) {
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pending-inline-fields :deep(.el-textarea + .el-textarea .el-textarea__inner) {
+  color: var(--text-muted);
+}
+
 .image-empty {
   display: inline-grid;
   width: 54px;
@@ -2102,19 +2260,6 @@ function sanitizedDescriptionHtml(value: string) {
 .listing-dialog-form {
   display: grid;
   gap: 4px;
-}
-
-.preflight-panel {
-  display: grid;
-  gap: 12px;
-}
-
-.preflight-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  color: var(--text-secondary);
-  font-size: 13px;
 }
 
 .detail-dialog {
