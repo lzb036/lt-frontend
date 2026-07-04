@@ -53,6 +53,7 @@ const pendingImageOperations = shallowRef<PendingImageOperation[]>([])
 const pendingInlineDrafts = reactive<Record<number, PendingInlineDraft>>({})
 const pendingInlineSavingIds = shallowRef<Set<number>>(new Set())
 const replacingInlineImageProductId = shallowRef<number | null>(null)
+const replacingInlineImageIndex = shallowRef(0)
 const detailForm = reactive({
   productId: null as number | null,
   title: '',
@@ -245,6 +246,16 @@ function setPendingInlineSaving(productId: number, saving: boolean) {
 
 function isPendingInlineSaving(product: ProductItem) {
   return pendingInlineSavingIds.value.has(product.id)
+}
+
+function productListImageUrls(product: ProductItem) {
+  const urls = [...(product.images || [])]
+  if (product.imageUrl && !urls.includes(product.imageUrl)) {
+    urls.unshift(product.imageUrl)
+  }
+  return urls
+    .map((url) => String(url || '').trim())
+    .filter((url, index, values) => Boolean(url) && values.indexOf(url) === index)
 }
 
 function mergeUpdatedProduct(product: ProductItem) {
@@ -1267,11 +1278,12 @@ async function savePendingInlineProduct(
   }
 }
 
-function triggerInlineImageReplace(product: ProductItem) {
+function triggerInlineImageReplace(product: ProductItem, imageIndex = 0) {
   if (props.status !== 'pending' || isPendingInlineSaving(product)) {
     return
   }
   replacingInlineImageProductId.value = product.id
+  replacingInlineImageIndex.value = Math.max(0, imageIndex)
   if (inlineImageFileInputRef.value) {
     inlineImageFileInputRef.value.value = ''
     inlineImageFileInputRef.value.click()
@@ -1282,9 +1294,11 @@ async function handleInlineImageReplace(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   const productId = replacingInlineImageProductId.value
+  const imageIndex = replacingInlineImageIndex.value
   const product = productId == null ? null : products.value.find((item) => item.id === productId)
   if (!file || !product) {
     replacingInlineImageProductId.value = null
+    replacingInlineImageIndex.value = 0
     input.value = ''
     return
   }
@@ -1296,12 +1310,18 @@ async function handleInlineImageReplace(event: Event) {
     const draftState = pendingInlineDraft(product)
     const title = draftState.title.trim() || detail.detail.title || product.title
     const tagline = draftState.tagline.trim()
-    const sourceImage = currentImages[0] || ''
+    const sourceImage = currentImages[imageIndex] || ''
+    const nextImages = [...currentImages]
+    if (imageIndex < nextImages.length) {
+      nextImages[imageIndex] = draft.url
+    } else {
+      nextImages.push(draft.url)
+    }
     await savePendingInlineProduct(product, {
       title,
       tagline,
       imageChanges: {
-        images: [draft.url, ...currentImages.slice(1)],
+        images: nextImages,
         replacements: sourceImage ? [{ from: sourceImage, to: draft.url }] : [],
         removeUrls: [],
       },
@@ -1314,7 +1334,47 @@ async function handleInlineImageReplace(event: Event) {
   } finally {
     setPendingInlineSaving(product.id, false)
     replacingInlineImageProductId.value = null
+    replacingInlineImageIndex.value = 0
     input.value = ''
+  }
+}
+
+async function deletePendingInlineImage(product: ProductItem, imageIndex: number) {
+  if (props.status !== 'pending' || product.reviewStatus !== 'pending' || isPendingInlineSaving(product)) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm('确认删除这张商品图片？删除后会立即保存到待审核商品。', '删除图片', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+    setPendingInlineSaving(product.id, true)
+    const detail = await api.getProductDetail(product.id)
+    const currentImages = detailImageUrlsFromProduct(detail)
+    const sourceImage = currentImages[imageIndex]
+    if (!sourceImage) {
+      ElMessage.warning('图片不存在')
+      return
+    }
+    const draftState = pendingInlineDraft(product)
+    await savePendingInlineProduct(product, {
+      title: draftState.title.trim() || detail.detail.title || product.title,
+      tagline: draftState.tagline.trim(),
+      imageChanges: {
+        images: currentImages.filter((_, index) => index !== imageIndex),
+        replacements: [],
+        removeUrls: [sourceImage],
+      },
+      successMessage: '商品图片已删除',
+      fallbackMessage: '删除商品图片失败',
+    })
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '删除商品图片失败'))
+    }
+  } finally {
+    setPendingInlineSaving(product.id, false)
   }
 }
 
@@ -1685,28 +1745,51 @@ function sanitizedDescriptionHtml(value: string) {
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="46" :selectable="isProductSelectable" />
-        <el-table-column label="图片" :width="status === 'pending' ? 126 : 86">
+        <el-table-column label="图片" :min-width="status === 'pending' ? 760 : 86">
           <template #default="{ row }">
             <div v-if="status === 'pending'" class="pending-image-editor">
-              <el-image
-                v-if="row.imageUrl"
-                class="pending-product-image"
-                :src="row.imageUrl"
-                fit="cover"
-                lazy
-                :preview-src-list="[row.imageUrl]"
-                preview-teleported
-              />
-              <span v-else class="pending-image-empty">无图</span>
-              <el-button
-                :icon="Upload"
-                size="small"
-                :loading="isPendingInlineSaving(row)"
+              <div v-for="(image, imageIndex) in productListImageUrls(row)" :key="`${row.id}-${image}-${imageIndex}`" class="pending-image-card">
+                <el-image
+                  class="pending-product-image"
+                  :src="image"
+                  fit="cover"
+                  lazy
+                  :preview-src-list="productListImageUrls(row)"
+                  :initial-index="imageIndex"
+                  preview-teleported
+                />
+                <div class="pending-image-actions">
+                  <el-button
+                    :icon="Upload"
+                    size="small"
+                    :loading="isPendingInlineSaving(row)"
+                    :disabled="isPendingInlineSaving(row)"
+                    @click="triggerInlineImageReplace(row, imageIndex)"
+                  >
+                    替换
+                  </el-button>
+                  <el-button
+                    :icon="Delete"
+                    size="small"
+                    type="danger"
+                    plain
+                    :loading="isPendingInlineSaving(row)"
+                    :disabled="isPendingInlineSaving(row)"
+                    @click="deletePendingInlineImage(row, imageIndex)"
+                  >
+                    删除
+                  </el-button>
+                </div>
+              </div>
+              <button
+                v-if="productListImageUrls(row).length < 1"
+                class="pending-image-empty-card"
+                type="button"
                 :disabled="isPendingInlineSaving(row)"
-                @click="triggerInlineImageReplace(row)"
+                @click="triggerInlineImageReplace(row, 0)"
               >
-                替换
-              </el-button>
+                添加图片
+              </button>
             </div>
             <template v-else>
               <el-image
@@ -1791,37 +1874,39 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column label="操作" :width="status === 'pending' ? 300 : ['approved', 'listed_master'].includes(status) ? 240 : 120" fixed="right">
+        <el-table-column label="操作" :width="status === 'pending' ? 112 : ['approved', 'listed_master'].includes(status) ? 132 : 120" fixed="right">
           <template #default="{ row }">
-            <el-button :icon="View" link type="primary" :disabled="isListingProductBusy(row)" @click="openProductDetail(row)">
-              查看详情
-            </el-button>
-            <template v-if="status === 'approved' || status === 'listed_master'">
-              <el-button
-                :icon="Upload"
-                link
-                type="success"
-                :disabled="isListingProductBusy(row)"
-                :loading="isListingProductBusy(row)"
-                @click="createListingTaskForProduct(row)"
-              >
-                {{ status === 'listed_master' ? '重新上架' : '上架' }}
+            <div class="row-action-stack">
+              <el-button :icon="View" link type="primary" :disabled="isListingProductBusy(row)" @click="openProductDetail(row)">
+                查看详情
               </el-button>
-              <el-button :icon="Delete" link type="danger" :disabled="isListingProductBusy(row)" @click="removeProduct(row)">
-                删除
-              </el-button>
-            </template>
-            <template v-if="status === 'pending'">
-              <el-button :icon="Finished" link type="success" @click="approveProduct(row)">
-                审核通过
-              </el-button>
-              <el-button :icon="EditPen" link type="warning" @click="markError([row.id], row)">
-                标记异常
-              </el-button>
-              <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
-                删除
-              </el-button>
-            </template>
+              <template v-if="status === 'approved' || status === 'listed_master'">
+                <el-button
+                  :icon="Upload"
+                  link
+                  type="success"
+                  :disabled="isListingProductBusy(row)"
+                  :loading="isListingProductBusy(row)"
+                  @click="createListingTaskForProduct(row)"
+                >
+                  {{ status === 'listed_master' ? '重新上架' : '上架' }}
+                </el-button>
+                <el-button :icon="Delete" link type="danger" :disabled="isListingProductBusy(row)" @click="removeProduct(row)">
+                  删除
+                </el-button>
+              </template>
+              <template v-if="status === 'pending'">
+                <el-button :icon="Finished" link type="success" @click="approveProduct(row)">
+                  审核通过
+                </el-button>
+                <el-button :icon="EditPen" link type="warning" @click="markError([row.id], row)">
+                  标记异常
+                </el-button>
+                <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
+                  删除
+                </el-button>
+              </template>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -2187,35 +2272,61 @@ function sanitizedDescriptionHtml(value: string) {
 }
 
 .pending-image-editor {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 178px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 2px 10px;
+}
+
+.pending-image-card {
   display: grid;
-  justify-items: start;
-  gap: 6px;
-  width: 84px;
-  padding: 4px 0;
+  flex: 0 0 128px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .pending-product-image {
-  width: 78px;
-  height: 78px;
+  width: 128px;
+  height: 128px;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   background: var(--panel-muted);
 }
 
-.pending-image-empty {
+.pending-image-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pending-image-actions :deep(.el-button) {
+  justify-content: center;
+  width: 100%;
+  margin-left: 0;
+  padding: 0 8px;
+}
+
+.pending-image-empty-card {
   display: inline-grid;
-  width: 78px;
-  height: 78px;
+  width: 128px;
+  height: 128px;
   place-items: center;
   border: 1px dashed var(--panel-border);
   border-radius: 6px;
+  background: var(--panel-muted);
   color: var(--text-faint);
+  cursor: pointer;
+  font: inherit;
   font-size: 12px;
 }
 
-.pending-image-editor :deep(.el-button) {
-  width: 78px;
-  margin-left: 0;
+.pending-image-empty-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .pending-inline-fields {
@@ -2244,6 +2355,17 @@ function sanitizedDescriptionHtml(value: string) {
   border-radius: 6px;
   color: var(--text-faint);
   font-size: 12px;
+}
+
+.row-action-stack {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.row-action-stack :deep(.el-button) {
+  margin-left: 0;
+  padding: 0;
 }
 
 :deep(.product-row-disabled) {

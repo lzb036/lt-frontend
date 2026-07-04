@@ -171,6 +171,7 @@ export interface ProductItem {
   itemNumber: string
   shopName: string
   imageUrl: string
+  images?: string[]
   price?: number | null
   priceMin?: number | null
   priceMax?: number | null
