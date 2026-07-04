@@ -30,8 +30,8 @@ interface ThemePresetOption extends ThemeOption<ThemePresetKey> {
 const THEME_SETTINGS_STORAGE_KEY = 'lt_product_collector_theme_settings'
 
 export const defaultThemeSettings: ThemeSettings = {
-  mode: 'light',
-  preset: 'forest',
+  mode: 'dark',
+  preset: 'large-simple',
   font: 'microsoft',
   radius: '0',
   density: 'default',

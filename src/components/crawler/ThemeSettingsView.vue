@@ -10,24 +10,11 @@ const {
   themeDensityOptions,
   themeSurfaceOptions,
   updateThemeSetting,
-  resetThemeSettings,
 } = useTheme()
 </script>
 
 <template>
   <section class="page-stack">
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">System Settings</p>
-        <h1>主题管理</h1>
-      </div>
-      <div class="theme-head-actions">
-        <el-button plain @click="resetThemeSettings">
-          恢复默认
-        </el-button>
-      </div>
-    </div>
-
     <section class="theme-panel">
       <section class="theme-section">
         <div class="theme-section-head">
@@ -147,33 +134,6 @@ const {
   gap: 18px;
 }
 
-.page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.page-head h1 {
-  display: block !important;
-  margin: 0;
-  color: var(--text-main);
-  font-size: 26px;
-  font-weight: 800;
-}
-
-.theme-head-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .theme-panel {
   display: grid;
   gap: 18px;
@@ -272,11 +232,6 @@ const {
 }
 
 @media (max-width: 640px) {
-  .page-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .theme-preset-grid,
   .theme-option-grid {
     grid-template-columns: 1fr;

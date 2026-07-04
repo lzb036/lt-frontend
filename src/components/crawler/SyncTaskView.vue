@@ -250,8 +250,6 @@ function handlePageSizeChange() {
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="52" />
-        <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
         <el-table-column label="任务名称" min-width="230">
           <template #default="{ row }">
             <CopyableTableText :value="row.taskName" />
@@ -282,6 +280,8 @@ function handlePageSizeChange() {
             <CopyableTableText :value="row.errorDetail" />
           </template>
         </el-table-column>
+        <el-table-column prop="createdAt" label="创建时间" min-width="170" />
+        <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button
