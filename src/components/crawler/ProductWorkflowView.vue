@@ -1405,6 +1405,67 @@ async function handleInlineImageReplace(event: Event) {
   }
 }
 
+async function editPendingInlineImageWithMeitu(product: ProductItem, imageIndex: number) {
+  if (props.status !== 'pending' || product.reviewStatus !== 'pending' || isPendingInlineSaving(product)) {
+    return
+  }
+  const imageSrc = productListImageUrls(product)[imageIndex]
+  if (!imageSrc) {
+    ElMessage.warning('图片不存在')
+    return
+  }
+  try {
+    await openMeituImageEditor({
+      imageSrc,
+      title: '编辑图片',
+      onSave: (result) => applyPendingInlineMeituImageEdit(product, imageIndex, result),
+    })
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '打开图片编辑器失败'))
+  }
+}
+
+async function applyPendingInlineMeituImageEdit(product: ProductItem, imageIndex: number, result: MeituImageSaveResult) {
+  const imageBase64 = String(result.imageBase64 || '').trim()
+  if (!imageBase64) {
+    ElMessage.warning('编辑结果为空')
+    return
+  }
+  setPendingInlineSaving(product.id, true)
+  try {
+    const detail = await api.getProductDetail(product.id)
+    const currentImages = detailImageUrlsFromProduct(detail)
+    const sourceImage = currentImages[imageIndex]
+    if (!sourceImage) {
+      ElMessage.warning('图片不存在')
+      return
+    }
+    const draft = await api.uploadProductImageDraftBase64(product.id, {
+      imageBase64,
+      ext: normalizeMeituImageExt(result.ext, imageBase64),
+    })
+    const nextImages = [...currentImages]
+    nextImages[imageIndex] = draft.url
+    const draftState = pendingInlineDraft(product)
+    await savePendingInlineProduct(product, {
+      title: draftState.title.trim() || detail.detail.title || product.title,
+      tagline: draftState.tagline.trim(),
+      imageChanges: {
+        images: nextImages,
+        replacements: [{ from: sourceImage, to: draft.url }],
+        removeUrls: [],
+      },
+      successMessage: '商品图片已编辑',
+      fallbackMessage: '编辑商品图片失败',
+    })
+  } catch (error) {
+    setPendingInlineDraft(product)
+    ElMessage.error(toApiErrorMessage(error, '编辑商品图片失败'))
+  } finally {
+    setPendingInlineSaving(product.id, false)
+  }
+}
+
 async function deletePendingInlineImage(product: ProductItem, imageIndex: number) {
   if (props.status !== 'pending' || product.reviewStatus !== 'pending' || isPendingInlineSaving(product)) {
     return
@@ -1897,6 +1958,17 @@ function sanitizedDescriptionHtml(value: string) {
                 />
                 <div class="pending-image-actions">
                   <el-button
+                    :icon="EditPen"
+                    size="small"
+                    type="success"
+                    plain
+                    :loading="isPendingInlineSaving(row)"
+                    :disabled="isPendingInlineSaving(row)"
+                    @click="editPendingInlineImageWithMeitu(row, imageIndex)"
+                  >
+                    编辑
+                  </el-button>
+                  <el-button
                     :icon="Upload"
                     size="small"
                     :loading="isPendingInlineSaving(row)"
@@ -2247,7 +2319,7 @@ function sanitizedDescriptionHtml(value: string) {
                       下载
                     </el-button>
                     <el-button v-if="imageEditable()" :icon="EditPen" link type="success" :disabled="imageOperating" @click="editDetailImageWithMeitu(index)">
-                      美图
+                      编辑
                     </el-button>
                     <el-button v-if="imageEditable()" :icon="Upload" link type="warning" :disabled="imageOperating" @click="triggerReplaceImage(index)">
                       替换
@@ -2459,7 +2531,7 @@ function sanitizedDescriptionHtml(value: string) {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  min-height: 178px;
+  min-height: 212px;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -2468,14 +2540,14 @@ function sanitizedDescriptionHtml(value: string) {
 
 .pending-image-card {
   display: grid;
-  flex: 0 0 128px;
+  flex: 0 0 160px;
   gap: 8px;
   min-width: 0;
 }
 
 .pending-product-image {
-  width: 128px;
-  height: 128px;
+  width: 160px;
+  height: 160px;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   background: var(--panel-muted);
@@ -2483,21 +2555,21 @@ function sanitizedDescriptionHtml(value: string) {
 
 .pending-image-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .pending-image-actions :deep(.el-button) {
   justify-content: center;
   width: 100%;
   margin-left: 0;
-  padding: 0 8px;
+  padding: 0 4px;
 }
 
 .pending-image-empty-card {
   display: inline-grid;
-  width: 128px;
-  height: 128px;
+  width: 160px;
+  height: 160px;
   place-items: center;
   border: 1px dashed var(--panel-border);
   border-radius: 6px;
