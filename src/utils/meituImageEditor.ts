@@ -21,6 +21,8 @@ interface OpenMeituImageEditorOptions {
 }
 
 const DEFAULT_GLOBAL_NAMES = ['Meitu', 'meitu', 'Xiuxiu', 'xiuxiu', 'MTImageEditor', 'MtImageEditor']
+const DEFAULT_ACCESS_KEY = 'dHmG136f9RwNjJek7dMraBdcyDaMVs6N'
+const DEFAULT_MODULE_NAME = 'image-editor-sdk'
 
 let sdkScriptPromise: Promise<void> | null = null
 let editorInstance: MeituEditorInstance | void
@@ -43,7 +45,7 @@ export async function openMeituImageEditor(options: OpenMeituImageEditorOptions)
 
   editorInstance?.destroy?.()
   editorInstance = sdk.init({
-    moduleName: import.meta.env.VITE_MEITU_IMAGE_EDITOR_MODULE_NAME || 'image-editor-sdk',
+    moduleName: import.meta.env.VITE_MEITU_IMAGE_EDITOR_MODULE_NAME || DEFAULT_MODULE_NAME,
     accessKey,
     title: options.title || '编辑图片',
     el: '',
@@ -61,7 +63,7 @@ export async function openMeituImageEditor(options: OpenMeituImageEditorOptions)
 }
 
 function meituAccessKey() {
-  return String(import.meta.env.VITE_MEITU_IMAGE_EDITOR_ACCESS_KEY || '').trim()
+  return String(import.meta.env.VITE_MEITU_IMAGE_EDITOR_ACCESS_KEY || DEFAULT_ACCESS_KEY).trim()
 }
 
 async function loadMeituSdkScript() {
