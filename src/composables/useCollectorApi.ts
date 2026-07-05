@@ -253,6 +253,14 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function uploadProductImageDraftBase64(productId: number, payload: { imageBase64: string; ext: string }) {
+    const response = await apiClient.post<{ url: string }>(
+      `/crawler/products/${productId}/images/draft-base64`,
+      payload,
+    )
+    return response.data
+  }
+
   function productImageDownloadUrl(productId: number, imageIndex: number) {
     return `${apiClient.defaults.baseURL || '/api'}/crawler/products/${productId}/images/${imageIndex}/download`
   }
@@ -483,6 +491,7 @@ export function useCollectorApi() {
     updateProductDetail,
     updateProductLocalDetail,
     uploadProductImageDraft,
+    uploadProductImageDraftBase64,
     productImageDownloadUrl,
     updateProductsListingStatus,
     updateStoreListingStatus,

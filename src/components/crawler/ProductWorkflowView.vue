@@ -7,10 +7,12 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
 
 type PendingImageOperation =
   | { type: 'replace'; sourceUrl: string; file: File; previewUrl: string }
+  | { type: 'replaceBase64'; sourceUrl: string; imageBase64: string; ext: string; previewUrl: string }
   | { type: 'delete'; sourceUrl: string }
 
 interface ImageDraftItem {
@@ -1499,6 +1501,13 @@ async function buildPendingImagePayload() {
       const draft = await api.uploadProductImageDraft(detailForm.productId!, operation.file)
       replaceMap[operation.previewUrl] = draft.url
       replaceMap[operation.sourceUrl] = draft.url
+    } else if (operation.type === 'replaceBase64') {
+      const draft = await api.uploadProductImageDraftBase64(detailForm.productId!, {
+        imageBase64: operation.imageBase64,
+        ext: operation.ext,
+      })
+      replaceMap[operation.previewUrl] = draft.url
+      replaceMap[operation.sourceUrl] = draft.url
     }
   }
   const images = detailImageDraft.value
@@ -1508,7 +1517,9 @@ async function buildPendingImagePayload() {
   const currentSourceUrls = new Set(detailImageDraft.value.map((image) => image.sourceUrl))
   const removeUrls = [...sourceUrls].filter((url) => !currentSourceUrls.has(url))
   const replacements = pendingImageOperations.value
-    .filter((operation): operation is Extract<PendingImageOperation, { type: 'replace' }> => operation.type === 'replace')
+    .filter((operation): operation is Extract<PendingImageOperation, { type: 'replace' | 'replaceBase64' }> => (
+      operation.type === 'replace' || operation.type === 'replaceBase64'
+    ))
     .map((operation) => ({ from: operation.sourceUrl, to: replaceMap[operation.sourceUrl] || '' }))
     .filter((operation) => operation.to)
   return { images, replacements, removeUrls }
@@ -1523,7 +1534,7 @@ function downloadProductImage(index: number) {
     if (!image) {
       return
     }
-    if (image.currentUrl.startsWith('blob:')) {
+    if (image.currentUrl.startsWith('blob:') || image.currentUrl.startsWith('data:image/')) {
       window.open(image.currentUrl, '_blank', 'noopener')
       return
     }
@@ -1597,6 +1608,72 @@ async function deleteDetailImage(index: number) {
   } finally {
     imageOperating.value = false
   }
+}
+
+async function editDetailImageWithMeitu(index: number) {
+  if (!selectedProductDetail.value || !imageEditable()) {
+    return
+  }
+  const image = detailImageDraft.value[index]
+  if (!image) {
+    ElMessage.warning('图片不存在')
+    return
+  }
+  imageOperating.value = true
+  try {
+    await openMeituImageEditor({
+      imageSrc: image.currentUrl,
+      title: '编辑图片',
+      onSave: (result) => applyMeituImageEdit(image.sourceUrl, result),
+    })
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '打开美图编辑器失败'))
+  } finally {
+    imageOperating.value = false
+  }
+}
+
+function applyMeituImageEdit(sourceUrl: string, result: MeituImageSaveResult) {
+  const imageBase64 = String(result.imageBase64 || '').trim()
+  if (!imageBase64) {
+    ElMessage.warning('美图编辑结果为空')
+    return
+  }
+  const imageIndex = detailImageDraft.value.findIndex((image) => image.sourceUrl === sourceUrl)
+  if (imageIndex < 0) {
+    ElMessage.warning('图片已变更，请重新打开编辑器')
+    return
+  }
+  const ext = normalizeMeituImageExt(result.ext, imageBase64)
+  const previewUrl = meituPreviewUrl(imageBase64, ext)
+  appendPendingImageOperation({ type: 'replaceBase64', sourceUrl, imageBase64, ext, previewUrl })
+  detailImageDraft.value = detailImageDraft.value.map((image, index) => (
+    index === imageIndex ? { ...image, currentUrl: previewUrl } : image
+  ))
+  ElMessage.success('美图编辑已生成草稿，点击保存后生效')
+}
+
+function normalizeMeituImageExt(ext: string, imageBase64: string) {
+  const dataUrlMatch = imageBase64.match(/^data:image\/([a-z0-9.+-]+);base64,/i)
+  const rawExt = String(ext || dataUrlMatch?.[1] || 'jpg').trim().replace(/^\./, '').toLowerCase()
+  return rawExt === 'jpeg' ? 'jpg' : rawExt
+}
+
+function meituPreviewUrl(imageBase64: string, ext: string) {
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(imageBase64)) {
+    return imageBase64
+  }
+  return `data:${meituImageMimeType(ext)};base64,${imageBase64}`
+}
+
+function meituImageMimeType(ext: string) {
+  if (ext === 'png') {
+    return 'image/png'
+  }
+  if (ext === 'gif') {
+    return 'image/gif'
+  }
+  return 'image/jpeg'
 }
 
 function sanitizedDescriptionHtml(value: string) {
@@ -2169,10 +2246,13 @@ function sanitizedDescriptionHtml(value: string) {
                     <el-button :icon="Download" link type="primary" @click="downloadProductImage(index)">
                       下载
                     </el-button>
-                    <el-button v-if="imageEditable()" :icon="EditPen" link type="warning" @click="triggerReplaceImage(index)">
+                    <el-button v-if="imageEditable()" :icon="EditPen" link type="success" :disabled="imageOperating" @click="editDetailImageWithMeitu(index)">
+                      美图
+                    </el-button>
+                    <el-button v-if="imageEditable()" :icon="Upload" link type="warning" :disabled="imageOperating" @click="triggerReplaceImage(index)">
                       替换
                     </el-button>
-                    <el-button v-if="imageEditable()" :icon="Delete" link type="danger" @click="deleteDetailImage(index)">
+                    <el-button v-if="imageEditable()" :icon="Delete" link type="danger" :disabled="imageOperating" @click="deleteDetailImage(index)">
                       删除
                     </el-button>
                   </div>
@@ -2601,10 +2681,10 @@ function sanitizedDescriptionHtml(value: string) {
 
 .detail-image-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
   gap: 4px;
-  min-height: 28px;
+  min-height: 58px;
   overflow: hidden;
 }
 
