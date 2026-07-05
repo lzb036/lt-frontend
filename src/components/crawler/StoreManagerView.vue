@@ -233,7 +233,7 @@ async function removeStore(row: StoreAccount) {
     </div>
 
     <section class="work-panel">
-      <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="650">
+      <el-table v-loading="loading" :data="stores" empty-text="暂无店铺" height="max(650px, calc(100vh - 230px))">
         <el-table-column label="店铺编号" min-width="140">
           <template #default="{ row }">
             <CopyableTableText :value="row.storeCode" />

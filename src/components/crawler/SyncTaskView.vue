@@ -245,7 +245,7 @@ function handlePageSizeChange() {
         v-loading="loading"
         :data="tasks"
         empty-text="暂无同步任务"
-        height="650"
+        height="max(650px, calc(100vh - 230px))"
         row-key="id"
         @selection-change="handleSelectionChange"
       >

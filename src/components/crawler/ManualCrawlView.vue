@@ -612,7 +612,7 @@ function statusType(row: CrawlTask) {
         v-loading="loading"
         :data="tasks"
         empty-text="暂无手动采集任务"
-        height="620"
+        height="max(620px, calc(100vh - 300px))"
         row-key="id"
         @selection-change="handleSelectionChange"
       >

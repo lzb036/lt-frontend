@@ -421,7 +421,7 @@ function countText(value?: number | null) {
     />
 
     <section v-if="canManageUsers" class="work-panel">
-      <el-table v-loading="loading" :data="users" empty-text="暂无用户" height="520">
+      <el-table v-loading="loading" :data="users" empty-text="暂无用户" height="max(520px, calc(100vh - 230px))">
         <el-table-column prop="username" label="用户名" min-width="150" />
         <el-table-column prop="displayName" label="显示名称" min-width="160" />
         <el-table-column label="权限" min-width="260">

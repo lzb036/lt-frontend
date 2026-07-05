@@ -137,7 +137,9 @@ const {
 .theme-panel {
   display: grid;
   gap: 18px;
-  max-width: 980px;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .theme-section {
@@ -158,7 +160,7 @@ const {
 }
 
 .theme-mode-switch {
-  width: min(420px, 100%);
+  width: 100%;
 }
 
 .theme-preset-grid,
@@ -168,11 +170,11 @@ const {
 }
 
 .theme-preset-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .theme-option-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .theme-choice {
@@ -222,12 +224,8 @@ const {
 }
 
 @media (max-width: 1180px) {
-  .theme-preset-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .theme-option-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .theme-panel {
+    grid-template-columns: 1fr;
   }
 }
 

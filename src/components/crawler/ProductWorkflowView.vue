@@ -1740,7 +1740,7 @@ function sanitizedDescriptionHtml(value: string) {
         v-loading="loading"
         :data="visibleProducts"
         :empty-text="statusCopy.empty"
-        height="620"
+        height="max(620px, calc(100vh - 330px))"
         :row-class-name="productRowClassName"
         @selection-change="handleSelectionChange"
       >

@@ -227,7 +227,7 @@ function handlePageSizeChange() {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="tasks" empty-text="暂无任务" height="560">
+      <el-table v-loading="loading" :data="tasks" empty-text="暂无任务" height="max(560px, calc(100vh - 420px))">
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column label="类型" width="110">
           <template #default="{ row }">

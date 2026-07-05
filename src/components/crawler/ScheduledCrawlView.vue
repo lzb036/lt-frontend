@@ -585,7 +585,7 @@ function handlePageSizeChange() {
         v-loading="loading"
         :data="tasks"
         empty-text="暂无定时采集记录"
-        height="620"
+        height="max(620px, calc(100vh - 300px))"
         row-key="id"
         @selection-change="handleSelectionChange"
       >

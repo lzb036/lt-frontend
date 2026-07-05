@@ -164,7 +164,7 @@ function sourceTypeLabel(value: SourceType) {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="sources" empty-text="暂无采集源" height="560">
+      <el-table v-loading="loading" :data="sources" empty-text="暂无采集源" height="max(560px, calc(100vh - 270px))">
         <el-table-column prop="name" label="名称" min-width="160" />
         <el-table-column label="类型" width="120">
           <template #default="{ row }">

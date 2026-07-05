@@ -162,7 +162,7 @@ function handlePageSizeChange() {
     <el-alert v-if="!canManageRoles" type="warning" :closable="false" show-icon title="当前账号没有角色管理权限。" />
 
     <section v-else class="work-panel">
-      <el-table v-loading="loading" :data="roles" empty-text="暂无角色" height="650">
+      <el-table v-loading="loading" :data="roles" empty-text="暂无角色" height="max(650px, calc(100vh - 230px))">
         <el-table-column prop="id" label="角色编号" width="100" />
         <el-table-column prop="name" label="角色名称" min-width="160" />
         <el-table-column prop="code" label="权限字符" min-width="160" />
