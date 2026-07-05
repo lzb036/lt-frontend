@@ -5,7 +5,7 @@ import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
+import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -1091,6 +1091,70 @@ function listedStoreRealName(store: { storeId: number; storeName?: string; alias
   return current?.storeName || store.storeName || listedStoreLabel(store)
 }
 
+function normalizeUrlPart(value: unknown) {
+  return String(value || '').trim().replace(/\s+/g, ' ')
+}
+
+function sourceProductPageUrl(product: ProductDetail) {
+  return normalizeUrlPart(product.detail.sourceUrl || product.sourceUrl)
+}
+
+function buildStoreProductPageUrl(storeCode: unknown, itemNumber: unknown) {
+  const normalizedStoreCode = normalizeUrlPart(storeCode).replace(/^\/+|\/+$/g, '')
+  const normalizedItemNumber = normalizeUrlPart(itemNumber)
+  if (!normalizedStoreCode || !normalizedItemNumber) {
+    return ''
+  }
+  return `https://item.rakuten.co.jp/${encodeURIComponent(normalizedStoreCode)}/${encodeURIComponent(normalizedItemNumber)}/`
+}
+
+function listedStorePageUrl(store: ProductListedStore) {
+  return normalizeUrlPart(store.itemUrl) || buildStoreProductPageUrl(store.storeCode, store.itemNumber || store.manageNumber)
+}
+
+function listedStorePageLinks(product: ProductDetail | null) {
+  if (!product) {
+    return []
+  }
+  const links: Array<{ label: string; url: string }> = []
+  const seen = new Set<string>()
+  for (const store of product.listedStores || []) {
+    const url = listedStorePageUrl(store)
+    if (!url || seen.has(url)) {
+      continue
+    }
+    seen.add(url)
+    links.push({ label: listedStoreLabel(store), url })
+  }
+  return links
+}
+
+function currentStoreProductPageUrl(product: ProductDetail) {
+  if (props.status === 'listed') {
+    return normalizeUrlPart(product.detail.rakutenItemUrl || product.rakutenItemUrl || product.detail.sourceUrl || product.sourceUrl)
+  }
+  return listedStorePageLinks(product)[0]?.url || ''
+}
+
+function primaryProductPageLabel() {
+  return props.status === 'listed' ? '打开店铺商品页' : '打开源店铺商品页'
+}
+
+function primaryProductPageType() {
+  return props.status === 'listed' ? 'success' : 'primary'
+}
+
+function primaryProductPageUrl(product: ProductDetail) {
+  return props.status === 'listed' ? currentStoreProductPageUrl(product) : sourceProductPageUrl(product)
+}
+
+function openStoreProductPage(url: string | number | object) {
+  const normalizedUrl = normalizeUrlPart(url)
+  if (normalizedUrl) {
+    window.open(normalizedUrl, '_blank', 'noopener')
+  }
+}
+
 function listingStatusCopy(product: ProductItem) {
   if (product.rakutenListingStatus === 'unlisted') {
     return { label: '未上架', type: 'info' as const }
@@ -1448,10 +1512,6 @@ async function buildPendingImagePayload() {
     .map((operation) => ({ from: operation.sourceUrl, to: replaceMap[operation.sourceUrl] || '' }))
     .filter((operation) => operation.to)
   return { images, replacements, removeUrls }
-}
-
-function productPageUrl(product: ProductDetail) {
-  return product.detail.rakutenItemUrl || product.rakutenItemUrl || product.detail.sourceUrl || product.sourceUrl
 }
 
 function downloadProductImage(index: number) {
@@ -1992,9 +2052,53 @@ function sanitizedDescriptionHtml(value: string) {
                 <span v-if="status === 'listed'">上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
                 <span v-if="status === 'listed'">更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
               </div>
-              <el-button :icon="View" link type="primary" tag="a" :href="productPageUrl(selectedProductDetail)" target="_blank" rel="noreferrer">
-                打开乐天商品页
-              </el-button>
+              <div class="detail-link-actions">
+                <el-button
+                  v-if="primaryProductPageUrl(selectedProductDetail)"
+                  :icon="View"
+                  link
+                  :type="primaryProductPageType()"
+                  tag="a"
+                  :href="primaryProductPageUrl(selectedProductDetail)"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {{ primaryProductPageLabel() }}
+                </el-button>
+                <template v-if="status === 'listed_master' && listedStorePageLinks(selectedProductDetail).length === 1">
+                  <el-button
+                    :icon="View"
+                    link
+                    type="success"
+                    tag="a"
+                    :href="listedStorePageLinks(selectedProductDetail)[0].url"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    打开店铺商品页
+                  </el-button>
+                </template>
+                <el-dropdown
+                  v-else-if="status === 'listed_master' && listedStorePageLinks(selectedProductDetail).length > 1"
+                  trigger="click"
+                  @command="openStoreProductPage"
+                >
+                  <el-button :icon="View" link type="success">
+                    打开店铺商品页
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="link in listedStorePageLinks(selectedProductDetail)"
+                        :key="link.url"
+                        :command="link.url"
+                      >
+                        {{ link.label }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </div>
           </div>
 
@@ -2446,6 +2550,17 @@ function sanitizedDescriptionHtml(value: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.detail-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}
+
+.detail-link-actions :deep(.el-button) {
+  margin-left: 0;
 }
 
 .detail-tabs {

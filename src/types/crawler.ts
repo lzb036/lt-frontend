@@ -192,6 +192,7 @@ export interface ProductListedStore {
   aliasName: string
   manageNumber: string
   itemNumber: string
+  itemUrl?: string | null
   productId?: number | null
   listedAt?: string | null
 }
