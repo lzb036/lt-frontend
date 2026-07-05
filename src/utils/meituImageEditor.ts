@@ -12,6 +12,7 @@ interface MeituEditorInstance {
 
 interface MeituImageEditorSdk {
   init: (options: Record<string, unknown>) => MeituEditorInstance | void
+  openImage?: (imageSrc: string) => void
   saveImage: (callback: (imageBase64: string, ext: string, metadata?: unknown) => void) => void
   close?: () => void
 }
@@ -30,7 +31,7 @@ let sdkScriptPromise: Promise<void> | null = null
 let editorInstance: MeituEditorInstance | void
 
 export async function openMeituImageEditor(options: OpenMeituImageEditorOptions) {
-  const imageSrc = options.imageSrc.trim()
+  const imageSrc = normalizeMeituImageSrc(options.imageSrc)
   if (!imageSrc) {
     throw new Error('图片地址无效，请重试。')
   }
@@ -51,11 +52,12 @@ export async function openMeituImageEditor(options: OpenMeituImageEditorOptions)
     accessKey,
     title: options.title || '编辑图片',
     el: '',
-    imageSrc,
+    imageSrc: meituInitialImageSrc(imageSrc),
     fullscreen: true,
     resizeAble: true,
   })
 
+  sdk.openImage?.(imageSrc)
   sdk.saveImage((imageBase64, ext, metadata) => {
     void Promise.resolve(options.onSave({ imageBase64, ext, metadata }))
       .then(() => {
@@ -66,6 +68,28 @@ export async function openMeituImageEditor(options: OpenMeituImageEditorOptions)
 
 function meituAccessKey() {
   return String(import.meta.env.VITE_MEITU_IMAGE_EDITOR_ACCESS_KEY || DEFAULT_ACCESS_KEY).trim()
+}
+
+function normalizeMeituImageSrc(value: string) {
+  const text = String(value || '').trim()
+  if (!text || /^data:/i.test(text) || /^blob:/i.test(text)) {
+    return text
+  }
+  if (text.startsWith('//')) {
+    return `${window.location.protocol}${text}`
+  }
+  try {
+    return new URL(text, window.location.origin).href
+  } catch {
+    return text
+  }
+}
+
+function meituInitialImageSrc(imageSrc: string) {
+  if (/^https?:\/\//i.test(imageSrc)) {
+    return encodeURIComponent(imageSrc)
+  }
+  return imageSrc
 }
 
 function bundledMeituSdk() {
