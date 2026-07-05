@@ -1,3 +1,5 @@
+import bundledMeituImageEditorSdk from 'mt-image-editor-sdk'
+
 export interface MeituImageSaveResult {
   imageBase64: string
   ext: string
@@ -34,7 +36,7 @@ export async function openMeituImageEditor(options: OpenMeituImageEditorOptions)
   }
 
   await loadMeituSdkScript()
-  const sdk = resolveMeituSdk()
+  const sdk = resolveMeituSdk(false) || bundledMeituSdk()
   if (!sdk) {
     throw new Error('未找到美图图片编辑器 SDK，请先配置 SDK 地址。')
   }
@@ -64,6 +66,10 @@ export async function openMeituImageEditor(options: OpenMeituImageEditorOptions)
 
 function meituAccessKey() {
   return String(import.meta.env.VITE_MEITU_IMAGE_EDITOR_ACCESS_KEY || DEFAULT_ACCESS_KEY).trim()
+}
+
+function bundledMeituSdk() {
+  return isMeituSdk(bundledMeituImageEditorSdk) ? bundledMeituImageEditorSdk : null
 }
 
 async function loadMeituSdkScript() {
