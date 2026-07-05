@@ -328,7 +328,7 @@ async function restartTask(row: CrawlTask) {
     )
     const result = await api.restartTask(row.id)
     tasks.value = tasks.value.map((task) => (task.id === row.id ? result.task : task))
-    ElMessage.success('重新采集任务已提交后台执行')
+    ElMessage.success('重新采集任务已加入队列')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
@@ -611,6 +611,7 @@ function handlePageSizeChange() {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
+        <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
         <el-table-column label="操作" width="132" fixed="right">
           <template #default="{ row }">
             <el-button

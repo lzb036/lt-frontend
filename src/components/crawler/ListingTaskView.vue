@@ -106,7 +106,7 @@ async function retryTask(row: ListingTask) {
     )
     const result = await api.retryListingTask(row.id)
     tasks.value = tasks.value.map((task) => (task.id === row.id ? result.listingTask : task))
-    ElMessage.success('上架任务已提交后台重试')
+    ElMessage.success('上架任务已加入队列等待重试')
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '重试上架任务失败'))

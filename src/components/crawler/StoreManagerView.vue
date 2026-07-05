@@ -140,7 +140,7 @@ async function syncStore(row: StoreAccount) {
     if (result.store.lastError) {
       ElMessage.warning(result.store.lastError)
     } else {
-      ElMessage.success('已成功在后台创建同步任务。')
+      ElMessage.success('同步任务已创建并加入队列。')
     }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '商品同步失败'))

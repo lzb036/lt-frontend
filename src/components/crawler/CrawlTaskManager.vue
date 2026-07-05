@@ -95,7 +95,7 @@ async function createTask() {
   try {
     await api.createTask(payload)
     await refreshAll()
-    ElMessage.success('采集任务已创建并执行')
+    ElMessage.success('采集任务已创建并加入队列')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建采集任务失败'))
   } finally {
