@@ -49,6 +49,7 @@ const optimisticProductSnapshots = shallowRef<Map<number, ProductItem>>(new Map(
 const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
 const listingProductIds = shallowRef<Set<number>>(new Set())
+const listedSyncProductIds = shallowRef<Set<number>>(new Set())
 const detailImageDraft = shallowRef<ImageDraftItem[]>([])
 const draftPreviewUrls = shallowRef<Set<string>>(new Set())
 const pendingImageOperations = shallowRef<PendingImageOperation[]>([])
@@ -600,6 +601,12 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     return
   }
   const shouldOptimisticHide = props.status === 'listed'
+  const shouldLockListedSync = props.status === 'listed'
+  let keepListedSyncBusy = false
+  if (shouldLockListedSync && hasBusyProductIds(productIds)) {
+    ElMessage.warning('选中的店铺商品正在同步，请稍后')
+    return
+  }
   try {
     const deleteMessage = props.status === 'listed'
       ? `确认删除选中的 ${productIds.length} 个店铺商品？该操作会同步删除乐天商品，并尝试删除商品关联的 R-Cabinet 图片。`
@@ -611,6 +618,9 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
       cancelButtonText: '取消',
       type: 'warning',
     })
+    if (shouldLockListedSync) {
+      setListedSyncProductsBusy(productIds, true)
+    }
     if (shouldOptimisticHide) {
       hideProducts(productIds)
       clearSelection()
@@ -620,6 +630,7 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     if (result.syncTask) {
       ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || '批量删除任务已创建'))
       clearSelection()
+      keepListedSyncBusy = true
       watchDeleteSyncTaskCompletion(result.syncTask.id, productIds)
       return
     }
@@ -643,9 +654,15 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
       if (shouldOptimisticHide) {
         restoreHiddenProducts(productIds)
       }
+      if (shouldLockListedSync) {
+        clearListedSyncTaskBusy(productIds)
+      }
       ElMessage.error(toApiErrorMessage(error, '删除商品失败'))
     }
   } finally {
+    if (shouldLockListedSync && !keepListedSyncBusy) {
+      clearListedSyncTaskBusy(productIds)
+    }
     operating.value = false
   }
 }
@@ -664,7 +681,12 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
     return
   }
   const productIds = [...selectedIds.value]
+  if (hasBusyProductIds(productIds)) {
+    ElMessage.warning('选中的店铺商品正在同步，请稍后')
+    return
+  }
   const actionText = listingStatus === 'listed' ? '上架' : '下架'
+  let keepListedSyncBusy = false
   try {
     await ElMessageBox.confirm(
       `确认将选中的 ${productIds.length} 个商品批量${actionText}？该操作会写入乐天 RMS。`,
@@ -675,6 +697,7 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
         type: listingStatus === 'listed' ? 'success' : 'warning',
       },
     )
+    setListedSyncProductsBusy(productIds, true)
     applyOptimisticListingStatus(productIds, listingStatus)
     clearSelection()
     operating.value = true
@@ -683,13 +706,18 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
       listingStatus,
     })
     ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || `批量${actionText}任务已创建`))
+    keepListedSyncBusy = true
     watchListingStatusSyncTaskCompletion(result.syncTask.id, productIds, listingStatus)
   } catch (error) {
     if (error !== 'cancel') {
+      clearListedSyncTaskBusy(productIds)
       restoreProductSnapshots(productIds)
       ElMessage.error(toApiErrorMessage(error, `批量${actionText}失败`))
     }
   } finally {
+    if (!keepListedSyncBusy) {
+      clearListedSyncTaskBusy(productIds)
+    }
     operating.value = false
   }
 }
@@ -802,8 +830,42 @@ function setListingProductsBusy(productIds: number[], busy: boolean) {
   listingProductIds.value = next
 }
 
+function setListedSyncProductsBusy(productIds: number[], busy: boolean) {
+  if (productIds.length < 1) {
+    return
+  }
+  const next = new Set(listedSyncProductIds.value)
+  for (const productId of productIds) {
+    if (busy) {
+      next.add(productId)
+    } else {
+      next.delete(productId)
+    }
+  }
+  listedSyncProductIds.value = next
+}
+
 function isListingProductBusy(product: ProductItem) {
   return listingProductIds.value.has(product.id) || Boolean(product.listingTaskId)
+}
+
+function isListedSyncProductBusy(product: ProductItem) {
+  return listedSyncProductIds.value.has(product.id)
+}
+
+function isProductBusy(product: ProductItem) {
+  return isListingProductBusy(product) || isListedSyncProductBusy(product)
+}
+
+function hasBusyProductIds(productIds: number[]) {
+  if (productIds.length < 1) {
+    return false
+  }
+  const ids = new Set(productIds)
+  if (productIds.some((productId) => listingProductIds.value.has(productId) || listedSyncProductIds.value.has(productId))) {
+    return true
+  }
+  return visibleProducts.value.some((product) => ids.has(product.id) && Boolean(product.listingTaskId))
 }
 
 function hasSelectedListingProductBusy() {
@@ -811,12 +873,16 @@ function hasSelectedListingProductBusy() {
   return visibleProducts.value.some((product) => selectedIdSet.has(product.id) && isListingProductBusy(product))
 }
 
+function hasSelectedProductBusy() {
+  return hasBusyProductIds(selectedIds.value)
+}
+
 function isProductSelectable(product: ProductItem) {
-  return !isListingProductBusy(product)
+  return !isProductBusy(product)
 }
 
 function productRowClassName({ row }: { row: ProductItem }) {
-  return isListingProductBusy(row) ? 'product-row-disabled' : ''
+  return isProductBusy(row) ? 'product-row-disabled' : ''
 }
 
 function taskOutcomeIds(task: Pick<ListingTask | SyncTask, 'status' | 'successIds' | 'failedIds'>, productIds: number[]) {
@@ -928,6 +994,10 @@ function clearListingTaskBusy(productIds: number[]) {
   setListingProductsBusy(productIds, false)
 }
 
+function clearListedSyncTaskBusy(productIds: number[]) {
+  setListedSyncProductsBusy(productIds, false)
+}
+
 function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
   if (!task) {
     return fallback
@@ -937,6 +1007,7 @@ function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
 
 function watchDeleteSyncTaskCompletion(taskId: string, productIds: number[]) {
   if (!taskId || props.status !== 'listed') {
+    clearListedSyncTaskBusy(productIds)
     return
   }
   let attempts = 0
@@ -956,6 +1027,7 @@ function watchDeleteSyncTaskCompletion(taskId: string, productIds: number[]) {
     } catch {
       if (attempts >= 3) {
         window.clearInterval(timer)
+        clearListedSyncTaskBusy(productIds)
         restoreHiddenProducts(productIds)
       }
     }
@@ -964,6 +1036,7 @@ function watchDeleteSyncTaskCompletion(taskId: string, productIds: number[]) {
 
 function watchListingStatusSyncTaskCompletion(taskId: string, productIds: number[], listingStatus: RakutenListingStatus) {
   if (!taskId || props.status !== 'listed') {
+    clearListedSyncTaskBusy(productIds)
     return
   }
   let attempts = 0
@@ -983,6 +1056,7 @@ function watchListingStatusSyncTaskCompletion(taskId: string, productIds: number
     } catch {
       if (attempts >= 3) {
         window.clearInterval(timer)
+        clearListedSyncTaskBusy(productIds)
         restoreProductSnapshots(productIds)
       }
     }
@@ -991,6 +1065,7 @@ function watchListingStatusSyncTaskCompletion(taskId: string, productIds: number
 
 function handleListingStatusSyncTaskResult(task: SyncTask, productIds: number[], listingStatus: RakutenListingStatus) {
   const actionText = listingStatus === 'listed' ? '上架' : '下架'
+  clearListedSyncTaskBusy(productIds)
   if (task.status === 'success') {
     clearProductSnapshots(task.successIds?.length ? task.successIds : productIds)
     ElMessage.success(task.message || `批量${actionText}已完成`)
@@ -1020,6 +1095,7 @@ function handleListingStatusSyncTaskResult(task: SyncTask, productIds: number[],
 }
 
 function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
+  clearListedSyncTaskBusy(productIds)
   if (task.status === 'success') {
     clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
     ElMessage.success(task.message || '批量删除已完成')
@@ -1788,7 +1864,7 @@ function sanitizedDescriptionHtml(value: string) {
             type="success"
             plain
             :icon="Top"
-            :disabled="selectedIds.length < 1"
+            :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
             :loading="operating"
             @click="updateSelectedListingStatus('listed')"
           >
@@ -1798,7 +1874,7 @@ function sanitizedDescriptionHtml(value: string) {
             type="warning"
             plain
             :icon="Warning"
-            :disabled="selectedIds.length < 1"
+            :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
             :loading="operating"
             @click="updateSelectedListingStatus('unlisted')"
           >
@@ -1810,7 +1886,7 @@ function sanitizedDescriptionHtml(value: string) {
           type="danger"
           plain
           :icon="Delete"
-          :disabled="selectedIds.length < 1"
+          :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
           :loading="operating"
           @click="removeSelected"
         >
@@ -2086,7 +2162,7 @@ function sanitizedDescriptionHtml(value: string) {
         <el-table-column label="操作" :width="status === 'pending' ? 112 : ['approved', 'listed_master'].includes(status) ? 132 : 120" fixed="right">
           <template #default="{ row }">
             <div class="row-action-stack">
-              <el-button :icon="View" link type="primary" :disabled="isListingProductBusy(row)" @click="openProductDetail(row)">
+              <el-button :icon="View" link type="primary" :disabled="isProductBusy(row)" @click="openProductDetail(row)">
                 查看详情
               </el-button>
               <template v-if="status === 'approved' || status === 'listed_master'">
@@ -2094,13 +2170,13 @@ function sanitizedDescriptionHtml(value: string) {
                   :icon="Upload"
                   link
                   type="success"
-                  :disabled="isListingProductBusy(row)"
+                  :disabled="isProductBusy(row)"
                   :loading="isListingProductBusy(row)"
                   @click="createListingTaskForProduct(row)"
                 >
                   {{ status === 'listed_master' ? '重新上架' : '上架' }}
                 </el-button>
-                <el-button :icon="Delete" link type="danger" :disabled="isListingProductBusy(row)" @click="removeProduct(row)">
+                <el-button :icon="Delete" link type="danger" :disabled="isProductBusy(row)" @click="removeProduct(row)">
                   删除
                 </el-button>
               </template>
