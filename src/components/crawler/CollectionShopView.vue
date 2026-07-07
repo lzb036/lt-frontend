@@ -16,6 +16,7 @@ const refreshing = shallowRef(false)
 const saving = shallowRef(false)
 const importing = shallowRef(false)
 const downloadingTemplate = shallowRef(false)
+const exporting = shallowRef(false)
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
 const importInputRef = ref<HTMLInputElement | null>(null)
@@ -79,12 +80,7 @@ async function loadSchedules(options: { silent?: boolean } = {}) {
     const result = await api.listSchedulesPage({
       page: currentPage.value,
       pageSize: pageSize.value,
-      keyword: filters.keyword.trim(),
-      enabledStatus: filters.enabledStatus,
-      status: filters.status,
-      scheduleTime: filters.scheduleTime,
-      createdAtFrom: createdAtFromValue(),
-      createdAtTo: createdAtToValue(),
+      ...currentScheduleFilterParams(),
     })
     schedules.value = result.items
     setPageResult(result)
@@ -133,22 +129,49 @@ function createdAtToValue() {
   return value ? `${value}T23:59:59` : ''
 }
 
+function currentScheduleFilterParams() {
+  return {
+    keyword: filters.keyword.trim(),
+    enabledStatus: filters.enabledStatus,
+    status: filters.status,
+    scheduleTime: filters.scheduleTime,
+    createdAtFrom: createdAtFromValue(),
+    createdAtTo: createdAtToValue(),
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 async function downloadScheduleTemplate() {
   downloadingTemplate.value = true
   try {
     const blob = await api.downloadScheduleImportTemplate()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = '定时采集导入模板.xlsx'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
+    downloadBlob(blob, '定时采集导入模板.xlsx')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '下载模板失败'))
   } finally {
     downloadingTemplate.value = false
+  }
+}
+
+async function exportSchedules() {
+  exporting.value = true
+  try {
+    const blob = await api.exportSchedules(currentScheduleFilterParams())
+    downloadBlob(blob, '采集店铺导出.xlsx')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '导出采集店铺失败'))
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -437,6 +460,9 @@ function handlePageSizeChange() {
       </el-button>
       <el-button :icon="Upload" :loading="importing" @click="openScheduleImportFilePicker">
         导入表格
+      </el-button>
+      <el-button :icon="Download" :loading="exporting" @click="exportSchedules">
+        导出表格
       </el-button>
       <el-button type="danger" :icon="Delete" :disabled="selectedSchedules.length < 1" :loading="loading" @click="deleteSelectedSchedules">
         批量删除

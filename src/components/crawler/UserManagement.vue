@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, Connection, Delete, EditPen, Lock, Plus, Refresh, Shop, User } from '@element-plus/icons-vue'
+import { CircleCheck, Connection, DataAnalysis, Delete, EditPen, Lock, Plus, Refresh, Shop, User } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -66,6 +66,7 @@ const storeFormDialogOpen = shallowRef(false)
 const storeLoading = shallowRef(false)
 const storeSaving = shallowRef(false)
 const storeVerifying = shallowRef(false)
+const storeCountFetching = shallowRef(false)
 const storeSyncingId = shallowRef<number | null>(null)
 const managedStoreUser = shallowRef<UserAccount | null>(null)
 const userStores = shallowRef<StoreAccount[]>([])
@@ -327,14 +328,34 @@ async function checkStoreKeys() {
     const result = await api.verifyStores(managedStoreUser.value.username)
     await loadUserStores()
     if (result.summary.error > 0) {
-      ElMessage.warning(`密钥/数量检测完成，异常店铺 ${result.summary.error} 个`)
+      ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
     } else {
-      ElMessage.success('密钥/数量检测完成，全部店铺可用')
+      ElMessage.success('密钥检测完成，全部店铺可用')
     }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '密钥/数量检测失败'))
+    ElMessage.error(toApiErrorMessage(error, '密钥检测失败'))
   } finally {
     storeVerifying.value = false
+  }
+}
+
+async function refreshStoreCounts() {
+  if (!managedStoreUser.value) {
+    return
+  }
+  storeCountFetching.value = true
+  try {
+    const result = await api.refreshStoreCounts(managedStoreUser.value.username)
+    await loadUserStores()
+    if (result.summary.error > 0) {
+      ElMessage.warning(`数量获取完成，异常店铺 ${result.summary.error} 个`)
+    } else {
+      ElMessage.success('数量获取完成')
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '数量获取失败'))
+  } finally {
+    storeCountFetching.value = false
   }
 }
 
@@ -535,7 +556,10 @@ function timeText(value?: string | null) {
               刷新
             </el-button>
             <el-button :icon="Connection" :loading="storeVerifying" @click="checkStoreKeys">
-              密钥/数量检测
+              密钥检测
+            </el-button>
+            <el-button :icon="DataAnalysis" :loading="storeCountFetching" @click="refreshStoreCounts">
+              数量获取
             </el-button>
             <el-button type="primary" :icon="Plus" @click="openStoreCreateDialog">
               新增店铺
@@ -572,7 +596,10 @@ function timeText(value?: string | null) {
           <el-table-column label="乐天商品数" min-width="170">
             <template #default="{ row }">
               <div class="store-counts">
-                <span>总数：{{ countText(row.rakutenProductTotalCount) }}</span>
+                <span>
+                  总数：{{ countText(row.rakutenProductTotalCount) }}
+                  <span v-if="row.rakutenProductTotalExceedsLimit" class="count-limit-warning">商品数大于10000</span>
+                </span>
                 <span>已上架：{{ countText(row.rakutenProductListedCount) }}</span>
                 <span>未上架：{{ countText(row.rakutenProductUnlistedCount) }}</span>
               </div>
@@ -719,6 +746,12 @@ function timeText(value?: string | null) {
   color: var(--text-main);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.count-limit-warning {
+  margin-left: 6px;
+  color: var(--el-color-danger);
+  font-weight: 600;
 }
 
 .dialog-form {

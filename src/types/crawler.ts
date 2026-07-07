@@ -283,6 +283,7 @@ export interface StoreAccount {
   rakutenProductTotalCount?: number | null
   rakutenProductListedCount?: number | null
   rakutenProductUnlistedCount?: number | null
+  rakutenProductTotalExceedsLimit?: boolean
   lastCheckedAt?: string | null
   lastProductSyncedAt?: string | null
   lastSyncedAt?: string | null

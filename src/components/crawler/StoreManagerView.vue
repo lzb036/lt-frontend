@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
+import { Connection, DataAnalysis, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -19,6 +19,8 @@ const loading = shallowRef(false)
 const saving = shallowRef(false)
 const verifying = shallowRef(false)
 const verifyingId = shallowRef<number | null>(null)
+const countFetching = shallowRef(false)
+const countFetchingId = shallowRef<number | null>(null)
 const syncingId = shallowRef<number | null>(null)
 const stores = shallowRef<StoreAccount[]>([])
 const dialogOpen = ref(false)
@@ -43,7 +45,7 @@ const form = reactive<StorePayload>({
   rakutenLicenseKey: '',
 })
 const isSuperadmin = computed(() => props.session?.role === 'superadmin')
-const operationColumnWidth = computed(() => (isSuperadmin.value ? 360 : 250))
+const operationColumnWidth = computed(() => (isSuperadmin.value ? 450 : 320))
 
 onMounted(() => {
   void loadStores()
@@ -156,14 +158,31 @@ async function checkStoreKeys() {
     const result = await api.verifyStores()
     await loadStores()
     if (result.summary.error > 0) {
-      ElMessage.warning(`密钥/数量检测完成，异常店铺 ${result.summary.error} 个`)
+      ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
     } else {
-      ElMessage.success('密钥/数量检测完成，全部店铺可用')
+      ElMessage.success('密钥检测完成，全部店铺可用')
     }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '密钥/数量检测失败'))
+    ElMessage.error(toApiErrorMessage(error, '密钥检测失败'))
   } finally {
     verifying.value = false
+  }
+}
+
+async function refreshStoreCounts() {
+  countFetching.value = true
+  try {
+    const result = await api.refreshStoreCounts()
+    await loadStores()
+    if (result.summary.error > 0) {
+      ElMessage.warning(`数量获取完成，异常店铺 ${result.summary.error} 个`)
+    } else {
+      ElMessage.success('数量获取完成')
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '数量获取失败'))
+  } finally {
+    countFetching.value = false
   }
 }
 
@@ -173,14 +192,31 @@ async function checkSingleStoreKeys(row: StoreAccount) {
     const result = await api.verifyStore(row.id)
     stores.value = stores.value.map((store) => (store.id === result.id ? result : store))
     if (result.lastError) {
-      ElMessage.warning(`店铺「${result.aliasName || result.storeName || result.storeCode}」检测异常`)
+      ElMessage.warning(`店铺「${result.aliasName || result.storeName || result.storeCode}」密钥检测异常`)
     } else {
-      ElMessage.success(`店铺「${result.aliasName || result.storeName || result.storeCode}」检测完成`)
+      ElMessage.success(`店铺「${result.aliasName || result.storeName || result.storeCode}」密钥检测完成`)
     }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '店铺密钥/数量检测失败'))
+    ElMessage.error(toApiErrorMessage(error, '店铺密钥检测失败'))
   } finally {
     verifyingId.value = null
+  }
+}
+
+async function refreshSingleStoreCounts(row: StoreAccount) {
+  countFetchingId.value = row.id
+  try {
+    const result = await api.refreshStoreCount(row.id)
+    stores.value = stores.value.map((store) => (store.id === result.id ? result : store))
+    if (result.lastError) {
+      ElMessage.warning(`店铺「${result.aliasName || result.storeName || result.storeCode}」数量获取异常`)
+    } else {
+      ElMessage.success(`店铺「${result.aliasName || result.storeName || result.storeCode}」数量获取完成`)
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '店铺数量获取失败'))
+  } finally {
+    countFetchingId.value = null
   }
 }
 
@@ -246,7 +282,10 @@ async function removeStore(row: StoreAccount) {
           刷新
         </el-button>
         <el-button :icon="Connection" :loading="verifying" @click="checkStoreKeys">
-          密钥/数量检测
+          密钥检测
+        </el-button>
+        <el-button :icon="DataAnalysis" :loading="countFetching" @click="refreshStoreCounts">
+          数量获取
         </el-button>
         <el-button v-if="isSuperadmin" type="primary" :icon="Plus" @click="openCreateDialog">
           新增店铺
@@ -284,7 +323,10 @@ async function removeStore(row: StoreAccount) {
         <el-table-column label="乐天商品数" min-width="170">
           <template #default="{ row }">
             <div class="store-counts">
-              <span>总数：{{ countText(row.rakutenProductTotalCount) }}</span>
+              <span>
+                总数：{{ countText(row.rakutenProductTotalCount) }}
+                <span v-if="row.rakutenProductTotalExceedsLimit" class="count-limit-warning">商品数大于10000</span>
+              </span>
               <span>已上架：{{ countText(row.rakutenProductListedCount) }}</span>
               <span>未上架：{{ countText(row.rakutenProductUnlistedCount) }}</span>
             </div>
@@ -325,7 +367,16 @@ async function removeStore(row: StoreAccount) {
               type="primary"
               @click="checkSingleStoreKeys(row)"
             >
-              密钥/数量检测
+              密钥检测
+            </el-button>
+            <el-button
+              :icon="DataAnalysis"
+              :loading="countFetchingId === row.id"
+              link
+              type="primary"
+              @click="refreshSingleStoreCounts(row)"
+            >
+              数量获取
             </el-button>
             <el-button
               :icon="Connection"
@@ -430,6 +481,12 @@ async function removeStore(row: StoreAccount) {
   color: var(--text-main);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.count-limit-warning {
+  margin-left: 6px;
+  color: var(--el-color-danger);
+  font-weight: 600;
 }
 
 .dialog-form {

@@ -381,6 +381,24 @@ export function useCollectorApi() {
     return response.data.store
   }
 
+  async function refreshStoreCounts(ownerUsername?: string) {
+    const response = await apiClient.post<{ stores: StoreAccount[]; summary: StoreVerifySummary }>(
+      '/crawler/stores/product-counts',
+      null,
+      { params: { ownerUsername } },
+    )
+    return response.data
+  }
+
+  async function refreshStoreCount(id: number, ownerUsername?: string) {
+    const response = await apiClient.post<{ store: StoreAccount }>(
+      `/crawler/stores/${id}/product-counts`,
+      null,
+      { params: { ownerUsername } },
+    )
+    return response.data.store
+  }
+
   async function listSchedules() {
     const response = await apiClient.get<{ schedules: ScheduledCrawl[] }>('/crawler/schedules')
     return response.data.schedules
@@ -400,6 +418,18 @@ export function useCollectorApi() {
 
   async function downloadScheduleImportTemplate() {
     const response = await apiClient.get<Blob>('/crawler/schedules/import-template', { responseType: 'blob' })
+    return response.data
+  }
+
+  async function exportSchedules(params: {
+    keyword?: string
+    enabledStatus?: 'enabled' | 'disabled' | ''
+    status?: 'idle' | 'running' | 'disabled' | 'failed' | ''
+    scheduleTime?: string
+    createdAtFrom?: string
+    createdAtTo?: string
+  }) {
+    const response = await apiClient.get<Blob>('/crawler/schedules/export', { params, responseType: 'blob' })
     return response.data
   }
 
@@ -574,9 +604,12 @@ export function useCollectorApi() {
     syncStore,
     verifyStores,
     verifyStore,
+    refreshStoreCounts,
+    refreshStoreCount,
     listSchedules,
     listSchedulesPage,
     downloadScheduleImportTemplate,
+    exportSchedules,
     importSchedules,
     saveSchedule,
     deleteSchedule,
