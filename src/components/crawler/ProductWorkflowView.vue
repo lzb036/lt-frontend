@@ -32,6 +32,9 @@ const props = defineProps<{
   eyebrow: string
 }>()
 
+const LISTED_STORE_NONE_FILTER = '__none__'
+type ListedStoreFilterValue = number | typeof LISTED_STORE_NONE_FILTER | ''
+
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const operating = shallowRef(false)
@@ -71,12 +74,13 @@ const filters = reactive({
   priceMax: null as number | null,
   collectedAtRange: [] as string[] | null,
   storeId: null as number | null,
+  listedStoreId: '' as ListedStoreFilterValue,
   listingStatus: '' as '' | 'listed' | 'unlisted',
   listedAtRange: [] as string[] | null,
 })
 
 const listingForm = reactive({
-  storeId: null as number | null,
+  storeIds: [] as number[],
   taskName: '',
 })
 const listingDialogVisible = shallowRef(false)
@@ -150,10 +154,14 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
     if (props.status !== 'listed') {
       filters.storeId = null
     }
+    if (props.status !== 'listed_master') {
+      filters.listedStoreId = ''
+    }
     const result = await api.listProductsPage({
       status: props.status,
       keyword: filters.keyword.trim(),
       storeId: props.status === 'listed' ? filters.storeId : null,
+      listedStoreId: props.status === 'listed_master' ? filters.listedStoreId : '',
       listingStatus: props.status === 'listed' ? filters.listingStatus : '',
       listedAtFrom: props.status === 'listed' ? listedAtFromValue() : '',
       listedAtTo: props.status === 'listed' ? listedAtToValue() : '',
@@ -278,6 +286,7 @@ function resetFilters() {
   filters.priceMax = null
   filters.collectedAtRange = []
   filters.storeId = props.status === 'listed' ? (stores.value[0]?.id ?? null) : null
+  filters.listedStoreId = ''
   filters.listingStatus = ''
   filters.listedAtRange = []
   resetPage()
@@ -330,14 +339,22 @@ function clearSelection() {
 }
 
 function currentFiltersMatch(product: ProductItem) {
-  if (props.status !== 'listed') {
-    return true
+  if (props.status === 'listed') {
+    if (filters.storeId && product.storeId !== filters.storeId) {
+      return false
+    }
+    if (filters.listingStatus && product.rakutenListingStatus !== filters.listingStatus) {
+      return false
+    }
   }
-  if (filters.storeId && product.storeId !== filters.storeId) {
-    return false
-  }
-  if (filters.listingStatus && product.rakutenListingStatus !== filters.listingStatus) {
-    return false
+  if (props.status === 'listed_master' && filters.listedStoreId) {
+    const listedStores = product.listedStores || []
+    if (filters.listedStoreId === LISTED_STORE_NONE_FILTER) {
+      return listedStores.length < 1
+    }
+    if (!listedStores.some((store) => store.storeId === filters.listedStoreId)) {
+      return false
+    }
   }
   return true
 }
@@ -669,7 +686,7 @@ async function submitListingTask() {
     ElMessage.warning('请先选择要上架的商品')
     return
   }
-  if (!listingForm.storeId) {
+  if (listingForm.storeIds.length < 1) {
     ElMessage.warning('请先选择上架店铺')
     return
   }
@@ -679,7 +696,7 @@ async function submitListingTask() {
 async function confirmAndCreateListingTask(productIds: number[]) {
   try {
     await ElMessageBox.confirm(
-      `确认将选中的 ${productIds.length} 个商品创建${props.status === 'listed_master' ? '重新上架' : '上架'}任务？`,
+      `确认将选中的 ${productIds.length} 个商品上架到 ${listingForm.storeIds.length} 个店铺？`,
       listingDialogTitle.value,
       {
         confirmButtonText: props.status === 'listed_master' ? '重新上架' : '上架',
@@ -699,7 +716,7 @@ async function confirmAndCreateListingTask(productIds: number[]) {
   try {
     const result = await api.createListingTask({
       productIds,
-      storeId: listingForm.storeId,
+      storeIds: [...listingForm.storeIds],
       taskName: listingForm.taskName.trim(),
     })
     listingDialogVisible.value = false
@@ -730,7 +747,7 @@ async function createListingTaskForProduct(product: ProductItem) {
 function openListingDialog(productIds: number[], title: string) {
   listingDialogProductIds.value = [...productIds]
   listingDialogTitle.value = title
-  listingForm.storeId = null
+  listingForm.storeIds = []
   listingForm.taskName = ''
   listingDialogVisible.value = true
 }
@@ -1865,6 +1882,24 @@ function sanitizedDescriptionHtml(value: string) {
             @change="searchProducts"
           />
         </div>
+        <div v-if="status === 'listed_master'" class="filter-field filter-listed-store-field">
+          <el-select
+            v-model="filters.listedStoreId"
+            class="full-control"
+            clearable
+            filterable
+            placeholder="已上架店铺"
+            @change="searchProducts"
+          >
+            <el-option label="无店铺标记" :value="LISTED_STORE_NONE_FILTER" />
+            <el-option
+              v-for="store in stores"
+              :key="store.id"
+              :label="store.aliasName || store.storeName"
+              :value="store.id"
+            />
+          </el-select>
+        </div>
         <div class="filter-field filter-keyword-field">
           <el-input
             v-model="filters.keyword"
@@ -2122,7 +2157,17 @@ function sanitizedDescriptionHtml(value: string) {
     <el-dialog v-model="listingDialogVisible" :title="listingDialogTitle" width="520px" append-to-body>
       <el-form label-position="top" class="listing-dialog-form">
         <el-form-item label="目标店铺">
-          <el-select v-model="listingForm.storeId" class="full-control" clearable filterable placeholder="选择上架店铺">
+          <el-select
+            v-model="listingForm.storeIds"
+            class="full-control"
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            filterable
+            multiple
+            :max-collapse-tags="2"
+            placeholder="选择上架店铺"
+          >
             <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
           </el-select>
         </el-form-item>
@@ -2424,6 +2469,10 @@ function sanitizedDescriptionHtml(value: string) {
 
 .filter-status-field {
   flex: 0 1 140px;
+}
+
+.filter-listed-store-field {
+  flex: 0 1 232px;
 }
 
 .filter-range-field {

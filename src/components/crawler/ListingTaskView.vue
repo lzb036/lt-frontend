@@ -218,10 +218,19 @@ function displayStatusLabel(row: ListingTask) {
 }
 
 function listingTaskStoreLabel(row: ListingTask) {
+  if (row.stores?.length) {
+    return row.stores.map((store) => store.aliasName || store.storeName || store.storeCode || `店铺 ${store.storeId}`).join('、')
+  }
   return row.aliasName || row.storeName || row.storeCode || (row.storeId ? `店铺 ${row.storeId}` : '-')
 }
 
 function listingTaskStoreCopy(row: ListingTask) {
+  if (row.stores?.length) {
+    return row.stores
+      .map((store) => [store.aliasName, store.storeName, store.storeCode].map((item) => item?.trim()).filter(Boolean).join(' / '))
+      .filter(Boolean)
+      .join('；')
+  }
   const parts = [row.aliasName, row.storeName, row.storeCode]
     .map((item) => item?.trim())
     .filter((item): item is string => Boolean(item))

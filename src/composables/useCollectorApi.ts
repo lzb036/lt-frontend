@@ -173,6 +173,7 @@ export function useCollectorApi() {
     status?: ReviewStatus | ''
     keyword?: string
     storeId?: number | null
+    listedStoreId?: number | string | null
     listingStatus?: 'listed' | 'unlisted' | ''
     listedAtFrom?: string
     listedAtTo?: string
@@ -196,6 +197,7 @@ export function useCollectorApi() {
     status?: ReviewStatus | ''
     keyword?: string
     storeId?: number | null
+    listedStoreId?: number | string | null
     listingStatus?: 'listed' | 'unlisted' | ''
     listedAtFrom?: string
     listedAtTo?: string

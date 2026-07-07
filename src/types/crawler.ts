@@ -323,6 +323,8 @@ export interface ListingTask {
   id: string
   ownerUsername: string
   storeId?: number | null
+  storeIds?: number[]
+  stores?: ListingTaskStore[]
   storeCode?: string | null
   storeName?: string | null
   aliasName?: string | null
@@ -341,6 +343,13 @@ export interface ListingTask {
   finishedAt?: string | null
   createdAt?: string | null
   updatedAt?: string | null
+}
+
+export interface ListingTaskStore {
+  storeId: number
+  storeCode?: string | null
+  storeName?: string | null
+  aliasName?: string | null
 }
 
 export interface SyncTask {
@@ -482,6 +491,7 @@ export interface TimeSettingsPayload {
 export interface ListingTaskPayload {
   productIds: number[]
   storeId?: number | null
+  storeIds?: number[]
   taskName?: string
 }
 
