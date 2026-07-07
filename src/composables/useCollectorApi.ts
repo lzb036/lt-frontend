@@ -106,6 +106,22 @@ export function useCollectorApi() {
     return response.data.settings
   }
 
+  async function runScheduledTaskCleanup() {
+    const response = await apiClient.post<{ settings: TimeSettings }>('/crawler/settings/time/scheduled-task-cleanup/run')
+    return response.data.settings
+  }
+
+  async function runUnlistedProductCleanup() {
+    const response = await apiClient.post<{
+      settings: TimeSettings
+      summary: {
+        taskCount: number
+        productCount: number
+      }
+    }>('/crawler/settings/time/unlisted-products/run')
+    return response.data
+  }
+
   async function listSources() {
     const response = await apiClient.get<{ sources: CrawlSource[] }>('/crawler/sources')
     return response.data.sources
@@ -526,6 +542,8 @@ export function useCollectorApi() {
     verifySecretProfile,
     getTimeSettings,
     updateTimeSettings,
+    runScheduledTaskCleanup,
+    runUnlistedProductCleanup,
     listSources,
     listSourcesPage,
     saveSource,

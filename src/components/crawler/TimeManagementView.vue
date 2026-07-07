@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Check, Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Check, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type { TimeSettings, TimeSettingsPayload } from '../../types/crawler'
@@ -10,6 +10,8 @@ import { toApiErrorMessage } from '../../utils/api'
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
+const runningTaskCleanup = shallowRef(false)
+const runningUnlistedCleanup = shallowRef(false)
 const settings = shallowRef<TimeSettings | null>(null)
 const nowTick = shallowRef(Date.now())
 const serverTimeOffsetMs = shallowRef(0)
@@ -32,8 +34,25 @@ const weekdayOptions = [
 
 const retentionText = computed(() => `${settings.value?.retentionDays ?? 7} 天`)
 const nextCleanupAtText = computed(() => settings.value?.nextCleanupAt || '-')
+const unlistedCleanupTimeText = computed(() => {
+  const day = settings.value?.unlistedCleanupMonthDay ?? 1
+  const time = settings.value?.unlistedCleanupTime || '01:00'
+  return `每月 ${day} 号 ${time}`
+})
+const unlistedNextCleanupAtText = computed(() => settings.value?.unlistedNextCleanupAt || '-')
 const cleanupCountdownText = computed(() => {
   const nextAt = parseDateTimeMs(settings.value?.nextCleanupAt)
+  if (nextAt === null) {
+    return '未获取'
+  }
+  const remainingMs = nextAt - (nowTick.value + serverTimeOffsetMs.value)
+  if (remainingMs <= 0) {
+    return '待执行'
+  }
+  return formatCountdown(remainingMs)
+})
+const unlistedCleanupCountdownText = computed(() => {
+  const nextAt = parseDateTimeMs(settings.value?.unlistedNextCleanupAt)
   if (nextAt === null) {
     return '未获取'
   }
@@ -111,6 +130,59 @@ async function saveSettings() {
   }
 }
 
+async function runScheduledTaskCleanupNow() {
+  try {
+    await ElMessageBox.confirm(
+      '确认立即清理前七天已经执行完成的定时采集任务记录？',
+      '立即清理',
+      {
+        confirmButtonText: '执行',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    runningTaskCleanup.value = true
+    const result = await api.runScheduledTaskCleanup()
+    applySettings(result)
+    ElMessage.success(`已清理 ${result.lastCleanupDeletedCount} 条定时采集任务记录`)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '执行清理失败'))
+    }
+  } finally {
+    runningTaskCleanup.value = false
+  }
+}
+
+async function runUnlistedProductCleanupNow() {
+  try {
+    await ElMessageBox.confirm(
+      '确认立即为所有启用店铺创建未上架商品删除任务？该操作会同步删除乐天商品，并尝试删除关联的 R-Cabinet 图片。',
+      '立即删除未上架商品',
+      {
+        confirmButtonText: '执行',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    runningUnlistedCleanup.value = true
+    const result = await api.runUnlistedProductCleanup()
+    applySettings(result.settings)
+    const { taskCount, productCount } = result.summary
+    if (productCount > 0) {
+      ElMessage.success(`已创建 ${taskCount} 个删除任务，涉及 ${productCount} 个未上架商品`)
+    } else {
+      ElMessage.success('没有需要删除的未上架商品，倒计时已重置')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '执行未上架商品删除失败'))
+    }
+  } finally {
+    runningUnlistedCleanup.value = false
+  }
+}
+
 function formatValue(value: string | null | undefined) {
   return value || '-'
 }
@@ -138,7 +210,7 @@ function formatCountdown(remainingMs: number) {
   <section class="page-stack">
     <section v-loading="loading" class="time-panel">
       <div class="time-panel-head">
-        <h2>定时清理</h2>
+        <h2>定时采集记录清理</h2>
         <el-button :icon="Refresh" :loading="loading" @click="loadSettings">
           刷新
         </el-button>
@@ -191,8 +263,61 @@ function formatCountdown(remainingMs: number) {
       </el-descriptions>
 
       <div class="time-actions">
+        <el-button :icon="VideoPlay" :loading="runningTaskCleanup" @click="runScheduledTaskCleanupNow">
+          立即执行
+        </el-button>
         <el-button type="primary" :icon="Check" :loading="saving" @click="saveSettings">
           保存
+        </el-button>
+      </div>
+    </section>
+
+    <section v-loading="loading" class="time-panel">
+      <div class="time-panel-head">
+        <h2>未上架商品月度删除</h2>
+      </div>
+
+      <div class="cleanup-countdown">
+        <span>月度删除倒计时</span>
+        <strong>{{ unlistedCleanupCountdownText }}</strong>
+        <em>{{ unlistedNextCleanupAtText }}</em>
+      </div>
+
+      <el-form label-position="top" class="time-form">
+        <el-form-item label="执行周期">
+          <el-input :model-value="unlistedCleanupTimeText" disabled />
+        </el-form-item>
+        <el-form-item label="删除范围">
+          <el-input model-value="启用店铺中的未上架店铺商品" disabled />
+        </el-form-item>
+        <el-form-item label="执行方式">
+          <el-input model-value="按店铺创建删除同步任务" disabled />
+        </el-form-item>
+      </el-form>
+
+      <el-descriptions class="time-summary" :column="2" border>
+        <el-descriptions-item label="下次执行">
+          {{ formatValue(settings?.unlistedNextCleanupAt) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="上次执行">
+          {{ formatValue(settings?.unlistedLastCleanupAt) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="上次商品数">
+          {{ settings?.unlistedLastDeletedCount ?? 0 }}
+        </el-descriptions-item>
+        <el-descriptions-item label="上次任务数">
+          {{ settings?.unlistedLastTaskCount ?? 0 }}
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <div class="time-actions">
+        <el-button
+          type="danger"
+          :icon="VideoPlay"
+          :loading="runningUnlistedCleanup"
+          @click="runUnlistedProductCleanupNow"
+        >
+          立即执行
         </el-button>
       </div>
     </section>

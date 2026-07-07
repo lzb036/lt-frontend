@@ -479,6 +479,12 @@ export interface TimeSettings {
   nextCleanupAt?: string | null
   lastCleanupAt?: string | null
   lastCleanupDeletedCount: number
+  unlistedCleanupMonthDay: number
+  unlistedCleanupTime: string
+  unlistedNextCleanupAt?: string | null
+  unlistedLastCleanupAt?: string | null
+  unlistedLastDeletedCount: number
+  unlistedLastTaskCount: number
   serverNow?: string | null
   updatedAt?: string | null
 }
