@@ -155,12 +155,12 @@ async function checkStoreKeys() {
     const result = await api.verifyStores()
     await loadStores()
     if (result.summary.error > 0) {
-      ElMessage.warning(`密钥检测完成，异常店铺 ${result.summary.error} 个`)
+      ElMessage.warning(`密钥/数量检测完成，异常店铺 ${result.summary.error} 个`)
     } else {
-      ElMessage.success('密钥检测完成，全部店铺可用')
+      ElMessage.success('密钥/数量检测完成，全部店铺可用')
     }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '密钥检测失败'))
+    ElMessage.error(toApiErrorMessage(error, '密钥/数量检测失败'))
   } finally {
     verifying.value = false
   }
@@ -186,6 +186,10 @@ function availabilityTagType(status: AvailabilityStatus) {
 
 function countText(value?: number | null) {
   return value == null ? '-' : value.toLocaleString()
+}
+
+function timeText(value?: string | null) {
+  return value || '-'
 }
 
 function handlePageSizeChange() {
@@ -224,7 +228,7 @@ async function removeStore(row: StoreAccount) {
           刷新
         </el-button>
         <el-button :icon="Connection" :loading="verifying" @click="checkStoreKeys">
-          密钥检测
+          密钥/数量检测
         </el-button>
         <el-button v-if="isSuperadmin" type="primary" :icon="Plus" @click="openCreateDialog">
           新增店铺
@@ -259,6 +263,15 @@ async function removeStore(row: StoreAccount) {
             {{ countText(row.cabinetRemainingFolderCount) }}
           </template>
         </el-table-column>
+        <el-table-column label="乐天商品数" min-width="170">
+          <template #default="{ row }">
+            <div class="store-counts">
+              <span>总数：{{ countText(row.rakutenProductTotalCount) }}</span>
+              <span>已上架：{{ countText(row.rakutenProductListedCount) }}</span>
+              <span>未上架：{{ countText(row.rakutenProductUnlistedCount) }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="可用性状态" width="120">
           <template #default="{ row }">
             <CopyableTableText :value="row.lastError || ''" :display="availabilityLabel(row.availabilityStatus)" :always="Boolean(row.lastError)">
@@ -275,7 +288,16 @@ async function removeStore(row: StoreAccount) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lastSyncedAt" label="同步时间" min-width="170" />
+        <el-table-column label="检测时间" min-width="170">
+          <template #default="{ row }">
+            {{ timeText(row.lastCheckedAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="商品同步时间" min-width="170">
+          <template #default="{ row }">
+            {{ timeText(row.lastProductSyncedAt || row.lastSyncedAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" :width="operationColumnWidth" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -373,6 +395,14 @@ async function removeStore(row: StoreAccount) {
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm);
   padding: 18px;
+}
+
+.store-counts {
+  display: grid;
+  gap: 2px;
+  color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .dialog-form {

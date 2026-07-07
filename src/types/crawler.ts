@@ -280,6 +280,11 @@ export interface StoreAccount {
   cabinetUsedFolderCount?: number | null
   cabinetRemainingFolderCount?: number | null
   cabinetUsageCheckedAt?: string | null
+  rakutenProductTotalCount?: number | null
+  rakutenProductListedCount?: number | null
+  rakutenProductUnlistedCount?: number | null
+  lastCheckedAt?: string | null
+  lastProductSyncedAt?: string | null
   lastSyncedAt?: string | null
   lastError?: string | null
   availabilityStatus: AvailabilityStatus
