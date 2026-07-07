@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import AppShell from './components/crawler/AppShell.vue'
+import CollectionShopView from './components/crawler/CollectionShopView.vue'
 import CrawlTaskManager from './components/crawler/CrawlTaskManager.vue'
 import DashboardView from './components/crawler/DashboardView.vue'
 import ListingTaskView from './components/crawler/ListingTaskView.vue'
@@ -36,6 +37,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltShop/wjMerchantGoodsError', name: 'error-products', component: ProductWorkflowView, props: { status: 'error', title: '异常商品', eyebrow: 'Rakuten Shop' }, meta: { title: '异常商品', permission: 'products.manage' } },
       { path: 'ltShop/GoodsUp', name: 'listed-products', component: ProductWorkflowView, props: { status: 'listed', title: '店铺商品', eyebrow: 'Rakuten Shop' }, meta: { title: '店铺商品', permission: 'stores.manage' } },
       { path: 'ltHj/wjMerchant', name: 'store-manager', component: StoreManagerView, meta: { title: '店铺信息', permission: 'stores.manage' } },
+      { path: 'ltHj/collectionShops', name: 'collection-shops', component: CollectionShopView, meta: { title: '采集店铺', permission: 'crawler.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '时间管理', permission: 'settings.manage' } },

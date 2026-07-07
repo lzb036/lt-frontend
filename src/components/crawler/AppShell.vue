@@ -97,15 +97,22 @@ const menuGroups = computed(() => {
       ],
     })
   }
-  if (hasPermission(props.session, 'stores.manage')) {
+  if (hasAnyPermission(props.session, ['stores.manage', 'crawler.manage'])) {
+    const storeChildren: MenuEntry[] = []
+    if (hasPermission(props.session, 'stores.manage')) {
+      storeChildren.push({ path: '/ltHj/wjMerchant', label: '店铺信息', icon: Shop })
+    }
+    if (hasPermission(props.session, 'crawler.manage')) {
+      storeChildren.push({ path: '/ltHj/collectionShops', label: '采集店铺', icon: AlarmClock })
+    }
+    if (hasPermission(props.session, 'stores.manage')) {
+      storeChildren.push({ path: '/ltShop/GoodsUp', label: '店铺商品', icon: Sell })
+    }
     groups.push({
       key: 'stores',
       label: '店铺管理',
       icon: OfficeBuilding,
-      children: [
-        { path: '/ltHj/wjMerchant', label: '店铺信息', icon: Shop },
-        { path: '/ltShop/GoodsUp', label: '店铺商品', icon: Sell },
-      ],
+      children: storeChildren,
     })
   }
   if (isSuperadmin.value) {

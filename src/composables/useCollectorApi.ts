@@ -370,7 +370,14 @@ export function useCollectorApi() {
     return response.data.schedules
   }
 
-  async function listSchedulesPage(params: PageParams) {
+  async function listSchedulesPage(params: PageParams & {
+    keyword?: string
+    enabledStatus?: 'enabled' | 'disabled' | ''
+    status?: 'idle' | 'running' | 'disabled' | 'failed' | ''
+    scheduleTime?: string
+    createdAtFrom?: string
+    createdAtTo?: string
+  }) {
     const response = await apiClient.get<ApiPageResponse<'schedules', ScheduledCrawl>>('/crawler/schedules', { params })
     return toPageResult(response.data, 'schedules')
   }
@@ -397,6 +404,15 @@ export function useCollectorApi() {
 
   async function deleteSchedule(id: number) {
     await apiClient.delete<{ deleted: boolean }>(`/crawler/schedules/${id}`)
+  }
+
+  async function deleteSchedules(scheduleIds: number[]) {
+    const response = await apiClient.delete<{
+      deletedIds: number[]
+      failedIds: number[]
+      deletedCount: number
+    }>('/crawler/schedules', { data: { scheduleIds } })
+    return response.data
   }
 
   async function runSchedule(id: number) {
@@ -546,6 +562,7 @@ export function useCollectorApi() {
     importSchedules,
     saveSchedule,
     deleteSchedule,
+    deleteSchedules,
     runSchedule,
     listListingTasks,
     listListingTasksPage,
