@@ -463,6 +463,22 @@ export interface ScheduleImportResult {
   importedRows: ScheduleImportRow[]
 }
 
+export interface TimeSettings {
+  cleanupWeekday: number
+  cleanupTime: string
+  retentionDays: number
+  nextCleanupAt?: string | null
+  lastCleanupAt?: string | null
+  lastCleanupDeletedCount: number
+  serverNow?: string | null
+  updatedAt?: string | null
+}
+
+export interface TimeSettingsPayload {
+  cleanupWeekday: number
+  cleanupTime: string
+}
+
 export interface ListingTaskPayload {
   productIds: number[]
   storeId?: number | null

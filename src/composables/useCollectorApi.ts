@@ -26,6 +26,8 @@ import type {
   StorePayload,
   StoreVerifySummary,
   SyncTask,
+  TimeSettings,
+  TimeSettingsPayload,
   UserAccount,
 } from '../types/crawler'
 import { apiClient } from '../utils/api'
@@ -92,6 +94,16 @@ export function useCollectorApi() {
   async function verifySecretProfile() {
     const response = await apiClient.post<{ profile: SecretProfile }>('/profile/secrets/verify')
     return response.data.profile
+  }
+
+  async function getTimeSettings() {
+    const response = await apiClient.get<{ settings: TimeSettings }>('/crawler/settings/time')
+    return response.data.settings
+  }
+
+  async function updateTimeSettings(payload: TimeSettingsPayload) {
+    const response = await apiClient.put<{ settings: TimeSettings }>('/crawler/settings/time', payload)
+    return response.data.settings
   }
 
   async function listSources() {
@@ -485,6 +497,8 @@ export function useCollectorApi() {
     getSecretProfile,
     updateSecretProfile,
     verifySecretProfile,
+    getTimeSettings,
+    updateTimeSettings,
     listSources,
     listSourcesPage,
     saveSource,

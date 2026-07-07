@@ -11,6 +11,7 @@ import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
 import StoreManagerView from './components/crawler/StoreManagerView.vue'
 import SyncTaskView from './components/crawler/SyncTaskView.vue'
 import ThemeSettingsView from './components/crawler/ThemeSettingsView.vue'
+import TimeManagementView from './components/crawler/TimeManagementView.vue'
 import UserManagement from './components/crawler/UserManagement.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -37,6 +38,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltHj/wjMerchant', name: 'store-manager', component: StoreManagerView, meta: { title: '店铺信息', permission: 'stores.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
+      { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '时间管理', permission: 'settings.manage' } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },
     ],
   },
