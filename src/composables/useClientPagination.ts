@@ -1,7 +1,7 @@
 import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 
 export const DEFAULT_PAGE_SIZE = 30
-export const DEFAULT_PAGE_SIZES = [30, 60, 90, 180]
+export const DEFAULT_PAGE_SIZES = [30, 60, 90, 180, 300]
 export const DEFAULT_PAGINATION_LAYOUT = 'total, sizes, prev, pager, next, jumper'
 
 export function useClientPagination<T>(items: Ref<readonly T[]> | ComputedRef<readonly T[]>) {
