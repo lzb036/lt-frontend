@@ -18,6 +18,7 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const verifying = shallowRef(false)
+const verifyingId = shallowRef<number | null>(null)
 const syncingId = shallowRef<number | null>(null)
 const stores = shallowRef<StoreAccount[]>([])
 const dialogOpen = ref(false)
@@ -42,7 +43,7 @@ const form = reactive<StorePayload>({
   rakutenLicenseKey: '',
 })
 const isSuperadmin = computed(() => props.session?.role === 'superadmin')
-const operationColumnWidth = computed(() => (isSuperadmin.value ? 230 : 130))
+const operationColumnWidth = computed(() => (isSuperadmin.value ? 360 : 250))
 
 onMounted(() => {
   void loadStores()
@@ -163,6 +164,23 @@ async function checkStoreKeys() {
     ElMessage.error(toApiErrorMessage(error, '密钥/数量检测失败'))
   } finally {
     verifying.value = false
+  }
+}
+
+async function checkSingleStoreKeys(row: StoreAccount) {
+  verifyingId.value = row.id
+  try {
+    const result = await api.verifyStore(row.id)
+    stores.value = stores.value.map((store) => (store.id === result.id ? result : store))
+    if (result.lastError) {
+      ElMessage.warning(`店铺「${result.aliasName || result.storeName || result.storeCode}」检测异常`)
+    } else {
+      ElMessage.success(`店铺「${result.aliasName || result.storeName || result.storeCode}」检测完成`)
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '店铺密钥/数量检测失败'))
+  } finally {
+    verifyingId.value = null
   }
 }
 
@@ -300,6 +318,15 @@ async function removeStore(row: StoreAccount) {
         </el-table-column>
         <el-table-column label="操作" :width="operationColumnWidth" fixed="right">
           <template #default="{ row }">
+            <el-button
+              :icon="Connection"
+              :loading="verifyingId === row.id"
+              link
+              type="primary"
+              @click="checkSingleStoreKeys(row)"
+            >
+              密钥/数量检测
+            </el-button>
             <el-button
               :icon="Connection"
               :loading="syncingId === row.id"

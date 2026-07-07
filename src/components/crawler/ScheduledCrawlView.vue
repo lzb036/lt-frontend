@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleClose, Delete, Download, Edit, Plus, Refresh, Search, Upload, View, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { CrawlLimit, CrawlTask, RankingPeriod, ScheduleImportResult, ScheduledCrawl, ScheduledCrawlPayload, TimeSettings } from '../../types/crawler'
+import type { CrawlLimit, CrawlTask, RankingPeriod, ScheduleImportResult, ScheduledCrawl, ScheduledCrawlPayload } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
@@ -17,19 +17,14 @@ const scheduleLoading = shallowRef(false)
 const saving = shallowRef(false)
 const importing = shallowRef(false)
 const downloadingTemplate = shallowRef(false)
-const timeSettingsLoading = shallowRef(false)
 const dialogOpen = ref(false)
 const schedulesDialogOpen = ref(false)
 const editingId = ref<number | null>(null)
 const importInputRef = ref<HTMLInputElement | null>(null)
 const tasks = shallowRef<CrawlTask[]>([])
 const schedules = shallowRef<ScheduledCrawl[]>([])
-const timeSettings = shallowRef<TimeSettings | null>(null)
 const selectedTasks = shallowRef<CrawlTask[]>([])
-const nowTick = shallowRef(Date.now())
-const serverTimeOffsetMs = shallowRef(0)
 let progressTimer: number | undefined
-let cleanupCountdownTimer: number | undefined
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '日榜', value: 'daily' },
@@ -73,67 +68,18 @@ const {
   setPageResult,
 } = useServerPagination()
 
-const nextCleanupAtText = computed(() => timeSettings.value?.nextCleanupAt || '-')
-const cleanupCountdownText = computed(() => {
-  const nextAt = parseDateTimeMs(timeSettings.value?.nextCleanupAt)
-  if (nextAt === null) {
-    return '未获取'
-  }
-  const remainingMs = nextAt - (nowTick.value + serverTimeOffsetMs.value)
-  if (remainingMs <= 0) {
-    return '待执行'
-  }
-  return formatCountdown(remainingMs)
-})
-
 onMounted(() => {
-  startCleanupCountdown()
   void refreshAll()
 })
 
 onBeforeUnmount(() => {
   stopProgressPolling()
-  stopCleanupCountdown()
 })
 
 watch(tasks, syncProgressPolling)
 
 async function refreshAll() {
-  await Promise.all([loadTasks(), loadSchedules(), loadTimeSettings()])
-}
-
-function startCleanupCountdown() {
-  if (cleanupCountdownTimer) {
-    return
-  }
-  nowTick.value = Date.now()
-  cleanupCountdownTimer = window.setInterval(() => {
-    nowTick.value = Date.now()
-  }, 1000)
-}
-
-function stopCleanupCountdown() {
-  if (!cleanupCountdownTimer) {
-    return
-  }
-  window.clearInterval(cleanupCountdownTimer)
-  cleanupCountdownTimer = undefined
-}
-
-async function loadTimeSettings(options: { silent?: boolean } = {}) {
-  timeSettingsLoading.value = true
-  try {
-    const result = await api.getTimeSettings()
-    timeSettings.value = result
-    const serverNow = parseDateTimeMs(result.serverNow)
-    serverTimeOffsetMs.value = serverNow === null ? 0 : serverNow - Date.now()
-  } catch (error) {
-    if (!options.silent) {
-      ElMessage.error(toApiErrorMessage(error, '加载定时清理时间失败'))
-    }
-  } finally {
-    timeSettingsLoading.value = false
-  }
+  await Promise.all([loadTasks(), loadSchedules()])
 }
 
 async function loadTasks(options: { silent?: boolean } = {}) {
@@ -196,7 +142,7 @@ function stopProgressPolling() {
 async function refreshTasks() {
   refreshing.value = true
   try {
-    await withMinimumDelay(Promise.all([loadTasks(), loadTimeSettings({ silent: true })]))
+    await withMinimumDelay(loadTasks())
   } finally {
     refreshing.value = false
   }
@@ -536,24 +482,6 @@ function createdAtToValue() {
   return value ? `${value}T23:59:59` : ''
 }
 
-function parseDateTimeMs(value: string | null | undefined) {
-  if (!value) {
-    return null
-  }
-  const timestamp = new Date(value.replace(' ', 'T')).getTime()
-  return Number.isFinite(timestamp) ? timestamp : null
-}
-
-function formatCountdown(remainingMs: number) {
-  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000))
-  const days = Math.floor(totalSeconds / 86400)
-  const hours = Math.floor((totalSeconds % 86400) / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  const timePart = [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':')
-  return days > 0 ? `${days}天 ${timePart}` : timePart
-}
-
 function taskResultText(row: CrawlTask) {
   const pending = row.status === 'queued' || row.status === 'running'
   return `总 ${taskTotalText(row, pending)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0} / 警告 ${row.warningCount || 0}`
@@ -670,14 +598,6 @@ function handlePageSizeChange() {
 <template>
   <section class="page-stack">
     <div class="head-actions">
-      <div
-        v-loading="timeSettingsLoading"
-        class="cleanup-countdown"
-      >
-        <span>定时清理倒计时</span>
-        <strong>{{ cleanupCountdownText }}</strong>
-        <em>{{ nextCleanupAtText }}</em>
-      </div>
       <input
         ref="importInputRef"
         class="schedule-import-input"
@@ -927,39 +847,7 @@ function handlePageSizeChange() {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
   gap: 12px;
-}
-
-.cleanup-countdown {
-  display: grid;
-  min-width: 260px;
-  margin-right: auto;
-  gap: 2px;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  background: var(--panel-bg);
-  padding: 8px 12px;
-  box-shadow: var(--shadow-sm);
-}
-
-.cleanup-countdown span {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.cleanup-countdown strong {
-  color: var(--text-main);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.cleanup-countdown em {
-  color: var(--text-soft);
-  font-size: 12px;
-  font-style: normal;
 }
 
 .schedule-import-input {
@@ -1028,11 +916,6 @@ function handlePageSizeChange() {
   .head-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .cleanup-countdown {
-    width: 100%;
-    min-width: 0;
   }
 
   .filter-row {

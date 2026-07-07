@@ -354,6 +354,15 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function verifyStore(id: number, ownerUsername?: string) {
+    const response = await apiClient.post<{ store: StoreAccount }>(
+      `/crawler/stores/${id}/verify`,
+      null,
+      { params: { ownerUsername } },
+    )
+    return response.data.store
+  }
+
   async function listSchedules() {
     const response = await apiClient.get<{ schedules: ScheduledCrawl[] }>('/crawler/schedules')
     return response.data.schedules
@@ -528,6 +537,7 @@ export function useCollectorApi() {
     deleteStore,
     syncStore,
     verifyStores,
+    verifyStore,
     listSchedules,
     listSchedulesPage,
     downloadScheduleImportTemplate,
