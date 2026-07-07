@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleClose, Delete, Edit, Plus, Refresh, Search, View, VideoPlay } from '@element-plus/icons-vue'
+import { CircleClose, Delete, Download, Edit, Plus, Refresh, Search, Upload, View, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { CrawlLimit, CrawlTask, RankingPeriod, ScheduledCrawl, ScheduledCrawlPayload } from '../../types/crawler'
+import type { CrawlLimit, CrawlTask, RankingPeriod, ScheduleImportResult, ScheduledCrawl, ScheduledCrawlPayload } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
@@ -15,9 +15,12 @@ const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const scheduleLoading = shallowRef(false)
 const saving = shallowRef(false)
+const importing = shallowRef(false)
+const downloadingTemplate = shallowRef(false)
 const dialogOpen = ref(false)
 const schedulesDialogOpen = ref(false)
 const editingId = ref<number | null>(null)
+const importInputRef = ref<HTMLInputElement | null>(null)
 const tasks = shallowRef<CrawlTask[]>([])
 const schedules = shallowRef<ScheduledCrawl[]>([])
 const selectedTasks = shallowRef<CrawlTask[]>([])
@@ -145,6 +148,68 @@ async function refreshTasks() {
   }
 }
 
+async function downloadScheduleTemplate() {
+  downloadingTemplate.value = true
+  try {
+    const blob = await api.downloadScheduleImportTemplate()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = '定时采集导入模板.xlsx'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '下载模板失败'))
+  } finally {
+    downloadingTemplate.value = false
+  }
+}
+
+function openScheduleImportFilePicker() {
+  importInputRef.value?.click()
+}
+
+async function handleScheduleImportFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) {
+    return
+  }
+  if (!/\.(xlsx|xls)$/i.test(file.name)) {
+    ElMessage.warning('请选择 xls 或 xlsx 表格文件')
+    return
+  }
+  importing.value = true
+  try {
+    const result = await api.importSchedules(file)
+    await refreshAll()
+    showScheduleImportResult(result)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '导入定时任务失败'))
+  } finally {
+    importing.value = false
+  }
+}
+
+function showScheduleImportResult(result: ScheduleImportResult) {
+  const summary = `导入完成：新增 ${result.createdCount} 条，更新 ${result.updatedCount} 条，失败 ${result.failedCount} 条`
+  if (result.failedCount > 0) {
+    const failedText = result.failedRows
+      .slice(0, 20)
+      .map((row) => `第 ${row.rowNumber} 行：${row.message}`)
+      .join('\n')
+    void ElMessageBox.alert(failedText || '部分数据导入失败', summary, {
+      confirmButtonText: '知道了',
+      type: 'warning',
+    })
+    return
+  }
+  ElMessage.success(summary)
+}
+
 async function loadSchedules() {
   scheduleLoading.value = true
   try {
@@ -199,7 +264,7 @@ function openEditDialog(row: ScheduledCrawl) {
   form.enabled = row.enabled
   form.intervalMinutes = 1440
   form.scheduleTime = row.scheduleTime || '09:00'
-  form.notes = ''
+  form.notes = row.notes || ''
   dialogOpen.value = true
 }
 
@@ -273,7 +338,7 @@ async function saveSchedule() {
       intervalMinutes: 1440,
       crawlContent: form.target.trim(),
       crawlCondition: '店铺采集',
-      notes: '',
+      notes: form.notes,
     }, editingId.value ?? undefined)
     await refreshAll()
     dialogOpen.value = false
@@ -533,8 +598,21 @@ function handlePageSizeChange() {
 <template>
   <section class="page-stack">
     <div class="head-actions">
+      <input
+        ref="importInputRef"
+        class="schedule-import-input"
+        type="file"
+        accept=".xls,.xlsx"
+        @change="handleScheduleImportFileChange"
+      >
       <el-button :icon="View" @click="openSchedulesDialog">
         查看定时任务
+      </el-button>
+      <el-button :icon="Download" :loading="downloadingTemplate" @click="downloadScheduleTemplate">
+        下载模板
+      </el-button>
+      <el-button :icon="Upload" :loading="importing" @click="openScheduleImportFilePicker">
+        导入表格
       </el-button>
       <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
         批量删除
@@ -770,6 +848,10 @@ function handlePageSizeChange() {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.schedule-import-input {
+  display: none;
 }
 
 .work-panel {

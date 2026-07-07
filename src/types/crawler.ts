@@ -442,6 +442,27 @@ export interface ScheduledCrawlPayload {
   notes: string
 }
 
+export interface ScheduleImportFailedRow {
+  rowNumber: number
+  message: string
+}
+
+export interface ScheduleImportRow {
+  rowNumber: number
+  shopName: string
+  shopUrl: string
+  action: 'created' | 'updated'
+}
+
+export interface ScheduleImportResult {
+  totalRows: number
+  createdCount: number
+  updatedCount: number
+  failedCount: number
+  failedRows: ScheduleImportFailedRow[]
+  importedRows: ScheduleImportRow[]
+}
+
 export interface ListingTaskPayload {
   productIds: number[]
   storeId?: number | null

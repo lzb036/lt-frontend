@@ -16,6 +16,7 @@ import type {
   ReviewStatus,
   RoleDefinition,
   RolePayload,
+  ScheduleImportResult,
   ScheduledCrawl,
   ScheduledCrawlPayload,
   SecretProfile,
@@ -351,6 +352,18 @@ export function useCollectorApi() {
     return toPageResult(response.data, 'schedules')
   }
 
+  async function downloadScheduleImportTemplate() {
+    const response = await apiClient.get<Blob>('/crawler/schedules/import-template', { responseType: 'blob' })
+    return response.data
+  }
+
+  async function importSchedules(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post<ScheduleImportResult>('/crawler/schedules/import', formData)
+    return response.data
+  }
+
   async function saveSchedule(payload: ScheduledCrawlPayload, id?: number) {
     const request = id
       ? apiClient.put<{ schedule: ScheduledCrawl }>(`/crawler/schedules/${id}`, payload)
@@ -503,6 +516,8 @@ export function useCollectorApi() {
     verifyStores,
     listSchedules,
     listSchedulesPage,
+    downloadScheduleImportTemplate,
+    importSchedules,
     saveSchedule,
     deleteSchedule,
     runSchedule,
