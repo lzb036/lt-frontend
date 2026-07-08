@@ -3,7 +3,6 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import AppShell from './components/crawler/AppShell.vue'
 import CollectionShopView from './components/crawler/CollectionShopView.vue'
 import CrawlTaskManager from './components/crawler/CrawlTaskManager.vue'
-import DashboardView from './components/crawler/DashboardView.vue'
 import ListingTaskView from './components/crawler/ListingTaskView.vue'
 import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
@@ -20,8 +19,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: AppShell,
     children: [
-      { path: '', redirect: '/dashboard' },
-      { path: 'dashboard', name: 'dashboard', component: DashboardView, meta: { title: '采集概览' } },
+      { path: '', redirect: '/ltJobs/wjJobs' },
       { path: 'secrets', redirect: '/ltHj/wjMerchant' },
       { path: 'sources', redirect: '/ltHj/wjMerchant' },
       { path: 'tasks', name: 'tasks', component: CrawlTaskManager, meta: { title: '采集任务', permission: 'crawler.manage' } },
@@ -46,7 +44,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/dashboard',
+    redirect: '/ltJobs/wjJobs',
   },
 ]
 

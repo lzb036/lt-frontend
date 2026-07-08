@@ -4,7 +4,6 @@ import type {
   CrawlSourcePayload,
   CrawlTask,
   CreateTaskPayload,
-  DashboardSummary,
   ListingPreflightResult,
   ListingTask,
   ListingTaskPayload,
@@ -48,11 +47,6 @@ function toPageResult<K extends string, T>(data: ApiPageResponse<K, T>, key: K):
 }
 
 export function useCollectorApi() {
-  async function getDashboardSummary() {
-    const response = await apiClient.get<{ summary: DashboardSummary }>('/crawler/dashboard/summary')
-    return response.data.summary
-  }
-
   async function listUsers() {
     const response = await apiClient.get<{ users: UserAccount[] }>('/users')
     return response.data.users
@@ -571,7 +565,6 @@ export function useCollectorApi() {
   }
 
   return {
-    getDashboardSummary,
     listUsers,
     listUsersPage,
     createUser,

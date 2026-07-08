@@ -5,7 +5,7 @@ import { RouterView, useRouter } from 'vue-router'
 
 import LoginView from './components/auth/LoginView.vue'
 import { useAuth } from './composables/useAuth'
-import { canAccessRouteMeta } from './utils/permissions'
+import { canAccessRouteMeta, getDefaultRoutePath } from './utils/permissions'
 
 const {
   authenticated,
@@ -38,8 +38,8 @@ watch(() => router.currentRoute.value.fullPath, () => {
 
 async function handleLogin(payload: { username: string; password: string }) {
   try {
-    await login(payload)
-    await router.replace('/dashboard')
+    const nextSession = await login(payload)
+    await router.replace(getDefaultRoutePath(nextSession))
     ElMessage.success('登录成功')
   } catch {
     ElMessage.error(authError.value || '登录失败')
@@ -50,17 +50,22 @@ function guardCurrentRoute() {
   if (!session.value) {
     return
   }
+  const defaultRoute = getDefaultRoutePath(session.value)
+  if (router.currentRoute.value.path === '/') {
+    void router.replace(defaultRoute)
+    return
+  }
   const blocked = router.currentRoute.value.matched.some((record) => !canAccessRouteMeta(session.value, record.meta))
   if (!blocked) {
     return
   }
-  void router.replace('/dashboard')
+  void router.replace(defaultRoute)
   ElMessage.warning('当前账号没有访问该页面的权限')
 }
 
 async function handleLogout() {
   await logout()
-  await router.replace('/dashboard')
+  await router.replace(getDefaultRoutePath(null))
   ElMessage.success('已退出登录')
 }
 </script>

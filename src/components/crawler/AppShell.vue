@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 import {
   Aim,
   AlarmClock,
@@ -8,7 +9,6 @@ import {
   Expand,
   Finished,
   Fold,
-  House,
   OfficeBuilding,
   Refresh,
   Sell,
@@ -16,13 +16,14 @@ import {
   Shop,
   ShoppingBag,
   ShoppingCartFull,
+  SwitchButton,
   Tickets,
   UserFilled,
   Warning,
 } from '@element-plus/icons-vue'
 
 import type { AuthSession } from '../../types/crawler'
-import { hasAnyPermission, hasPermission, isSuperadmin as isSuperadminSession } from '../../utils/permissions'
+import { getDefaultRoutePath, hasAnyPermission, hasPermission, isSuperadmin as isSuperadminSession } from '../../utils/permissions'
 
 type MenuEntry = {
   path: string
@@ -49,20 +50,16 @@ const route = useRoute()
 const router = useRouter()
 
 const isSuperadmin = computed(() => isSuperadminSession(props.session))
+const defaultRoutePath = computed(() => getDefaultRoutePath(props.session))
 const activePath = computed(() => {
-  const path = route.path || '/dashboard'
-  return path === '/' ? '/dashboard' : path
+  const path = route.path || defaultRoutePath.value
+  return path === '/' ? defaultRoutePath.value : path
 })
 const sidebarCollapsed = ref(false)
+const sessionDisplayName = computed(() => props.session?.displayName || props.session?.username || '')
 
 const menuGroups = computed(() => {
-  const groups: Array<MenuEntry | MenuGroup> = [
-    {
-      path: '/dashboard',
-      label: '仪表盘',
-      icon: House,
-    },
-  ]
+  const groups: Array<MenuEntry | MenuGroup> = []
   const jobChildren: MenuEntry[] = []
   if (hasPermission(props.session, 'crawler.manage')) {
     jobChildren.push(
@@ -148,6 +145,18 @@ function toggleSidebarCollapsed() {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
+async function confirmLogout() {
+  try {
+    await ElMessageBox.confirm('确认退出当前账号？', '退出登录', {
+      confirmButtonText: '退出登录',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    emit('logout')
+  } catch {
+  }
+}
+
 function forwardLogout() {
   emit('logout')
 }
@@ -166,14 +175,19 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
       class="shell-sidebar"
       :class="{ 'shell-sidebar-collapsed': sidebarCollapsed }"
     >
-      <div class="shell-brand">
-        <span class="brand-mark">
-          <img src="/favicon.svg" alt="" />
-        </span>
-        <span class="brand-copy">
-          <strong>商品采集系统</strong>
-          <em>Product Collector</em>
-        </span>
+      <div class="shell-brand-block">
+        <div class="shell-brand">
+          <span class="brand-mark">
+            <img src="/favicon.svg" alt="" />
+          </span>
+          <span class="brand-copy">
+            <strong>商品采集系统</strong>
+            <em>Product Collector</em>
+          </span>
+        </div>
+        <div v-if="sessionDisplayName" class="shell-user-name">
+          {{ sessionDisplayName }}
+        </div>
       </div>
 
       <el-menu
@@ -217,14 +231,25 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
       <footer class="shell-sidebar-footer">
         <button
           type="button"
-          class="sidebar-collapse-button"
+          class="sidebar-action-button sidebar-logout-button"
+          :aria-label="sidebarCollapsed ? '退出登录' : undefined"
+          @click="confirmLogout"
+        >
+          <el-icon class="sidebar-action-icon">
+            <SwitchButton />
+          </el-icon>
+          <span class="sidebar-action-label">退出登录</span>
+        </button>
+        <button
+          type="button"
+          class="sidebar-action-button sidebar-collapse-button"
           :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
           @click="toggleSidebarCollapsed"
         >
-          <el-icon class="sidebar-collapse-icon">
+          <el-icon class="sidebar-action-icon">
             <component :is="sidebarCollapseIcon" />
           </el-icon>
-          <span class="sidebar-collapse-label">{{ sidebarCollapsed ? '展开' : '收起' }}</span>
+          <span class="sidebar-action-label">{{ sidebarCollapsed ? '展开' : '收起' }}</span>
         </button>
       </footer>
     </aside>
@@ -269,15 +294,20 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.shell-brand-block {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--panel-border);
+  overflow: hidden;
+  padding: 12px 14px 10px;
+}
+
 .shell-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 72px;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--panel-border);
+  min-height: 44px;
   overflow: hidden;
-  transition: justify-content 220ms ease, padding 220ms ease;
+  transition: justify-content 220ms ease;
 }
 
 .brand-mark {
@@ -322,14 +352,39 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   font-style: normal;
 }
 
+.shell-user-name {
+  margin: 7px 0 0 46px;
+  overflow: hidden;
+  color: var(--sidebar-text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+  max-width: 118px;
+  opacity: 0.88;
+  text-overflow: ellipsis;
+  transform: translateX(0);
+  transition: opacity 180ms ease, max-width 220ms ease, margin 220ms ease, transform 220ms ease;
+  white-space: nowrap;
+}
+
+.shell-sidebar-collapsed .shell-brand-block {
+  padding: 12px 10px 10px;
+}
+
 .shell-sidebar-collapsed .shell-brand {
   justify-content: center;
-  padding: 0 10px;
 }
 
 .shell-sidebar-collapsed .brand-copy {
   opacity: 0;
   max-width: 0;
+  transform: translateX(-6px);
+}
+
+.shell-sidebar-collapsed .shell-user-name {
+  margin-left: 0;
+  max-width: 0;
+  opacity: 0;
   transform: translateX(-6px);
 }
 
@@ -423,7 +478,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   padding: 12px 8px 14px;
 }
 
-.sidebar-collapse-button {
+.sidebar-action-button {
   display: inline-flex;
   width: 100%;
   min-height: 40px;
@@ -440,25 +495,40 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
 
-.sidebar-collapse-button:hover,
-.sidebar-collapse-button:focus-visible {
+.sidebar-action-button + .sidebar-action-button {
+  margin-top: 6px;
+}
+
+.sidebar-action-button:hover,
+.sidebar-action-button:focus-visible {
   border-color: var(--panel-border);
   background: var(--panel-muted);
   color: var(--text-main);
   outline: none;
 }
 
-.sidebar-collapse-icon {
+.sidebar-logout-button {
+  color: var(--danger);
+}
+
+.sidebar-logout-button:hover,
+.sidebar-logout-button:focus-visible {
+  border-color: color-mix(in srgb, var(--danger), transparent 58%);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.sidebar-action-icon {
   flex: 0 0 auto;
   font-size: 18px;
 }
 
-.sidebar-collapse-label {
+.sidebar-action-label {
   overflow: hidden;
   color: inherit;
   font-size: 13px;
   font-weight: 800;
-  max-width: 80px;
+  max-width: 90px;
   opacity: 1;
   text-overflow: ellipsis;
   transform: translateX(0);
@@ -470,12 +540,12 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   padding: 12px 8px 14px;
 }
 
-.shell-sidebar-collapsed .sidebar-collapse-button {
+.shell-sidebar-collapsed .sidebar-action-button {
   justify-content: center;
   padding-inline: 0;
 }
 
-.shell-sidebar-collapsed .sidebar-collapse-label {
+.shell-sidebar-collapsed .sidebar-action-label {
   opacity: 0;
   max-width: 0;
   transform: translateX(-6px);
@@ -512,12 +582,16 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
     height: 100%;
   }
 
-  .shell-brand {
-    justify-content: center;
-    padding: 0 10px;
+  .shell-brand-block {
+    padding: 12px 10px 10px;
   }
 
-  .shell-brand span:last-child {
+  .shell-brand {
+    justify-content: center;
+  }
+
+  .brand-copy,
+  .shell-user-name {
     display: none;
   }
 
@@ -549,12 +623,12 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
     padding: 12px 8px 14px;
   }
 
-  .sidebar-collapse-button {
+  .sidebar-action-button {
     justify-content: center;
     padding-inline: 0;
   }
 
-  .sidebar-collapse-label {
+  .sidebar-action-label {
     display: none;
   }
 

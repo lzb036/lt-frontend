@@ -21,41 +21,6 @@ export interface PageResult<T> {
   items: T[]
 }
 
-export interface DashboardSummary {
-  dateRange: {
-    from: string
-    to: string
-  }
-  stores: {
-    total: number
-    enabled: number
-    error: number
-  }
-  products: {
-    pending: number
-    approved: number
-    error: number
-  }
-  crawlTasks: {
-    queued: number
-    running: number
-    success: number
-    failed: number
-  }
-  listingTasks: {
-    queued: number
-    running: number
-    success: number
-    failed: number
-  }
-  syncTasks: {
-    queued: number
-    running: number
-    success: number
-    failed: number
-  }
-}
-
 export interface UserPermissions {
   manageUsers: boolean
   manageOwnSecrets: boolean
