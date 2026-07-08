@@ -1010,6 +1010,24 @@ a {
   font-weight: 700;
 }
 
+.el-table .table-action-column .cell {
+  display: flex;
+  min-height: 100%;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.el-table .table-action-column .cell .el-button {
+  margin-left: 0 !important;
+  justify-content: flex-start;
+}
+
+.el-table .table-action-column .cell .el-button + .el-button {
+  margin-left: 0 !important;
+}
+
 [data-theme-mode="dark"] .el-card,
 [data-theme-mode="dark"] .el-popper,
 [data-theme-mode="dark"] .el-select-dropdown,

@@ -186,7 +186,7 @@ function handlePageSizeChange() {
           </template>
         </el-table-column>
         <el-table-column prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
               编辑

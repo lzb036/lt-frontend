@@ -358,7 +358,7 @@ async function removeStore(row: StoreAccount) {
             {{ timeText(row.lastProductSyncedAt || row.lastSyncedAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" :width="operationColumnWidth" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" :width="operationColumnWidth" fixed="right">
           <template #default="{ row }">
             <el-button
               :icon="Connection"
