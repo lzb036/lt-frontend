@@ -2265,7 +2265,7 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" :width="status === 'pending' ? 112 : ['approved', 'listed_master'].includes(status) ? 132 : 120" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
           <template #default="{ row }">
             <div class="row-action-stack">
               <el-button :icon="View" link type="primary" :disabled="isProductBusy(row)" @click="openProductDetail(row)">

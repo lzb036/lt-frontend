@@ -610,7 +610,7 @@ function handlePageSizeChange() {
         <el-table-column prop="lastRunAt" label="上次执行" min-width="170" />
         <el-table-column prop="nextRunAt" label="下次执行" min-width="170" />
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="230" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
           <template #default="{ row }">
             <el-button :icon="VideoPlay" link type="primary" @click="runSchedule(row)">
               立即执行

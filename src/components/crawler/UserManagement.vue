@@ -473,7 +473,7 @@ function timeText(value?: string | null) {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="290" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
           <template #default="{ row }">
             <el-button :disabled="row.role === 'superadmin'" :icon="Shop" link type="primary" @click="openStoreDialog(row)">
               店铺
@@ -631,7 +631,7 @@ function timeText(value?: string | null) {
               {{ timeText(row.lastProductSyncedAt || row.lastSyncedAt) }}
             </template>
           </el-table-column>
-          <el-table-column class-name="table-action-column" label="操作" width="230" fixed="right">
+          <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
             <template #default="{ row }">
               <el-button
                 :icon="Connection"

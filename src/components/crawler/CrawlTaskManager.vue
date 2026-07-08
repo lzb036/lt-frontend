@@ -260,7 +260,7 @@ function handlePageSizeChange() {
             <CopyableTableText :value="row.errorDetail" />
           </template>
         </el-table-column>
-        <el-table-column class-name="table-action-column" label="操作" width="100" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="88" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="taskCancelable(row) || taskWaitingCancel(row)"

@@ -1013,14 +1013,18 @@ a {
 .el-table .table-action-column .cell {
   display: flex;
   min-height: 100%;
+  padding-left: 6px;
+  padding-right: 6px;
   align-items: flex-start;
   justify-content: center;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .el-table .table-action-column .cell .el-button {
   margin-left: 0 !important;
+  padding-left: 0;
+  padding-right: 0;
   justify-content: flex-start;
 }
 

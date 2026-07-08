@@ -642,7 +642,7 @@ function statusType(row: CrawlTask) {
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="startedAt" label="开始执行时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="taskCancelable(row) || taskWaitingCancel(row)"

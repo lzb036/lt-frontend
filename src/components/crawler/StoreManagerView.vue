@@ -45,7 +45,6 @@ const form = reactive<StorePayload>({
   rakutenLicenseKey: '',
 })
 const isSuperadmin = computed(() => props.session?.role === 'superadmin')
-const operationColumnWidth = computed(() => (isSuperadmin.value ? 450 : 320))
 
 onMounted(() => {
   void loadStores()
@@ -358,7 +357,7 @@ async function removeStore(row: StoreAccount) {
             {{ timeText(row.lastProductSyncedAt || row.lastSyncedAt) }}
           </template>
         </el-table-column>
-        <el-table-column class-name="table-action-column" label="操作" :width="operationColumnWidth" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
           <template #default="{ row }">
             <el-button
               :icon="Connection"
