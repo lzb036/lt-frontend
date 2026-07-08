@@ -17,6 +17,7 @@ const saving = shallowRef(false)
 const importing = shallowRef(false)
 const downloadingTemplate = shallowRef(false)
 const exporting = shallowRef(false)
+const runningAll = shallowRef(false)
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
 const importInputRef = ref<HTMLInputElement | null>(null)
@@ -172,6 +173,34 @@ async function exportSchedules() {
     ElMessage.error(toApiErrorMessage(error, '导出采集店铺失败'))
   } finally {
     exporting.value = false
+  }
+}
+
+async function runAllSchedules() {
+  try {
+    await ElMessageBox.confirm(
+      '确认立即执行当前筛选条件下全部已启用的采集店铺？系统会将任务投递到采集队列中依次执行。',
+      '立即执行采集店铺',
+      {
+        confirmButtonText: '立即执行',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    runningAll.value = true
+    const result = await api.runAllSchedules(currentScheduleFilterParams())
+    await loadSchedules()
+    if (result.failedCount > 0) {
+      ElMessage.warning(`已投递 ${result.dispatchedCount} 条，${result.failedCount} 条投递失败`)
+    } else {
+      ElMessage.success(`已投递 ${result.dispatchedCount} 条采集店铺任务`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '立即执行采集店铺失败'))
+    }
+  } finally {
+    runningAll.value = false
   }
 }
 
@@ -458,6 +487,9 @@ function handlePageSizeChange() {
       <el-button :icon="Download" :loading="downloadingTemplate" @click="downloadScheduleTemplate">
         下载模板
       </el-button>
+      <el-button type="primary" :icon="VideoPlay" :loading="runningAll" @click="runAllSchedules">
+        立即执行
+      </el-button>
       <el-button :icon="Upload" :loading="importing" @click="openScheduleImportFilePicker">
         导入表格
       </el-button>
@@ -477,12 +509,19 @@ function handlePageSizeChange() {
 
     <section class="work-panel">
       <div class="filter-row">
-        <el-input v-model="filters.keyword" :prefix-icon="Search" clearable placeholder="店铺名称、URL、备注" @keydown.enter="searchSchedules" />
-        <el-select v-model="filters.enabledStatus" clearable placeholder="启用状态" @change="searchSchedules">
+        <el-input
+          v-model="filters.keyword"
+          class="filter-control filter-keyword-field"
+          :prefix-icon="Search"
+          clearable
+          placeholder="店铺名称、URL、备注"
+          @keydown.enter="searchSchedules"
+        />
+        <el-select v-model="filters.enabledStatus" class="filter-control filter-select-field" clearable placeholder="启用状态" @change="searchSchedules">
           <el-option label="已启用" value="enabled" />
           <el-option label="未启用" value="disabled" />
         </el-select>
-        <el-select v-model="filters.status" clearable placeholder="运行状态" @change="searchSchedules">
+        <el-select v-model="filters.status" class="filter-control filter-select-field" clearable placeholder="运行状态" @change="searchSchedules">
           <el-option label="空闲" value="idle" />
           <el-option label="执行中" value="running" />
           <el-option label="失败" value="failed" />
@@ -490,7 +529,7 @@ function handlePageSizeChange() {
         </el-select>
         <el-time-picker
           v-model="filters.scheduleTime"
-          class="full-control"
+          class="filter-control filter-time-field"
           format="HH:mm"
           value-format="HH:mm"
           placeholder="执行时间"
@@ -666,6 +705,10 @@ function handlePageSizeChange() {
   gap: 12px;
 }
 
+.head-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
 .schedule-import-input {
   display: none;
 }
@@ -679,21 +722,41 @@ function handlePageSizeChange() {
 }
 
 .filter-row {
-  display: grid;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
-  grid-template-columns: minmax(260px, 1fr) minmax(120px, 140px) minmax(120px, 140px) minmax(128px, 148px) minmax(280px, 360px) max-content;
   margin-bottom: 14px;
+}
+
+.filter-control {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+
+.filter-keyword-field {
+  flex-basis: 280px;
+  max-width: 420px;
+}
+
+.filter-select-field,
+.filter-time-field {
+  flex: 0 1 160px;
 }
 
 .filter-actions {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
+  flex: 0 0 auto;
   gap: 8px;
+  margin-left: auto;
 }
 
 .filter-date-field {
+  flex: 1 1 320px;
   min-width: 0;
+  max-width: 460px;
 }
 
 .filter-date-field :deep(.el-date-editor) {
@@ -718,13 +781,8 @@ function handlePageSizeChange() {
 }
 
 @media (max-width: 1280px) {
-  .filter-row {
-    grid-template-columns: minmax(0, 1fr) minmax(120px, 150px) minmax(120px, 150px);
-  }
-
   .filter-actions {
-    grid-column: 1 / -1;
-    justify-self: flex-end;
+    margin-left: 0;
   }
 }
 
@@ -734,13 +792,12 @@ function handlePageSizeChange() {
     flex-direction: column;
   }
 
-  .filter-row {
-    grid-template-columns: 1fr;
-  }
-
+  .head-actions .el-button,
+  .filter-control,
+  .filter-date-field,
   .filter-actions {
-    grid-column: auto;
-    justify-self: stretch;
+    width: 100%;
+    max-width: none;
   }
 
   .filter-actions .el-button {

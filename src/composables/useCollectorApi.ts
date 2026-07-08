@@ -462,6 +462,23 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function runAllSchedules(params: {
+    keyword?: string
+    enabledStatus?: 'enabled' | 'disabled' | ''
+    status?: 'idle' | 'running' | 'disabled' | 'failed' | ''
+    scheduleTime?: string
+    createdAtFrom?: string
+    createdAtTo?: string
+  }) {
+    const response = await apiClient.post<{
+      total: number
+      dispatchedCount: number
+      failedIds: number[]
+      failedCount: number
+    }>('/crawler/schedules/run-all', params)
+    return response.data
+  }
+
   async function listListingTasks() {
     const response = await apiClient.get<{ listingTasks: ListingTask[] }>('/crawler/listing-tasks')
     return response.data.listingTasks
@@ -618,6 +635,7 @@ export function useCollectorApi() {
     deleteSchedule,
     deleteSchedules,
     runSchedule,
+    runAllSchedules,
     listListingTasks,
     listListingTasksPage,
     preflightListingTask,
