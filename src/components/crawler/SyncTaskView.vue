@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleClose, Delete, Refresh } from '@element-plus/icons-vue'
+import { CircleClose, Delete, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -118,6 +118,27 @@ async function cancelTask(row: SyncTask) {
   }
 }
 
+async function retryTask(row: SyncTask) {
+  try {
+    await ElMessageBox.confirm(
+      `确认重试同步任务「${row.taskName || row.id}」？`,
+      '重试同步任务',
+      {
+        confirmButtonText: '重试',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    const result = await api.retrySyncTask(row.id)
+    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.syncTask : task))
+    ElMessage.success('同步任务已加入队列等待重试')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '重试同步任务失败'))
+    }
+  }
+}
+
 async function deleteSelectedTasks() {
   if (selectedTasks.value.length < 1) {
     ElMessage.warning('请选择要删除的任务')
@@ -190,6 +211,10 @@ function taskCancelable(row: SyncTask) {
 
 function taskWaitingCancel(row: SyncTask) {
   return (row.status === 'queued' || row.status === 'running') && Boolean(row.cancelRequested)
+}
+
+function taskRetryable(row: SyncTask) {
+  return ['failed', 'partial', 'cancelled'].includes(row.status)
 }
 
 function taskTypeLabel(task: SyncTask) {
@@ -282,7 +307,7 @@ function handlePageSizeChange() {
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="132" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="taskCancelable(row) || taskWaitingCancel(row)"
@@ -293,6 +318,9 @@ function handlePageSizeChange() {
               @click="cancelTask(row)"
             >
               {{ taskWaitingCancel(row) ? '终止中' : '终止' }}
+            </el-button>
+            <el-button v-if="taskRetryable(row)" :icon="VideoPlay" link type="primary" @click="retryTask(row)">
+              重试
             </el-button>
           </template>
         </el-table-column>
