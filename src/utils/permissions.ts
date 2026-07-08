@@ -11,6 +11,7 @@ type DefaultRouteCandidate = {
 }
 
 const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
+  { path: '/ltHj/wjMerchant', permission: 'stores.manage' },
   { path: '/ltJobs/wjJobs', permission: 'crawler.manage' },
   { path: '/ltJobs/wjProductJob', permission: 'crawler.manage' },
   { path: '/ltJobs/upGoodsJob', permission: 'products.manage' },
@@ -19,7 +20,6 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltShop/wjMerchantGoodsTrue', permission: 'products.manage' },
   { path: '/ltShop/wjListedGoods', permission: 'products.manage' },
   { path: '/ltShop/wjMerchantGoodsError', permission: 'products.manage' },
-  { path: '/ltHj/wjMerchant', permission: 'stores.manage' },
   { path: '/ltHj/collectionShops', permission: 'crawler.manage' },
   { path: '/ltShop/GoodsUp', permission: 'stores.manage' },
   { path: '/system/user', superadminOnly: true },

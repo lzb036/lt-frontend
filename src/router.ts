@@ -19,7 +19,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: AppShell,
     children: [
-      { path: '', redirect: '/ltJobs/wjJobs' },
+      { path: '', redirect: '/ltHj/wjMerchant' },
       { path: 'secrets', redirect: '/ltHj/wjMerchant' },
       { path: 'sources', redirect: '/ltHj/wjMerchant' },
       { path: 'tasks', name: 'tasks', component: CrawlTaskManager, meta: { title: '采集任务', permission: 'crawler.manage' } },
@@ -44,7 +44,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/ltJobs/wjJobs',
+    redirect: '/ltHj/wjMerchant',
   },
 ]
 
