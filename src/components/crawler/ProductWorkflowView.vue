@@ -581,11 +581,12 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     }
     operating.value = true
     const result = await api.deleteProducts(productIds)
-    if (result.syncTask) {
-      ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || '批量删除任务已创建'))
+    const syncTasks = syncTasksFromResult(result)
+    if (syncTasks.length > 0) {
+      ElMessage.success(syncTasksCreatedMessage(syncTasks, result.summary.message || '批量删除任务已创建'))
       clearSelection()
       keepListedSyncBusy = true
-      watchDeleteSyncTaskCompletion(result.syncTask.id, productIds)
+      watchDeleteSyncTasksCompletion(taskIds(syncTasks), productIds)
       return
     }
     if (result.summary.failedCount > 0) {
@@ -651,9 +652,10 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
       productIds,
       listingStatus,
     })
-    ElMessage.success(syncTaskCreatedMessage(result.syncTask, result.summary.message || `批量${actionText}任务已创建`))
+    const syncTasks = syncTasksFromResult(result)
+    ElMessage.success(syncTasksCreatedMessage(syncTasks, result.summary.message || `批量${actionText}任务已创建`))
     keepListedSyncBusy = true
-    watchListingStatusSyncTaskCompletion(result.syncTask.id, productIds, listingStatus)
+    watchListingStatusSyncTasksCompletion(taskIds(syncTasks), productIds, listingStatus)
   } catch (error) {
     if (error !== 'cancel') {
       clearListedSyncTaskBusy(productIds)
@@ -720,7 +722,7 @@ async function confirmAndCreateListingTask(productIds: number[]) {
       taskName: listingForm.taskName.trim(),
     })
     listingDialogVisible.value = false
-    handleListingTaskResult(result.listingTask, productIds)
+    handleListingTasksResult(listingTasksFromResult(result), productIds, result.summary?.message)
     maybeRefreshAfterOptimisticAction()
   } catch (error) {
     setListingProductsBusy(productIds, false)
@@ -839,6 +841,52 @@ function taskOutcomeIds(task: Pick<ListingTask | SyncTask, 'status' | 'successId
   return { successIds, failedIds }
 }
 
+function taskProductIds(task: ListingTask | SyncTask) {
+  if ('productIds' in task && Array.isArray(task.productIds) && task.productIds.length > 0) {
+    return task.productIds
+  }
+  const payloadProductIds = (task as SyncTask).payload?.productIds
+  return Array.isArray(payloadProductIds)
+    ? payloadProductIds.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0)
+    : []
+}
+
+function uniqueIds(values: number[]) {
+  return [...new Set(values)]
+}
+
+function aggregateTaskOutcomeIds(tasks: Array<ListingTask | SyncTask>, productIds: number[]) {
+  const successIds: number[] = []
+  const failedIds: number[] = []
+  for (const task of tasks) {
+    const ids = taskProductIds(task)
+    const scopedIds = ids.length > 0 ? ids : productIds
+    const outcome = taskOutcomeIds(task, scopedIds)
+    successIds.push(...outcome.successIds)
+    failedIds.push(...outcome.failedIds)
+  }
+  const success = uniqueIds(successIds)
+  const successSet = new Set(success)
+  const failed = uniqueIds(failedIds.length > 0 ? failedIds : productIds.filter((productId) => !successSet.has(productId)))
+  return { successIds: success, failedIds: failed }
+}
+
+function listingTasksFromResult(result: { listingTask?: ListingTask; listingTasks?: ListingTask[] }) {
+  return result.listingTasks?.length ? result.listingTasks : result.listingTask ? [result.listingTask] : []
+}
+
+function syncTasksFromResult(result: { syncTask?: SyncTask; syncTasks?: SyncTask[] }) {
+  return result.syncTasks?.length ? result.syncTasks : result.syncTask ? [result.syncTask] : []
+}
+
+function taskIds<T extends { id: string }>(tasks: T[]) {
+  return tasks.map((task) => task.id).filter(Boolean)
+}
+
+function areTasksFinished(tasks: Array<ListingTask | SyncTask>) {
+  return tasks.length > 0 && tasks.every((task) => !['queued', 'running'].includes(task.status))
+}
+
 function handleListingTaskResult(task: ListingTask, productIds: number[]) {
   if (task.status === 'success') {
     clearListingTaskBusy(productIds)
@@ -896,6 +944,47 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
   ElMessage.success('上架任务已创建，请到上架任务中查看进度')
 }
 
+function handleListingTasksResult(tasks: ListingTask[], productIds: number[], message?: string) {
+  if (tasks.length < 1) {
+    clearListingTaskBusy(productIds)
+    if (shouldHideAfterListingTask()) {
+      restoreHiddenProducts(productIds)
+    }
+    ElMessage.error('上架任务创建失败')
+    return
+  }
+  if (tasks.length === 1) {
+    handleListingTaskResult(tasks[0], productIds)
+    return
+  }
+  if (!areTasksFinished(tasks)) {
+    if (shouldHideAfterListingTask()) {
+      hideProducts(productIds)
+    }
+    watchListingTasksCompletion(taskIds(tasks), productIds)
+    ElMessage.success(message || `上架任务已拆分为 ${tasks.length} 个任务，请到上架任务中查看进度`)
+    return
+  }
+  const { successIds, failedIds } = aggregateTaskOutcomeIds(tasks, productIds)
+  const allSuccess = tasks.every((task) => task.status === 'success')
+  clearListingTaskBusy(productIds)
+  if (shouldHideAfterListingTask()) {
+    clearHiddenProducts(successIds)
+    if (!allSuccess) {
+      restoreHiddenProducts(failedIds)
+    }
+  } else {
+    void refreshAll({ loadStores: false })
+  }
+  if (allSuccess) {
+    ElMessage.success('上架任务已完成')
+    maybeRefreshAfterOptimisticAction()
+    return
+  }
+  ElMessage.warning('部分上架任务未成功，请到上架任务中查看异常信息')
+  maybeRefreshAfterOptimisticAction()
+}
+
 function watchListingTaskCompletion(taskId: string, productIds: number[]) {
   if (!taskId || !['approved', 'listed_master'].includes(props.status)) {
     return
@@ -927,6 +1016,36 @@ function watchListingTaskCompletion(taskId: string, productIds: number[]) {
   }, 2000)
 }
 
+function watchListingTasksCompletion(taskIdsToWatch: string[], productIds: number[]) {
+  if (taskIdsToWatch.length < 1 || !['approved', 'listed_master'].includes(props.status)) {
+    clearListingTaskBusy(productIds)
+    return
+  }
+  const idSet = new Set(taskIdsToWatch)
+  let pollFailures = 0
+  const timer = window.setInterval(async () => {
+    try {
+      const tasks = await api.listListingTasks()
+      pollFailures = 0
+      const matchedTasks = tasks.filter((item) => idSet.has(item.id))
+      if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
+        return
+      }
+      window.clearInterval(timer)
+      handleListingTasksResult(matchedTasks, productIds)
+    } catch {
+      pollFailures += 1
+      if (pollFailures >= 3) {
+        window.clearInterval(timer)
+        clearListingTaskBusy(productIds)
+        if (shouldHideAfterListingTask()) {
+          restoreHiddenProducts(productIds)
+        }
+      }
+    }
+  }, 2000)
+}
+
 function clearListingTaskBusy(productIds: number[]) {
   setListingProductsBusy(productIds, false)
 }
@@ -942,25 +1061,30 @@ function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
   return `${fallback}，请到同步任务中查看进度`
 }
 
-function watchDeleteSyncTaskCompletion(taskId: string, productIds: number[]) {
-  if (!taskId || props.status !== 'listed') {
+function syncTasksCreatedMessage(tasks: SyncTask[], fallback: string) {
+  if (tasks.length <= 1) {
+    return syncTaskCreatedMessage(tasks[0], fallback)
+  }
+  return `${fallback}，已拆分为 ${tasks.length} 个任务，请到同步任务中查看进度`
+}
+
+function watchDeleteSyncTasksCompletion(taskIdsToWatch: string[], productIds: number[]) {
+  if (taskIdsToWatch.length < 1 || props.status !== 'listed') {
     clearListedSyncTaskBusy(productIds)
     return
   }
+  const idSet = new Set(taskIdsToWatch)
   let pollFailures = 0
   const timer = window.setInterval(async () => {
     try {
       const tasks = await api.listSyncTasks()
       pollFailures = 0
-      const task = tasks.find((item) => item.id === taskId)
-      if (!task) {
-        return
-      }
-      if (['queued', 'running'].includes(task.status)) {
+      const matchedTasks = tasks.filter((item) => idSet.has(item.id))
+      if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
         return
       }
       window.clearInterval(timer)
-      handleDeleteSyncTaskResult(task, productIds)
+      handleDeleteSyncTasksResult(matchedTasks, productIds)
     } catch {
       pollFailures += 1
       if (pollFailures >= 3) {
@@ -971,25 +1095,23 @@ function watchDeleteSyncTaskCompletion(taskId: string, productIds: number[]) {
   }, 2000)
 }
 
-function watchListingStatusSyncTaskCompletion(taskId: string, productIds: number[], listingStatus: RakutenListingStatus) {
-  if (!taskId || props.status !== 'listed') {
+function watchListingStatusSyncTasksCompletion(taskIdsToWatch: string[], productIds: number[], listingStatus: RakutenListingStatus) {
+  if (taskIdsToWatch.length < 1 || props.status !== 'listed') {
     clearListedSyncTaskBusy(productIds)
     return
   }
+  const idSet = new Set(taskIdsToWatch)
   let pollFailures = 0
   const timer = window.setInterval(async () => {
     try {
       const tasks = await api.listSyncTasks()
       pollFailures = 0
-      const task = tasks.find((item) => item.id === taskId)
-      if (!task) {
-        return
-      }
-      if (['queued', 'running'].includes(task.status)) {
+      const matchedTasks = tasks.filter((item) => idSet.has(item.id))
+      if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
         return
       }
       window.clearInterval(timer)
-      handleListingStatusSyncTaskResult(task, productIds, listingStatus)
+      handleListingStatusSyncTasksResult(matchedTasks, productIds, listingStatus)
     } catch {
       pollFailures += 1
       if (pollFailures >= 3) {
@@ -1026,6 +1148,26 @@ function handleListingStatusSyncTaskResult(task: SyncTask, productIds: number[],
   ElMessage.error(task.errorDetail || task.message || `批量${actionText}失败，请到同步任务中查看错误信息`)
 }
 
+function handleListingStatusSyncTasksResult(tasks: SyncTask[], productIds: number[], listingStatus: RakutenListingStatus) {
+  if (tasks.length === 1) {
+    handleListingStatusSyncTaskResult(tasks[0], productIds, listingStatus)
+    return
+  }
+  const actionText = listingStatus === 'listed' ? '上架' : '下架'
+  clearListedSyncTaskBusy(productIds)
+  const { successIds } = aggregateTaskOutcomeIds(tasks, productIds)
+  const allSuccess = tasks.every((task) => task.status === 'success')
+  if (successIds.length > 0) {
+    applyResolvedListingStatus(successIds, listingStatus)
+    maybeRefreshAfterOptimisticAction()
+  }
+  if (allSuccess) {
+    ElMessage.success(`批量${actionText}已完成`)
+    return
+  }
+  ElMessage.warning(`批量${actionText}部分任务未成功，请到同步任务中查看异常信息`)
+}
+
 function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
   clearListedSyncTaskBusy(productIds)
   if (task.status === 'success') {
@@ -1049,6 +1191,25 @@ function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
     return
   }
   ElMessage.error(task.errorDetail || task.message || '批量删除失败，请到同步任务中查看错误信息')
+}
+
+function handleDeleteSyncTasksResult(tasks: SyncTask[], productIds: number[]) {
+  if (tasks.length === 1) {
+    handleDeleteSyncTaskResult(tasks[0], productIds)
+    return
+  }
+  clearListedSyncTaskBusy(productIds)
+  const { successIds } = aggregateTaskOutcomeIds(tasks, productIds)
+  const allSuccess = tasks.every((task) => task.status === 'success')
+  if (successIds.length > 0) {
+    removeVisibleProducts(successIds)
+    maybeRefreshAfterOptimisticAction()
+  }
+  if (allSuccess) {
+    ElMessage.success('批量删除已完成')
+    return
+  }
+  ElMessage.warning('批量删除部分任务未成功，请到同步任务中查看异常信息')
 }
 
 function maybeRefreshAfterOptimisticAction() {

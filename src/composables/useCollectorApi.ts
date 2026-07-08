@@ -240,6 +240,7 @@ export function useCollectorApi() {
       products?: ProductItem[]
       store?: StoreAccount | null
       syncTask?: SyncTask
+      syncTasks?: SyncTask[]
       summary: {
         total: number
         successCount: number
@@ -303,6 +304,7 @@ export function useCollectorApi() {
     const response = await apiClient.put<{
       store: StoreAccount | null
       syncTask: SyncTask
+      syncTasks?: SyncTask[]
       summary: {
         total: number
         successCount: number
@@ -477,7 +479,15 @@ export function useCollectorApi() {
   }
 
   async function createListingTask(payload: ListingTaskPayload) {
-    const response = await apiClient.post<{ listingTask: ListingTask }>('/crawler/listing-tasks', payload)
+    const response = await apiClient.post<{
+      listingTask: ListingTask
+      listingTasks?: ListingTask[]
+      summary?: {
+        total: number
+        taskCount: number
+        message: string
+      }
+    }>('/crawler/listing-tasks', payload)
     return response.data
   }
 
