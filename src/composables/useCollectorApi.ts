@@ -473,6 +473,9 @@ export function useCollectorApi() {
     const response = await apiClient.post<{
       total: number
       dispatchedCount: number
+      matchedCount?: number
+      pendingDispatchCount?: number
+      batchSize?: number
       failedIds: number[]
       failedCount: number
     }>('/crawler/schedules/run-all', params)

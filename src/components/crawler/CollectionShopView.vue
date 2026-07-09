@@ -192,6 +192,8 @@ async function runAllSchedules() {
     await loadSchedules()
     if (result.failedCount > 0) {
       ElMessage.warning(`已投递 ${result.dispatchedCount} 条，${result.failedCount} 条投递失败`)
+    } else if ((result.pendingDispatchCount ?? 0) > 0) {
+      ElMessage.success(`已投递 ${result.dispatchedCount} 条，剩余 ${result.pendingDispatchCount} 条将由后台分批继续投递`)
     } else {
       ElMessage.success(`已投递 ${result.dispatchedCount} 条采集店铺任务`)
     }

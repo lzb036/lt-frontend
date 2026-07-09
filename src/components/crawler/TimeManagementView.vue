@@ -40,6 +40,34 @@ const unlistedCleanupTimeText = computed(() => {
   return `每月 ${day} 号 ${time}`
 })
 const unlistedNextCleanupAtText = computed(() => settings.value?.unlistedNextCleanupAt || '-')
+const queueHealth = computed(() => settings.value?.queueHealth || null)
+const queueHealthTagType = computed(() => {
+  if (!queueHealth.value) {
+    return 'info'
+  }
+  if (queueHealth.value.status === 'ok' || queueHealth.value.status === 'disabled') {
+    return 'success'
+  }
+  if (queueHealth.value.status === 'degraded') {
+    return 'warning'
+  }
+  return 'danger'
+})
+const queueHealthStatusText = computed(() => {
+  if (!queueHealth.value) {
+    return '未获取'
+  }
+  if (queueHealth.value.status === 'ok') {
+    return '正常'
+  }
+  if (queueHealth.value.status === 'disabled') {
+    return '未启用'
+  }
+  if (queueHealth.value.status === 'degraded') {
+    return '异常'
+  }
+  return '连接失败'
+})
 const cleanupCountdownText = computed(() => {
   const nextAt = parseDateTimeMs(settings.value?.nextCleanupAt)
   if (nextAt === null) {
@@ -187,6 +215,10 @@ function formatValue(value: string | null | undefined) {
   return value || '-'
 }
 
+function queuePendingText(row: { queued: number; started: number; deferred: number; scheduled: number }) {
+  return row.queued + row.started + row.deferred + row.scheduled
+}
+
 function parseDateTimeMs(value: string | null | undefined) {
   if (!value) {
     return null
@@ -321,6 +353,67 @@ function formatCountdown(remainingMs: number) {
         </el-button>
       </div>
     </section>
+
+    <section v-loading="loading" class="time-panel">
+      <div class="time-panel-head">
+        <h2>后台队列状态</h2>
+        <el-tag :type="queueHealthTagType">
+          {{ queueHealthStatusText }}
+        </el-tag>
+      </div>
+
+      <el-alert
+        v-if="queueHealth && !queueHealth.ok"
+        :title="queueHealth.summary || '后台队列异常'"
+        :description="queueHealth.error || undefined"
+        type="error"
+        show-icon
+        :closable="false"
+      />
+
+      <el-descriptions class="time-summary" :column="3" border>
+        <el-descriptions-item label="队列模式">
+          {{ queueHealth?.mode || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Worker 数">
+          {{ queueHealth?.workerCount ?? 0 }}
+        </el-descriptions-item>
+        <el-descriptions-item label="检测时间">
+          {{ formatValue(queueHealth?.checkedAt) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Redis 内存">
+          {{ queueHealth?.redis?.usedMemoryHuman || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Redis 上限">
+          {{ queueHealth?.redis && queueHealth.redis.maxMemory > 0 ? queueHealth.redis.maxMemoryHuman : '未限制' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="状态说明">
+          {{ queueHealth?.summary || '-' }}
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <el-table :data="queueHealth?.queues || []" size="small" class="queue-health-table">
+        <el-table-column prop="kind" label="类型" width="90" />
+        <el-table-column prop="name" label="队列" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="workerCount" label="Worker" width="90" />
+        <el-table-column label="待处理" width="90">
+          <template #default="{ row }">
+            {{ queuePendingText(row) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="queued" label="排队" width="80" />
+        <el-table-column prop="started" label="执行" width="80" />
+        <el-table-column prop="scheduled" label="定时" width="80" />
+        <el-table-column prop="failed" label="失败" width="80" />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.ok ? 'success' : 'danger'">
+              {{ row.ok ? '正常' : '异常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
   </section>
 </template>
 
@@ -401,6 +494,10 @@ function formatCountdown(remainingMs: number) {
 .time-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.queue-health-table {
+  width: 100%;
 }
 
 @media (max-width: 960px) {

@@ -451,6 +451,7 @@ export interface TimeSettings {
   unlistedLastCleanupAt?: string | null
   unlistedLastDeletedCount: number
   unlistedLastTaskCount: number
+  queueHealth?: TaskQueueHealth | null
   serverNow?: string | null
   updatedAt?: string | null
 }
@@ -458,6 +459,38 @@ export interface TimeSettings {
 export interface TimeSettingsPayload {
   cleanupWeekday: number
   cleanupTime: string
+}
+
+export interface TaskQueueRedisInfo {
+  usedMemory: number
+  usedMemoryHuman: string
+  maxMemory: number
+  maxMemoryHuman: string
+}
+
+export interface TaskQueueHealthQueue {
+  name: string
+  kind: string
+  workerCount: number
+  queued: number
+  started: number
+  failed: number
+  deferred: number
+  scheduled: number
+  pending: number
+  ok: boolean
+}
+
+export interface TaskQueueHealth {
+  mode: string
+  status: 'ok' | 'degraded' | 'error' | 'disabled'
+  ok: boolean
+  summary: string
+  checkedAt?: string | null
+  workerCount: number
+  redis?: TaskQueueRedisInfo | null
+  queues: TaskQueueHealthQueue[]
+  error?: string
 }
 
 export interface ListingTaskPayload {
