@@ -32,7 +32,7 @@ const weekdayOptions = [
   { label: '周日', value: 6 },
 ]
 
-const retentionText = computed(() => `${settings.value?.retentionDays ?? 7} 天`)
+const cleanupScopeText = computed(() => '清理所有非运行中的定时采集记录')
 const nextCleanupAtText = computed(() => settings.value?.nextCleanupAt || '-')
 const unlistedCleanupTimeText = computed(() => {
   const day = settings.value?.unlistedCleanupMonthDay ?? 1
@@ -161,7 +161,7 @@ async function saveSettings() {
 async function runScheduledTaskCleanupNow() {
   try {
     await ElMessageBox.confirm(
-      '确认立即清理前七天已经执行完成的定时采集任务记录？',
+      '确认立即清理所有非运行中的定时采集任务记录？该操作只删除任务记录，不会删除定时计划和商品数据。',
       '立即清理',
       {
         confirmButtonText: '执行',
@@ -274,8 +274,8 @@ function formatCountdown(remainingMs: number) {
             placeholder="选择时间"
           />
         </el-form-item>
-        <el-form-item label="保留天数">
-          <el-input :model-value="retentionText" disabled />
+        <el-form-item label="清理范围">
+          <el-input :model-value="cleanupScopeText" disabled />
         </el-form-item>
       </el-form>
 
