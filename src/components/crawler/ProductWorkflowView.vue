@@ -2125,62 +2125,82 @@ function sanitizedDescriptionHtml(value: string) {
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="46" :selectable="isProductSelectable" />
-        <el-table-column label="图片" :min-width="status === 'pending' ? 760 : 86">
+        <el-table-column :label="status === 'pending' ? '商品信息' : '图片'" :min-width="status === 'pending' ? 960 : 86">
           <template #default="{ row }">
-            <div v-if="status === 'pending'" class="pending-image-editor">
-              <div v-for="(image, imageIndex) in productListImageUrls(row)" :key="`${row.id}-${image}-${imageIndex}`" class="pending-image-card">
-                <el-image
-                  class="pending-product-image"
-                  :src="image"
-                  fit="cover"
-                  lazy
-                  :preview-src-list="productListImageUrls(row)"
-                  :initial-index="imageIndex"
-                  preview-teleported
+            <div v-if="status === 'pending'" class="pending-product-content">
+              <div class="pending-inline-fields">
+                <el-input
+                  :model-value="pendingInlineDraft(row).title"
+                  maxlength="500"
+                  placeholder="商品标题"
+                  :disabled="isPendingInlineSaving(row)"
+                  @update:model-value="setPendingInlineDraftField(row, 'title', $event)"
+                  @blur="savePendingInlineText(row)"
                 />
-                <div class="pending-image-actions">
-                  <el-button
-                    :icon="EditPen"
-                    size="small"
-                    type="success"
-                    plain
-                    :loading="isPendingInlineSaving(row)"
-                    :disabled="isPendingInlineSaving(row)"
-                    @click="editPendingInlineImageWithMeitu(row, imageIndex)"
-                  >
-                    编辑
-                  </el-button>
-                  <el-button
-                    :icon="Upload"
-                    size="small"
-                    :loading="isPendingInlineSaving(row)"
-                    :disabled="isPendingInlineSaving(row)"
-                    @click="triggerInlineImageReplace(row, imageIndex)"
-                  >
-                    替换
-                  </el-button>
-                  <el-button
-                    :icon="Delete"
-                    size="small"
-                    type="danger"
-                    plain
-                    :loading="isPendingInlineSaving(row)"
-                    :disabled="isPendingInlineSaving(row)"
-                    @click="deletePendingInlineImage(row, imageIndex)"
-                  >
-                    删除
-                  </el-button>
-                </div>
+                <el-input
+                  :model-value="pendingInlineDraft(row).tagline"
+                  maxlength="174"
+                  placeholder="商品副标题"
+                  :disabled="isPendingInlineSaving(row)"
+                  @update:model-value="setPendingInlineDraftField(row, 'tagline', $event)"
+                  @blur="savePendingInlineText(row)"
+                />
               </div>
-              <button
-                v-if="productListImageUrls(row).length < 1"
-                class="pending-image-empty-card"
-                type="button"
-                :disabled="isPendingInlineSaving(row)"
-                @click="triggerInlineImageReplace(row, 0)"
-              >
-                添加图片
-              </button>
+              <div class="pending-image-editor">
+                <div v-for="(image, imageIndex) in productListImageUrls(row)" :key="`${row.id}-${image}-${imageIndex}`" class="pending-image-card">
+                  <el-image
+                    class="pending-product-image"
+                    :src="image"
+                    fit="cover"
+                    lazy
+                    :preview-src-list="productListImageUrls(row)"
+                    :initial-index="imageIndex"
+                    preview-teleported
+                  />
+                  <div class="pending-image-actions">
+                    <el-button
+                      :icon="EditPen"
+                      size="small"
+                      type="success"
+                      plain
+                      :loading="isPendingInlineSaving(row)"
+                      :disabled="isPendingInlineSaving(row)"
+                      @click="editPendingInlineImageWithMeitu(row, imageIndex)"
+                    >
+                      编辑
+                    </el-button>
+                    <el-button
+                      :icon="Upload"
+                      size="small"
+                      :loading="isPendingInlineSaving(row)"
+                      :disabled="isPendingInlineSaving(row)"
+                      @click="triggerInlineImageReplace(row, imageIndex)"
+                    >
+                      替换
+                    </el-button>
+                    <el-button
+                      :icon="Delete"
+                      size="small"
+                      type="danger"
+                      plain
+                      :loading="isPendingInlineSaving(row)"
+                      :disabled="isPendingInlineSaving(row)"
+                      @click="deletePendingInlineImage(row, imageIndex)"
+                    >
+                      删除
+                    </el-button>
+                  </div>
+                </div>
+                <button
+                  v-if="productListImageUrls(row).length < 1"
+                  class="pending-image-empty-card"
+                  type="button"
+                  :disabled="isPendingInlineSaving(row)"
+                  @click="triggerInlineImageReplace(row, 0)"
+                >
+                  添加图片
+                </button>
+              </div>
             </div>
             <template v-else>
               <el-image
@@ -2196,31 +2216,9 @@ function sanitizedDescriptionHtml(value: string) {
             </template>
           </template>
         </el-table-column>
-        <el-table-column :label="status === 'pending' ? '商品标题 / 副标题' : '商品标题'" :min-width="status === 'pending' ? 460 : 300">
+        <el-table-column v-if="status !== 'pending'" label="商品标题" min-width="300">
           <template #default="{ row }">
-            <div v-if="status === 'pending'" class="pending-inline-fields">
-              <el-input
-                :model-value="pendingInlineDraft(row).title"
-                maxlength="500"
-                type="textarea"
-                :autosize="{ minRows: 1, maxRows: 3 }"
-                placeholder="商品标题"
-                :disabled="isPendingInlineSaving(row)"
-                @update:model-value="setPendingInlineDraftField(row, 'title', $event)"
-                @blur="savePendingInlineText(row)"
-              />
-              <el-input
-                :model-value="pendingInlineDraft(row).tagline"
-                maxlength="174"
-                type="textarea"
-                :autosize="{ minRows: 1, maxRows: 2 }"
-                placeholder="商品副标题"
-                :disabled="isPendingInlineSaving(row)"
-                @update:model-value="setPendingInlineDraftField(row, 'tagline', $event)"
-                @blur="savePendingInlineText(row)"
-              />
-            </div>
-            <CopyableTableText v-else :value="row.title" />
+            <CopyableTableText :value="row.title" />
           </template>
         </el-table-column>
         <el-table-column v-if="status === 'listed'" label="商品编号" min-width="170">
@@ -2723,27 +2721,34 @@ function sanitizedDescriptionHtml(value: string) {
   background: var(--panel-muted);
 }
 
-.pending-image-editor {
-  display: flex;
-  align-items: flex-start;
+.pending-product-content {
+  display: grid;
   gap: 12px;
-  min-height: 212px;
+  width: 100%;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
   padding: 6px 2px 10px;
+}
+
+.pending-image-editor {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .pending-image-card {
   display: grid;
-  flex: 0 0 160px;
+  align-content: start;
   gap: 8px;
+  width: 100%;
   min-width: 0;
 }
 
 .pending-product-image {
-  width: 160px;
-  height: 160px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   background: var(--panel-muted);
@@ -2764,8 +2769,9 @@ function sanitizedDescriptionHtml(value: string) {
 
 .pending-image-empty-card {
   display: inline-grid;
-  width: 160px;
-  height: 160px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   place-items: center;
   border: 1px dashed var(--panel-border);
   border-radius: 6px;
@@ -2785,16 +2791,14 @@ function sanitizedDescriptionHtml(value: string) {
   display: grid;
   gap: 8px;
   min-width: 0;
-  padding: 4px 0;
 }
 
-.pending-inline-fields :deep(.el-textarea__inner) {
+.pending-inline-fields :deep(.el-input__inner) {
   color: var(--text-main);
   font-size: 13px;
-  line-height: 1.45;
 }
 
-.pending-inline-fields :deep(.el-textarea + .el-textarea .el-textarea__inner) {
+.pending-inline-fields :deep(.el-input + .el-input .el-input__inner) {
   color: var(--text-muted);
 }
 
