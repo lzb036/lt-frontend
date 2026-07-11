@@ -274,6 +274,7 @@ export interface StoreEmptyCabinetFoldersResult {
   }
   folders: CabinetEmptyFolder[]
   total: number
+  folderPrefix: string
   manualCleanupRequired: boolean
 }
 

@@ -461,7 +461,7 @@ async function removeStore(row: StoreAccount) {
         type="warning"
         :closable="false"
         show-icon
-        title="乐天 R-Cabinet API 不支持删除文件夹，请根据下方列表进入 RMS 后台手动清理。"
+        title="仅列出本平台上传商品时创建且当前为空的文件夹。乐天 API 不支持删除文件夹，请进入 RMS 后台手动清理。"
       />
       <div v-if="emptyFolderResult" class="empty-folder-summary">
         <span>
@@ -475,6 +475,9 @@ async function removeStore(row: StoreAccount) {
           <el-tag :type="emptyFolderResult.total > 0 ? 'warning' : 'success'">
             {{ emptyFolderResult.total }}
           </el-tag>
+        </span>
+        <span class="empty-folder-prefix">
+          平台文件夹前缀：{{ emptyFolderResult.folderPrefix }}
         </span>
       </div>
       <el-table
@@ -564,9 +567,15 @@ async function removeStore(row: StoreAccount) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   margin: 16px 0 12px;
   color: var(--text-main);
+}
+
+.empty-folder-prefix {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .dialog-form {
