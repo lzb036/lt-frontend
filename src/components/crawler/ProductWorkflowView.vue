@@ -2130,7 +2130,11 @@ function sanitizedDescriptionHtml(value: string) {
             <div v-if="status === 'pending'" class="pending-product-content">
               <div class="pending-inline-fields">
                 <el-input
+                  class="pending-title-input"
                   :model-value="pendingInlineDraft(row).title"
+                  type="textarea"
+                  :autosize="{ minRows: 2, maxRows: 8 }"
+                  resize="vertical"
                   maxlength="500"
                   placeholder="商品标题"
                   :disabled="isPendingInlineSaving(row)"
@@ -2138,7 +2142,11 @@ function sanitizedDescriptionHtml(value: string) {
                   @blur="savePendingInlineText(row)"
                 />
                 <el-input
+                  class="pending-tagline-input"
                   :model-value="pendingInlineDraft(row).tagline"
+                  type="textarea"
+                  :autosize="{ minRows: 2, maxRows: 8 }"
+                  resize="vertical"
                   maxlength="174"
                   placeholder="商品副标题"
                   :disabled="isPendingInlineSaving(row)"
@@ -2798,12 +2806,14 @@ function sanitizedDescriptionHtml(value: string) {
   min-width: 0;
 }
 
-.pending-inline-fields :deep(.el-input__inner) {
+.pending-inline-fields :deep(.el-textarea__inner) {
   color: var(--text-main);
   font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
-.pending-inline-fields :deep(.el-input + .el-input .el-input__inner) {
+.pending-inline-fields .pending-tagline-input :deep(.el-textarea__inner) {
   color: var(--text-muted);
 }
 
