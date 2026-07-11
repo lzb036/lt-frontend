@@ -32,7 +32,6 @@ const weekdayOptions = [
   { label: '周日', value: 6 },
 ]
 
-const cleanupScopeText = computed(() => '清理所有非运行中的定时采集记录')
 const nextCleanupAtText = computed(() => settings.value?.nextCleanupAt || '-')
 const unlistedCleanupTimeText = computed(() => {
   const day = settings.value?.unlistedCleanupMonthDay ?? 1
@@ -242,107 +241,73 @@ function formatCountdown(remainingMs: number) {
   <section class="page-stack">
     <section v-loading="loading" class="time-panel">
       <div class="time-panel-head">
-        <h2>定时采集记录清理</h2>
-        <el-button :icon="Refresh" :loading="loading" @click="loadSettings">
-          刷新
-        </el-button>
+        <div>
+          <h2>定时采集记录清理</h2>
+          <p>每周自动清理超过 {{ settings?.retentionDays ?? 7 }} 天的已完成记录</p>
+        </div>
+        <div class="head-actions">
+          <el-button :icon="Refresh" :loading="loading" @click="loadSettings">
+            刷新
+          </el-button>
+          <el-button :icon="VideoPlay" :loading="runningTaskCleanup" @click="runScheduledTaskCleanupNow">
+            立即执行
+          </el-button>
+          <el-button type="primary" :icon="Check" :loading="saving" @click="saveSettings">
+            保存
+          </el-button>
+        </div>
       </div>
 
-      <div class="cleanup-countdown">
-        <span>定时清理倒计时</span>
-        <strong>{{ cleanupCountdownText }}</strong>
-        <em>{{ nextCleanupAtText }}</em>
-      </div>
+      <div class="compact-layout">
+        <el-form label-position="top" class="compact-form">
+          <el-form-item label="每周执行">
+            <div class="schedule-controls">
+              <el-select v-model="form.cleanupWeekday" placeholder="选择星期">
+                <el-option
+                  v-for="item in weekdayOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+              <el-time-picker
+                v-model="form.cleanupTime"
+                format="HH:mm"
+                value-format="HH:mm"
+                placeholder="选择时间"
+              />
+            </div>
+          </el-form-item>
+        </el-form>
 
-      <el-form label-position="top" class="time-form">
-        <el-form-item label="清理周期">
-          <el-select v-model="form.cleanupWeekday" class="full-control" placeholder="选择星期">
-            <el-option
-              v-for="item in weekdayOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="清理时间">
-          <el-time-picker
-            v-model="form.cleanupTime"
-            class="full-control"
-            format="HH:mm"
-            value-format="HH:mm"
-            placeholder="选择时间"
-          />
-        </el-form-item>
-        <el-form-item label="清理范围">
-          <el-input :model-value="cleanupScopeText" disabled />
-        </el-form-item>
-      </el-form>
-
-      <el-descriptions class="time-summary" :column="2" border>
-        <el-descriptions-item label="下次清理">
-          {{ formatValue(settings?.nextCleanupAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="上次清理">
-          {{ formatValue(settings?.lastCleanupAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="上次删除">
-          {{ settings?.lastCleanupDeletedCount ?? 0 }}
-        </el-descriptions-item>
-        <el-descriptions-item label="更新时间">
-          {{ formatValue(settings?.updatedAt) }}
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <div class="time-actions">
-        <el-button :icon="VideoPlay" :loading="runningTaskCleanup" @click="runScheduledTaskCleanupNow">
-          立即执行
-        </el-button>
-        <el-button type="primary" :icon="Check" :loading="saving" @click="saveSettings">
-          保存
-        </el-button>
+        <div class="status-grid">
+          <div class="status-item status-item-primary">
+            <span>距下次清理</span>
+            <strong>{{ cleanupCountdownText }}</strong>
+            <em>{{ nextCleanupAtText }}</em>
+          </div>
+          <div class="status-item">
+            <span>上次清理</span>
+            <strong>{{ formatValue(settings?.lastCleanupAt) }}</strong>
+          </div>
+          <div class="status-item">
+            <span>上次删除</span>
+            <strong>{{ settings?.lastCleanupDeletedCount ?? 0 }} 条</strong>
+          </div>
+          <div class="status-item">
+            <span>设置更新</span>
+            <strong>{{ formatValue(settings?.updatedAt) }}</strong>
+          </div>
+        </div>
       </div>
     </section>
 
     <section v-loading="loading" class="time-panel">
       <div class="time-panel-head">
-        <h2>未上架商品月度删除</h2>
-      </div>
-
-      <div class="cleanup-countdown">
-        <span>月度删除倒计时</span>
-        <strong>{{ unlistedCleanupCountdownText }}</strong>
-        <em>{{ unlistedNextCleanupAtText }}</em>
-      </div>
-
-      <el-form label-position="top" class="time-form">
-        <el-form-item label="执行周期">
-          <el-input :model-value="unlistedCleanupTimeText" disabled />
-        </el-form-item>
-        <el-form-item label="删除范围">
-          <el-input model-value="启用店铺中的未上架店铺商品" disabled />
-        </el-form-item>
-        <el-form-item label="执行方式">
-          <el-input model-value="按店铺创建删除同步任务" disabled />
-        </el-form-item>
-      </el-form>
-
-      <el-descriptions class="time-summary" :column="2" border>
-        <el-descriptions-item label="下次执行">
-          {{ formatValue(settings?.unlistedNextCleanupAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="上次执行">
-          {{ formatValue(settings?.unlistedLastCleanupAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="上次商品数">
-          {{ settings?.unlistedLastDeletedCount ?? 0 }}
-        </el-descriptions-item>
-        <el-descriptions-item label="上次任务数">
-          {{ settings?.unlistedLastTaskCount ?? 0 }}
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <div class="time-actions">
+        <div>
+          <h2>未上架商品月度删除</h2>
+          <p>为启用店铺创建商品删除同步任务</p>
+        </div>
         <el-button
           type="danger"
           :icon="VideoPlay"
@@ -351,6 +316,26 @@ function formatCountdown(remainingMs: number) {
         >
           立即执行
         </el-button>
+      </div>
+
+      <div class="status-grid status-grid-wide">
+        <div class="status-item status-item-primary">
+          <span>{{ unlistedCleanupTimeText }}</span>
+          <strong>{{ unlistedCleanupCountdownText }}</strong>
+          <em>{{ unlistedNextCleanupAtText }}</em>
+        </div>
+        <div class="status-item">
+          <span>上次执行</span>
+          <strong>{{ formatValue(settings?.unlistedLastCleanupAt) }}</strong>
+        </div>
+        <div class="status-item">
+          <span>上次商品数</span>
+          <strong>{{ settings?.unlistedLastDeletedCount ?? 0 }} 个</strong>
+        </div>
+        <div class="status-item">
+          <span>上次任务数</span>
+          <strong>{{ settings?.unlistedLastTaskCount ?? 0 }} 个</strong>
+        </div>
       </div>
     </section>
 
@@ -447,53 +432,78 @@ function formatCountdown(remainingMs: number) {
   font-weight: 800;
 }
 
-.time-form {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.cleanup-countdown {
-  display: grid;
-  max-width: 320px;
-  gap: 2px;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  background: var(--panel-bg);
-  padding: 10px 12px;
-  box-shadow: var(--shadow-sm);
-}
-
-.cleanup-countdown span {
+.time-panel-head p {
+  margin: 4px 0 0;
   color: var(--text-muted);
   font-size: 12px;
-  font-weight: 700;
 }
 
-.cleanup-countdown strong {
-  color: var(--text-main);
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1.2;
+.head-actions {
+  display: flex;
+  gap: 8px;
 }
 
-.cleanup-countdown em {
-  color: var(--text-soft);
-  font-size: 13px;
+.compact-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(560px, 2fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.compact-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.schedule-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.schedule-controls :deep(.el-select),
+.schedule-controls :deep(.el-date-editor) {
+  width: 100%;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--panel-border);
+}
+
+.status-item {
+  display: grid;
+  align-content: center;
+  min-height: 74px;
+  gap: 5px;
+  padding: 10px 14px;
+  border-right: 1px solid var(--panel-border);
+}
+
+.status-item:last-child {
+  border-right: 0;
+}
+
+.status-item span,
+.status-item em {
+  color: var(--text-muted);
+  font-size: 12px;
   font-style: normal;
 }
 
-.full-control {
-  width: 100%;
+.status-item strong {
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
-.time-summary {
-  width: 100%;
+.status-item-primary strong {
+  font-size: 20px;
 }
 
-.time-actions {
-  display: flex;
-  justify-content: flex-end;
+.status-item-primary em {
+  color: var(--text-soft);
 }
 
 .queue-health-table {
@@ -501,12 +511,31 @@ function formatCountdown(remainingMs: number) {
 }
 
 @media (max-width: 960px) {
-  .time-form {
+  .compact-layout,
+  .status-grid {
     grid-template-columns: 1fr;
   }
 
-  .cleanup-countdown {
-    max-width: none;
+  .status-item {
+    border-right: 0;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .status-item:last-child {
+    border-bottom: 0;
+  }
+
+  .time-panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .head-actions {
+    width: 100%;
+  }
+
+  .head-actions .el-button {
+    flex: 1;
   }
 }
 </style>
