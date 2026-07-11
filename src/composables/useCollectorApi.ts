@@ -183,6 +183,7 @@ export function useCollectorApi() {
   async function listProducts(params: {
     status?: ReviewStatus | ''
     keyword?: string
+    taskId?: string
     storeId?: number | null
     listedStoreId?: number | string | null
     listingStatus?: 'listed' | 'unlisted' | ''
@@ -207,6 +208,7 @@ export function useCollectorApi() {
   async function listProductsPage(params: {
     status?: ReviewStatus | ''
     keyword?: string
+    taskId?: string
     storeId?: number | null
     listedStoreId?: number | string | null
     listingStatus?: 'listed' | 'unlisted' | ''

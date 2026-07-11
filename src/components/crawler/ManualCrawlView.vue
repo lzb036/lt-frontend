@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleClose, Delete, Plus, QuestionFilled, Refresh, Search, VideoPlay } from '@element-plus/icons-vue'
+import { CircleClose, Delete, Plus, QuestionFilled, Refresh, Search, View, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -9,12 +9,15 @@ import type { CrawlLimit, CrawlTask, CreateTaskPayload, SourceType } from '../..
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
+import ManualCrawlResultDialog from './ManualCrawlResultDialog.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const creating = shallowRef(false)
 const createDialogVisible = shallowRef(false)
+const resultDialogVisible = shallowRef(false)
+const resultDialogTask = shallowRef<CrawlTask | null>(null)
 const tasks = shallowRef<CrawlTask[]>([])
 const selectedTasks = shallowRef<CrawlTask[]>([])
 let progressTimer: number | undefined
@@ -414,6 +417,11 @@ function handleSelectionChange(rows: CrawlTask[]) {
   selectedTasks.value = rows
 }
 
+function openResultDialog(row: CrawlTask) {
+  resultDialogTask.value = row
+  resultDialogVisible.value = true
+}
+
 async function deleteSelectedTasks() {
   if (selectedTasks.value.length < 1) {
     ElMessage.warning('请选择要删除的任务')
@@ -642,7 +650,7 @@ function statusType(row: CrawlTask) {
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="startedAt" label="开始执行时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="taskCancelable(row) || taskWaitingCancel(row)"
@@ -656,6 +664,15 @@ function statusType(row: CrawlTask) {
             </el-button>
             <el-button v-if="taskFinished(row)" :icon="VideoPlay" link type="primary" @click="restartTask(row)">
               重新采集
+            </el-button>
+            <el-button
+              v-if="row.successCount > 0 && taskFinished(row)"
+              :icon="View"
+              link
+              type="success"
+              @click="openResultDialog(row)"
+            >
+              查看详情
             </el-button>
           </template>
         </el-table-column>
@@ -782,6 +799,11 @@ function statusType(row: CrawlTask) {
         </el-button>
       </template>
     </el-dialog>
+
+    <ManualCrawlResultDialog
+      v-model="resultDialogVisible"
+      :task="resultDialogTask"
+    />
   </section>
 </template>
 
