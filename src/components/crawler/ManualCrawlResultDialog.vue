@@ -102,6 +102,16 @@ function productImages(product: ProductItem) {
     .filter((url, index, values) => Boolean(url) && values.indexOf(url) === index)
 }
 
+function listedStoreLabel(store: { storeId: number; storeName?: string; aliasName?: string }) {
+  const current = stores.value.find((item) => item.id === store.storeId)
+  return current?.aliasName || store.aliasName || current?.storeName || store.storeName || `店铺 ${store.storeId}`
+}
+
+function listedStoreRealName(store: { storeId: number; storeName?: string; aliasName?: string }) {
+  const current = stores.value.find((item) => item.id === store.storeId)
+  return current?.storeName || store.storeName || listedStoreLabel(store)
+}
+
 function isSaving(productId: number) {
   return savingIds.value.has(productId)
 }
@@ -409,6 +419,18 @@ async function submitAllProducts() {
             <template #title>
               <div class="collapse-title">
                 <span>{{ productIndex + 1 }}. {{ drafts[product.id]?.title || product.title }}</span>
+                <div v-if="product.listedStores?.length" class="listed-store-tags">
+                  <el-tooltip
+                    v-for="store in product.listedStores"
+                    :key="`${product.id}-${store.storeId}`"
+                    :content="listedStoreRealName(store)"
+                    placement="top"
+                  >
+                    <el-tag size="small" type="success">
+                      {{ listedStoreLabel(store) }}
+                    </el-tag>
+                  </el-tooltip>
+                </div>
                 <el-tag v-if="product.listingTaskId" size="small" type="info">已创建上架任务</el-tag>
                 <el-tag v-else-if="product.reviewStatus !== 'pending'" size="small" type="warning">
                   {{ product.reviewStatus }}
@@ -572,9 +594,17 @@ async function submitAllProducts() {
 }
 
 .collapse-title > span {
+  min-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.listed-store-tags {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .product-editor {
