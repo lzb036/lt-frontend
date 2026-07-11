@@ -457,6 +457,16 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function updateScheduleStatuses(scheduleIds: number[], enabled: boolean) {
+    const response = await apiClient.put<{
+      updatedIds: number[]
+      failedIds: number[]
+      updatedCount: number
+      enabled: boolean
+    }>('/crawler/schedules/status', { scheduleIds, enabled })
+    return response.data
+  }
+
   async function runSchedule(id: number) {
     const response = await apiClient.post<{ schedule: ScheduledCrawl }>(`/crawler/schedules/${id}/run`)
     return response.data
@@ -637,6 +647,7 @@ export function useCollectorApi() {
     saveSchedule,
     deleteSchedule,
     deleteSchedules,
+    updateScheduleStatuses,
     runSchedule,
     runAllSchedules,
     listListingTasks,

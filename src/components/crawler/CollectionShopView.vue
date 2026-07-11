@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Download, Edit, Plus, Refresh, Search, Upload, VideoPlay } from '@element-plus/icons-vue'
+import { CircleCheck, CircleClose, Delete, Download, Edit, Plus, Refresh, Search, Upload, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -18,6 +18,7 @@ const importing = shallowRef(false)
 const downloadingTemplate = shallowRef(false)
 const exporting = shallowRef(false)
 const runningAll = shallowRef(false)
+const batchStatusAction = shallowRef<'enable' | 'disable' | ''>('')
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
 const importInputRef = ref<HTMLInputElement | null>(null)
@@ -411,6 +412,46 @@ function clearSelection() {
   scheduleTableRef.value?.clearSelection()
 }
 
+async function updateSelectedScheduleStatus(enabled: boolean) {
+  const action = enabled ? '启用' : '停用'
+  if (selectedSchedules.value.length < 1) {
+    ElMessage.warning(`请选择要${action}的采集店铺`)
+    return
+  }
+  const impactMessage = enabled
+    ? ''
+    : '停用只影响后续定时执行，已开始的采集任务不会被终止。'
+  try {
+    await ElMessageBox.confirm(
+      `确认批量${action}选中的 ${selectedSchedules.value.length} 条采集店铺？${impactMessage}`,
+      `批量${action}`,
+      {
+        confirmButtonText: action,
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    batchStatusAction.value = enabled ? 'enable' : 'disable'
+    const result = await api.updateScheduleStatuses(
+      selectedSchedules.value.map((item) => item.id),
+      enabled,
+    )
+    clearSelection()
+    await loadSchedules()
+    if (result.failedIds.length > 0) {
+      ElMessage.warning(`已${action} ${result.updatedCount} 条，${result.failedIds.length} 条处理失败`)
+    } else {
+      ElMessage.success(`已${action} ${result.updatedCount} 条采集店铺`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, `批量${action}采集店铺失败`))
+    }
+  } finally {
+    batchStatusAction.value = ''
+  }
+}
+
 async function deleteSelectedSchedules() {
   if (selectedSchedules.value.length < 1) {
     ElMessage.warning('请选择要删除的采集店铺')
@@ -498,7 +539,31 @@ function handlePageSizeChange() {
       <el-button :icon="Download" :loading="exporting" @click="exportSchedules">
         导出表格
       </el-button>
-      <el-button type="danger" :icon="Delete" :disabled="selectedSchedules.length < 1" :loading="loading" @click="deleteSelectedSchedules">
+      <el-button
+        type="success"
+        :icon="CircleCheck"
+        :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+        :loading="batchStatusAction === 'enable'"
+        @click="updateSelectedScheduleStatus(true)"
+      >
+        批量启用
+      </el-button>
+      <el-button
+        type="warning"
+        :icon="CircleClose"
+        :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+        :loading="batchStatusAction === 'disable'"
+        @click="updateSelectedScheduleStatus(false)"
+      >
+        批量停用
+      </el-button>
+      <el-button
+        type="danger"
+        :icon="Delete"
+        :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+        :loading="loading"
+        @click="deleteSelectedSchedules"
+      >
         批量删除
       </el-button>
       <el-button :icon="Refresh" :loading="refreshing" @click="refreshSchedules">
