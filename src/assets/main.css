@@ -1005,6 +1005,42 @@ a {
   --el-table-current-row-bg-color: var(--accent-soft);
 }
 
+.global-table-horizontal-scroll {
+  width: 100%;
+  height: 16px;
+  margin-bottom: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-color: var(--text-faint) var(--panel-muted);
+  scrollbar-width: auto;
+}
+
+.global-table-horizontal-scroll[hidden] {
+  display: none;
+}
+
+.global-table-horizontal-scroll__spacer {
+  height: 1px;
+}
+
+.global-table-horizontal-scroll::-webkit-scrollbar {
+  height: 12px;
+}
+
+.global-table-horizontal-scroll::-webkit-scrollbar-track {
+  background: var(--panel-muted);
+}
+
+.global-table-horizontal-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid var(--panel-muted);
+  border-radius: 6px;
+  background: var(--text-faint);
+}
+
+.global-table-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 .el-table th.el-table__cell {
   color: var(--text-soft);
   font-weight: 700;

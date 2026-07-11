@@ -7,6 +7,7 @@ import 'element-plus/dist/index.css'
 import App from './App.vue'
 import { initializeTheme } from './composables/useTheme'
 import router from './router'
+import { initializeTableHorizontalScroll } from './utils/tableHorizontalScroll'
 import './assets/main.css'
 
 initializeTheme()
@@ -17,3 +18,4 @@ app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 app.mount('#app')
+initializeTableHorizontalScroll()
