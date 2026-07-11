@@ -258,6 +258,25 @@ export interface StoreAccount {
   updatedAt?: string | null
 }
 
+export interface CabinetEmptyFolder {
+  folderId: number
+  folderName: string
+  folderPath: string
+  fileCount: number
+}
+
+export interface StoreEmptyCabinetFoldersResult {
+  store: {
+    id: number
+    storeCode: string
+    storeName: string
+    aliasName: string
+  }
+  folders: CabinetEmptyFolder[]
+  total: number
+  manualCleanupRequired: boolean
+}
+
 export interface StoreVerifySummary {
   total: number
   available: number

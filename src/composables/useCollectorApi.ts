@@ -22,6 +22,7 @@ import type {
   SecretProfilePayload,
   SourceType,
   StoreAccount,
+  StoreEmptyCabinetFoldersResult,
   StorePayload,
   StoreVerifySummary,
   SyncTask,
@@ -359,6 +360,14 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function scanStoreEmptyCabinetFolders(id: number, ownerUsername?: string) {
+    const response = await apiClient.get<StoreEmptyCabinetFoldersResult>(
+      `/crawler/stores/${id}/cabinet/empty-folders`,
+      { params: { ownerUsername } },
+    )
+    return response.data
+  }
+
   async function verifyStores(ownerUsername?: string) {
     const response = await apiClient.post<{ stores: StoreAccount[]; summary: StoreVerifySummary }>(
       '/crawler/stores/verify',
@@ -635,6 +644,7 @@ export function useCollectorApi() {
     saveStore,
     deleteStore,
     syncStore,
+    scanStoreEmptyCabinetFolders,
     verifyStores,
     verifyStore,
     refreshStoreCounts,

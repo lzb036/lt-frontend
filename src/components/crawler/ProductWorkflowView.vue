@@ -2158,37 +2158,40 @@ function sanitizedDescriptionHtml(value: string) {
                     preview-teleported
                   />
                   <div class="pending-image-actions">
-                    <el-button
-                      :icon="EditPen"
-                      size="small"
-                      type="success"
-                      plain
-                      :loading="isPendingInlineSaving(row)"
-                      :disabled="isPendingInlineSaving(row)"
-                      @click="editPendingInlineImageWithMeitu(row, imageIndex)"
-                    >
-                      编辑
-                    </el-button>
-                    <el-button
-                      :icon="Upload"
-                      size="small"
-                      :loading="isPendingInlineSaving(row)"
-                      :disabled="isPendingInlineSaving(row)"
-                      @click="triggerInlineImageReplace(row, imageIndex)"
-                    >
-                      替换
-                    </el-button>
-                    <el-button
-                      :icon="Delete"
-                      size="small"
-                      type="danger"
-                      plain
-                      :loading="isPendingInlineSaving(row)"
-                      :disabled="isPendingInlineSaving(row)"
-                      @click="deletePendingInlineImage(row, imageIndex)"
-                    >
-                      删除
-                    </el-button>
+                    <el-tooltip content="编辑图片" placement="top">
+                      <el-button
+                        :icon="EditPen"
+                        size="small"
+                        type="success"
+                        plain
+                        aria-label="编辑图片"
+                        :loading="isPendingInlineSaving(row)"
+                        :disabled="isPendingInlineSaving(row)"
+                        @click="editPendingInlineImageWithMeitu(row, imageIndex)"
+                      />
+                    </el-tooltip>
+                    <el-tooltip content="替换图片" placement="top">
+                      <el-button
+                        :icon="Upload"
+                        size="small"
+                        aria-label="替换图片"
+                        :loading="isPendingInlineSaving(row)"
+                        :disabled="isPendingInlineSaving(row)"
+                        @click="triggerInlineImageReplace(row, imageIndex)"
+                      />
+                    </el-tooltip>
+                    <el-tooltip content="删除图片" placement="top">
+                      <el-button
+                        :icon="Delete"
+                        size="small"
+                        type="danger"
+                        plain
+                        aria-label="删除图片"
+                        :loading="isPendingInlineSaving(row)"
+                        :disabled="isPendingInlineSaving(row)"
+                        @click="deletePendingInlineImage(row, imageIndex)"
+                      />
+                    </el-tooltip>
                   </div>
                 </div>
                 <button
@@ -2757,14 +2760,16 @@ function sanitizedDescriptionHtml(value: string) {
 .pending-image-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  gap: 6px;
 }
 
 .pending-image-actions :deep(.el-button) {
   justify-content: center;
   width: 100%;
+  min-width: 0;
+  height: 30px;
   margin-left: 0;
-  padding: 0 4px;
+  padding: 0;
 }
 
 .pending-image-empty-card {

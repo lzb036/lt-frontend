@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, DataAnalysis, Delete, EditPen, Plus, Refresh } from '@element-plus/icons-vue'
+import { Connection, DataAnalysis, Delete, EditPen, FolderDelete, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { AuthSession, AvailabilityStatus, StoreAccount, StorePayload } from '../../types/crawler'
+import type { AuthSession, AvailabilityStatus, StoreAccount, StoreEmptyCabinetFoldersResult, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { confirmStoreDeletion } from '../../utils/confirmStoreDeletion'
 import CopyableTableText from './CopyableTableText.vue'
@@ -22,6 +22,9 @@ const verifyingId = shallowRef<number | null>(null)
 const countFetching = shallowRef(false)
 const countFetchingId = shallowRef<number | null>(null)
 const syncingId = shallowRef<number | null>(null)
+const emptyFolderScanningId = shallowRef<number | null>(null)
+const emptyFolderDialogOpen = ref(false)
+const emptyFolderResult = shallowRef<StoreEmptyCabinetFoldersResult | null>(null)
 const stores = shallowRef<StoreAccount[]>([])
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
@@ -148,6 +151,21 @@ async function syncStore(row: StoreAccount) {
     ElMessage.error(toApiErrorMessage(error, '商品同步失败'))
   } finally {
     syncingId.value = null
+  }
+}
+
+async function scanEmptyCabinetFolders(row: StoreAccount) {
+  emptyFolderScanningId.value = row.id
+  try {
+    emptyFolderResult.value = await api.scanStoreEmptyCabinetFolders(row.id)
+    emptyFolderDialogOpen.value = true
+    if ((emptyFolderResult.value?.total ?? 0) < 1) {
+      ElMessage.success(`店铺「${row.aliasName || row.storeName || row.storeCode}」没有空白文件夹`)
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '检测 R-Cabinet 空白文件夹失败'))
+  } finally {
+    emptyFolderScanningId.value = null
   }
 }
 
@@ -357,7 +375,7 @@ async function removeStore(row: StoreAccount) {
             {{ timeText(row.lastProductSyncedAt || row.lastSyncedAt) }}
           </template>
         </el-table-column>
-        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
           <template #default="{ row }">
             <el-button
               :icon="Connection"
@@ -385,6 +403,15 @@ async function removeStore(row: StoreAccount) {
               @click="syncStore(row)"
             >
               商品同步
+            </el-button>
+            <el-button
+              :icon="FolderDelete"
+              :loading="emptyFolderScanningId === row.id"
+              link
+              type="warning"
+              @click="scanEmptyCabinetFolders(row)"
+            >
+              清理空白文件夹
             </el-button>
             <template v-if="isSuperadmin">
               <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
@@ -421,6 +448,51 @@ async function removeStore(row: StoreAccount) {
       <template #footer>
         <el-button @click="dialogOpen = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="saveStore">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="emptyFolderDialogOpen"
+      title="R-Cabinet 空白文件夹检测"
+      width="760px"
+      append-to-body
+    >
+      <el-alert
+        type="warning"
+        :closable="false"
+        show-icon
+        title="乐天 R-Cabinet API 不支持删除文件夹，请根据下方列表进入 RMS 后台手动清理。"
+      />
+      <div v-if="emptyFolderResult" class="empty-folder-summary">
+        <span>
+          店铺：
+          <strong>
+            {{ emptyFolderResult.store.aliasName || emptyFolderResult.store.storeName || emptyFolderResult.store.storeCode }}
+          </strong>
+        </span>
+        <span>
+          空白文件夹总数：
+          <el-tag :type="emptyFolderResult.total > 0 ? 'warning' : 'success'">
+            {{ emptyFolderResult.total }}
+          </el-tag>
+        </span>
+      </div>
+      <el-table
+        :data="emptyFolderResult?.folders || []"
+        max-height="420"
+        empty-text="当前店铺没有空白文件夹"
+      >
+        <el-table-column prop="folderName" label="文件夹名称" min-width="220" />
+        <el-table-column prop="folderPath" label="文件夹路径" min-width="260" />
+        <el-table-column prop="folderId" label="文件夹 ID" width="130" />
+      </el-table>
+      <template #footer>
+        <el-button @click="emptyFolderDialogOpen = false">
+          取消
+        </el-button>
+        <el-button type="primary" @click="emptyFolderDialogOpen = false">
+          确认
+        </el-button>
       </template>
     </el-dialog>
   </section>
@@ -488,6 +560,15 @@ async function removeStore(row: StoreAccount) {
   font-weight: 600;
 }
 
+.empty-folder-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 16px 0 12px;
+  color: var(--text-main);
+}
+
 .dialog-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -508,6 +589,11 @@ async function removeStore(row: StoreAccount) {
 
   .dialog-form {
     grid-template-columns: 1fr;
+  }
+
+  .empty-folder-summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>
