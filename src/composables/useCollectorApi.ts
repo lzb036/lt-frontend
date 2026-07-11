@@ -64,7 +64,12 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function updateUser(username: string, payload: { displayName?: string; enabled?: boolean; permissions?: string[] }) {
+  async function updateUser(username: string, payload: {
+    displayName?: string
+    enabled?: boolean
+    permissions?: string[]
+    crawlMinPrice?: 0 | 2500 | 3800
+  }) {
     const response = await apiClient.put<{ user: UserAccount }>(`/users/${encodeURIComponent(username)}`, payload)
     return response.data
   }

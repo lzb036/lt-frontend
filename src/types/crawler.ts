@@ -35,6 +35,7 @@ export interface AuthSession {
   displayName: string
   role: UserRole
   enabled: boolean
+  crawlMinPrice: 0 | 2500 | 3800
   permissionCodes: string[]
   permissions: UserPermissions
   createdAt?: string | null

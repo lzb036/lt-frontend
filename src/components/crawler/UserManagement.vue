@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, Connection, DataAnalysis, Delete, EditPen, Lock, Plus, Refresh, Shop, User } from '@element-plus/icons-vue'
+import { CircleCheck, Coin, Connection, DataAnalysis, Delete, EditPen, Lock, Plus, Refresh, Shop, User } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -21,6 +21,10 @@ const users = shallowRef<UserAccount[]>([])
 const createDialogOpen = shallowRef(false)
 const editDialogOpen = shallowRef(false)
 const editingUser = shallowRef<UserAccount | null>(null)
+const priceDialogOpen = shallowRef(false)
+const priceUser = shallowRef<UserAccount | null>(null)
+const priceSaving = shallowRef(false)
+const crawlMinPrice = shallowRef<0 | 2500 | 3800>(0)
 const {
   currentPage,
   pageSize,
@@ -195,6 +199,41 @@ async function resetPassword(row: UserAccount) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '重置密码失败'))
     }
+  }
+}
+
+function crawlPriceLabel(value: number) {
+  if (value === 2500) {
+    return '≥ 2500 日元'
+  }
+  if (value === 3800) {
+    return '≥ 3800 日元'
+  }
+  return '全部'
+}
+
+function openPriceDialog(row: UserAccount) {
+  priceUser.value = row
+  crawlMinPrice.value = row.crawlMinPrice || 0
+  priceDialogOpen.value = true
+}
+
+async function saveCrawlPrice() {
+  if (!priceUser.value) {
+    return
+  }
+  priceSaving.value = true
+  try {
+    await api.updateUser(priceUser.value.username, {
+      crawlMinPrice: crawlMinPrice.value,
+    })
+    await loadUsers()
+    priceDialogOpen.value = false
+    ElMessage.success('采集价格设置已保存')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '保存采集价格失败'))
+  } finally {
+    priceSaving.value = false
   }
 }
 
@@ -461,6 +500,13 @@ function timeText(value?: string | null) {
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="采集价格" width="150">
+          <template #default="{ row }">
+            <el-tag :type="row.crawlMinPrice ? 'success' : 'info'">
+              {{ crawlPriceLabel(row.crawlMinPrice) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="140">
           <template #default="{ row }">
             <el-switch
@@ -473,13 +519,16 @@ function timeText(value?: string | null) {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
           <template #default="{ row }">
             <el-button :disabled="row.role === 'superadmin'" :icon="Shop" link type="primary" @click="openStoreDialog(row)">
               店铺
             </el-button>
             <el-button :disabled="row.role === 'superadmin'" :icon="EditPen" link type="primary" @click="openEditDialog(row)">
               权限
+            </el-button>
+            <el-button :icon="Coin" link type="success" @click="openPriceDialog(row)">
+              采集价格
             </el-button>
             <el-button :icon="CircleCheck" link type="primary" @click="resetPassword(row)">
               重置密码
@@ -540,6 +589,25 @@ function timeText(value?: string | null) {
       <template #footer>
         <el-button @click="editDialogOpen = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="saveUserSettings">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="priceDialogOpen"
+      :title="`设置采集价格${priceUser ? ` - ${priceUser.displayName || priceUser.username}` : ''}`"
+      width="460px"
+    >
+      <el-radio-group v-model="crawlMinPrice" class="crawl-price-options">
+        <el-radio :value="0">全部商品</el-radio>
+        <el-radio :value="2500">大于等于 2500 日元</el-radio>
+        <el-radio :value="3800">大于等于 3800 日元</el-radio>
+      </el-radio-group>
+      <p class="crawl-price-tip">
+        列表页价格明确低于门槛时会直接跳过；价格未知时继续采集详情并再次校验。
+      </p>
+      <template #footer>
+        <el-button @click="priceDialogOpen = false">取消</el-button>
+        <el-button type="primary" :loading="priceSaving" @click="saveCrawlPrice">保存</el-button>
       </template>
     </el-dialog>
 
@@ -689,6 +757,18 @@ function timeText(value?: string | null) {
 </template>
 
 <style scoped>
+.crawl-price-options {
+  display: grid;
+  gap: 14px;
+}
+
+.crawl-price-tip {
+  margin: 16px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .page-stack {
   display: grid;
   gap: 18px;
