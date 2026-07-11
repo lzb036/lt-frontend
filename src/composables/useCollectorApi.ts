@@ -7,6 +7,7 @@ import type {
   ListingPreflightResult,
   ListingTask,
   ListingTaskPayload,
+  ManualCrawlImportResult,
   PageParams,
   PageResult,
   ProductDetailEditPayload,
@@ -177,6 +178,18 @@ export function useCollectorApi() {
       failedIds: string[]
       deletedCount: number
     }>('/crawler/tasks', { data: { taskIds } })
+    return response.data
+  }
+
+  async function downloadManualCrawlImportTemplate() {
+    const response = await apiClient.get<Blob>('/crawler/tasks/import-template', { responseType: 'blob' })
+    return response.data
+  }
+
+  async function importManualCrawlTasks(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post<ManualCrawlImportResult>('/crawler/tasks/import', formData)
     return response.data
   }
 
@@ -628,6 +641,8 @@ export function useCollectorApi() {
     restartTask,
     cancelTask,
     deleteTasks,
+    downloadManualCrawlImportTemplate,
+    importManualCrawlTasks,
     listProducts,
     listProductsPage,
     updateProductStatus,

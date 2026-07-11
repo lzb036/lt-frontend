@@ -458,6 +458,19 @@ export interface ScheduleImportResult {
   importedRows: ScheduleImportRow[]
 }
 
+export interface ManualCrawlImportResult {
+  productUrlCount: number
+  productTaskCreated: boolean
+  shopTaskCount: number
+  createdTaskCount: number
+  failedCount: number
+  failedRows: Array<{
+    sheet: string
+    rowNumber: number
+    message: string
+  }>
+}
+
 export interface TimeSettings {
   cleanupWeekday: number
   cleanupTime: string
