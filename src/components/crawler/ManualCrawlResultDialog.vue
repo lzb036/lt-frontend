@@ -22,7 +22,6 @@ const loading = shallowRef(false)
 const listing = shallowRef(false)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
-const activeProducts = shallowRef<string[]>([])
 const savingIds = shallowRef<Set<number>>(new Set())
 const replaceProductId = shallowRef<number | null>(null)
 const replaceImageIndex = shallowRef(0)
@@ -69,7 +68,6 @@ async function loadResult(taskId: string) {
     listingForm.storeIds = []
     listingForm.taskName = ''
     syncDrafts(taskProducts)
-    activeProducts.value = taskProducts.length > 0 ? [String(taskProducts[0].id)] : []
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载采集商品详情失败'))
   } finally {
@@ -410,14 +408,14 @@ async function submitAllProducts() {
 
       <div class="result-scroll">
         <el-empty v-if="!loading && products.length < 1" description="本次采集没有已保存商品" />
-        <el-collapse v-else v-model="activeProducts" class="product-collapse">
-          <el-collapse-item
+        <div v-else class="product-list">
+          <section
             v-for="(product, productIndex) in products"
             :key="product.id"
-            :name="String(product.id)"
+            class="product-section"
           >
-            <template #title>
-              <div class="collapse-title">
+            <div class="product-heading">
+              <div class="product-title-line">
                 <span>{{ productIndex + 1 }}. {{ drafts[product.id]?.title || product.title }}</span>
                 <div v-if="product.listedStores?.length" class="listed-store-tags">
                   <el-tooltip
@@ -436,7 +434,7 @@ async function submitAllProducts() {
                   {{ product.reviewStatus }}
                 </el-tag>
               </div>
-            </template>
+            </div>
 
             <div class="product-editor">
               <div class="text-editor">
@@ -513,8 +511,8 @@ async function submitAllProducts() {
                 </button>
               </div>
             </div>
-          </el-collapse-item>
-        </el-collapse>
+          </section>
+        </div>
       </div>
 
       <div class="listing-panel">
@@ -582,18 +580,32 @@ async function submitAllProducts() {
   padding-right: 6px;
 }
 
-.product-collapse {
-  border-top: 1px solid var(--border-color);
+.product-list {
+  display: grid;
+  gap: 18px;
 }
 
-.collapse-title {
+.product-section {
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+}
+
+.product-heading {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--panel-muted);
+}
+
+.product-title-line {
   display: flex;
   min-width: 0;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
-.collapse-title > span {
+.product-title-line > span {
+  flex: 1 1 420px;
   min-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -608,7 +620,7 @@ async function submitAllProducts() {
 }
 
 .product-editor {
-  padding: 4px 4px 20px;
+  padding: 14px;
 }
 
 .text-editor {
