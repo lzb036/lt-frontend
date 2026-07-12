@@ -38,7 +38,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltHj/collectionShops', name: 'collection-shops', component: CollectionShopView, meta: { title: '采集店铺', permission: 'crawler.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
-      { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '时间管理', permission: 'settings.manage' } },
+      { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },
     ],
   },

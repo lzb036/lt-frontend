@@ -126,7 +126,7 @@ const menuGroups = computed(() => {
       icon: Setting,
       children: [
         { path: '/system/theme', label: '主题管理', icon: Setting },
-        { path: '/system/time', label: '时间管理', icon: AlarmClock },
+        { path: '/system/time', label: '资源管理', icon: AlarmClock },
       ],
     })
   }

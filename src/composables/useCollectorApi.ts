@@ -13,6 +13,7 @@ import type {
   ProductDetailEditPayload,
   ProductDetail,
   ProductItem,
+  ProxyResourceUsage,
   ReviewStatus,
   RoleDefinition,
   RolePayload,
@@ -121,6 +122,14 @@ export function useCollectorApi() {
       }
     }>('/crawler/settings/time/unlisted-products/run')
     return response.data
+  }
+
+  async function getProxyResourceUsage(refresh = false) {
+    const response = await apiClient.get<{ proxyUsage: ProxyResourceUsage }>(
+      '/crawler/settings/resources/proxy-usage',
+      { params: { refresh } },
+    )
+    return response.data.proxyUsage
   }
 
   async function listSources() {
@@ -636,6 +645,7 @@ export function useCollectorApi() {
     updateTimeSettings,
     runScheduledTaskCleanup,
     runUnlistedProductCleanup,
+    getProxyResourceUsage,
     listSources,
     listSourcesPage,
     saveSource,

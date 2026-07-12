@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import type { TimeSettings, TimeSettingsPayload } from '../../types/crawler'
+import type { ProxyResourceUsage, TimeSettings, TimeSettingsPayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
 const api = useCollectorApi()
@@ -12,10 +12,14 @@ const loading = shallowRef(false)
 const saving = shallowRef(false)
 const runningTaskCleanup = shallowRef(false)
 const runningUnlistedCleanup = shallowRef(false)
+const proxyLoading = shallowRef(false)
+const queueLoading = shallowRef(false)
 const settings = shallowRef<TimeSettings | null>(null)
+const proxyUsage = shallowRef<ProxyResourceUsage | null>(null)
 const nowTick = shallowRef(Date.now())
 const serverTimeOffsetMs = shallowRef(0)
 let countdownTimer: number | undefined
+let nextProxyResetRefreshAttemptAt = 0
 
 const form = reactive<TimeSettingsPayload>({
   cleanupWeekday: 6,
@@ -89,10 +93,18 @@ const unlistedCleanupCountdownText = computed(() => {
   }
   return formatCountdown(remainingMs)
 })
+const proxyResetCountdownText = computed(() => {
+  const nextAt = parseDateTimeMs(proxyUsage.value?.resetAt)
+  if (nextAt === null) {
+    return '-'
+  }
+  return formatCountdown(Math.max(0, nextAt - (nowTick.value + serverTimeOffsetMs.value)))
+})
 
 onMounted(() => {
   startCountdown()
   void loadSettings()
+  void loadProxyUsage()
 })
 
 onBeforeUnmount(() => {
@@ -105,7 +117,9 @@ function startCountdown() {
   }
   nowTick.value = Date.now()
   countdownTimer = window.setInterval(() => {
-    nowTick.value = Date.now()
+    const currentNow = Date.now()
+    nowTick.value = currentNow
+    refreshProxyUsageAfterReset(currentNow)
   }, 1000)
 }
 
@@ -129,12 +143,60 @@ async function loadSettings() {
   }
 }
 
+async function loadProxyUsage(refresh = false) {
+  proxyLoading.value = true
+  try {
+    proxyUsage.value = await api.getProxyResourceUsage(refresh)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载代理流量失败'))
+  } finally {
+    proxyLoading.value = false
+  }
+}
+
+async function refreshQueueHealth() {
+  queueLoading.value = true
+  try {
+    const result = await api.getTimeSettings()
+    settings.value = settings.value
+      ? {
+          ...settings.value,
+          queueHealth: result.queueHealth,
+          serverNow: result.serverNow,
+        }
+      : result
+    applyServerTime(result.serverNow)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '刷新后台队列状态失败'))
+  } finally {
+    queueLoading.value = false
+  }
+}
+
 function applySettings(result: TimeSettings) {
   settings.value = result
-  const serverNow = parseDateTimeMs(result.serverNow)
-  serverTimeOffsetMs.value = serverNow === null ? 0 : serverNow - Date.now()
+  applyServerTime(result.serverNow)
   form.cleanupWeekday = result.cleanupWeekday
   form.cleanupTime = result.cleanupTime || '09:00'
+}
+
+function applyServerTime(serverNowValue?: string | null) {
+  const serverNow = parseDateTimeMs(serverNowValue)
+  serverTimeOffsetMs.value = serverNow === null ? 0 : serverNow - Date.now()
+}
+
+function refreshProxyUsageAfterReset(currentNow: number) {
+  const resetAt = parseDateTimeMs(proxyUsage.value?.resetAt)
+  if (
+    resetAt === null
+    || resetAt > currentNow + serverTimeOffsetMs.value
+    || proxyLoading.value
+    || currentNow < nextProxyResetRefreshAttemptAt
+  ) {
+    return
+  }
+  nextProxyResetRefreshAttemptAt = currentNow + 60_000
+  void loadProxyUsage(true)
 }
 
 async function saveSettings() {
@@ -234,6 +296,16 @@ function formatCountdown(remainingMs: number) {
   const seconds = totalSeconds % 60
   const timePart = [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':')
   return days > 0 ? `${days}天 ${timePart}` : timePart
+}
+
+function formatBytes(value?: number | null) {
+  const bytes = Math.max(0, Number(value || 0))
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  if (bytes < 1) {
+    return '0 B'
+  }
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
+  return `${(bytes / (1024 ** index)).toFixed(index >= 3 ? 2 : 1)} ${units[index]}`
 }
 </script>
 
@@ -339,12 +411,57 @@ function formatCountdown(remainingMs: number) {
       </div>
     </section>
 
-    <section v-loading="loading" class="time-panel">
+    <section v-loading="proxyLoading" class="time-panel proxy-usage-panel">
+      <div class="time-panel-head">
+        <div>
+          <h2>代理流量</h2>
+          <p>每月 {{ proxyUsage?.resetDay ?? 2 }} 日重置，不显示套餐到期时间</p>
+        </div>
+        <div class="panel-head-actions">
+          <el-tag v-if="proxyUsage?.stale" type="warning">缓存数据</el-tag>
+          <el-tag v-else-if="proxyUsage" type="success">订阅数据</el-tag>
+          <el-button :icon="Refresh" :loading="proxyLoading" @click="loadProxyUsage(true)">
+            刷新流量
+          </el-button>
+        </div>
+      </div>
+
+      <div class="proxy-progress-row">
+        <el-progress
+          :percentage="proxyUsage?.usagePercent ?? 0"
+          :stroke-width="14"
+          :color="(proxyUsage?.usagePercent ?? 0) >= 90 ? 'var(--danger)' : 'var(--accent)'"
+        />
+      </div>
+
+      <div class="proxy-usage-main">
+        <strong>
+          已用 {{ formatBytes(proxyUsage?.usedBytes) }}
+          <span>/ 总计 {{ formatBytes(proxyUsage?.totalBytes) }}</span>
+        </strong>
+        <div class="proxy-usage-meta">
+          <span>剩余 {{ formatBytes(proxyUsage?.remainingBytes) }}</span>
+          <span>距离重置 {{ proxyResetCountdownText }}</span>
+          <span>更新时间 {{ formatValue(proxyUsage?.checkedAt) }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section v-loading="loading || queueLoading" class="time-panel">
       <div class="time-panel-head">
         <h2>后台队列状态</h2>
-        <el-tag :type="queueHealthTagType">
-          {{ queueHealthStatusText }}
-        </el-tag>
+        <div class="panel-head-actions">
+          <el-tag :type="queueHealthTagType">
+            {{ queueHealthStatusText }}
+          </el-tag>
+          <el-button
+            :icon="Refresh"
+            :loading="loading || queueLoading"
+            @click="refreshQueueHealth"
+          >
+            刷新队列
+          </el-button>
+        </div>
       </div>
 
       <el-alert
@@ -510,6 +627,45 @@ function formatCountdown(remainingMs: number) {
   width: 100%;
 }
 
+.panel-head-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.proxy-progress-row :deep(.el-progress-bar__outer) {
+  background: var(--panel-muted);
+}
+
+.proxy-usage-main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.proxy-usage-main > strong {
+  color: var(--text-main);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.proxy-usage-main > strong span {
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.proxy-usage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 @media (max-width: 960px) {
   .compact-layout,
   .status-grid {
@@ -536,6 +692,27 @@ function formatCountdown(remainingMs: number) {
 
   .head-actions .el-button {
     flex: 1;
+  }
+
+  .panel-head-actions {
+    width: 100%;
+  }
+
+  .panel-head-actions .el-button {
+    flex: 1;
+  }
+
+  .proxy-usage-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .proxy-usage-main > strong {
+    font-size: 20px;
+  }
+
+  .proxy-usage-meta {
+    justify-content: flex-start;
   }
 }
 </style>
