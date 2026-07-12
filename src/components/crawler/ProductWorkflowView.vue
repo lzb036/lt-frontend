@@ -1634,13 +1634,8 @@ async function deletePendingInlineImage(product: ProductItem, imageIndex: number
   if (props.status !== 'pending' || product.reviewStatus !== 'pending' || isPendingInlineSaving(product)) {
     return
   }
+  setPendingInlineSaving(product.id, true)
   try {
-    await ElMessageBox.confirm('确认删除这张商品图片？删除后会立即保存到待审核商品。', '删除图片', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-    })
-    setPendingInlineSaving(product.id, true)
     const detail = await api.getProductDetail(product.id)
     const currentImages = detailImageUrlsFromProduct(detail)
     const sourceImage = currentImages[imageIndex]
@@ -1661,9 +1656,7 @@ async function deletePendingInlineImage(product: ProductItem, imageIndex: number
       fallbackMessage: '删除商品图片失败',
     })
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '删除商品图片失败'))
-    }
+    ElMessage.error(toApiErrorMessage(error, '删除商品图片失败'))
   } finally {
     setPendingInlineSaving(product.id, false)
   }
