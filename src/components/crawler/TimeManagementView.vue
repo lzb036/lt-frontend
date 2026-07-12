@@ -415,7 +415,7 @@ function formatBytes(value?: number | null) {
       <div class="time-panel-head">
         <div>
           <h2>代理流量</h2>
-          <p>每月 {{ proxyUsage?.resetDay ?? 2 }} 日重置，不显示套餐到期时间</p>
+          <p>每月 {{ proxyUsage?.resetDay ?? 2 }} 日重置</p>
         </div>
         <div class="panel-head-actions">
           <el-tag v-if="proxyUsage?.stale" type="warning">缓存数据</el-tag>
