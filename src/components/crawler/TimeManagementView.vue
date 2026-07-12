@@ -4,8 +4,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import type { ProxyResourceUsage, TimeSettings, TimeSettingsPayload } from '../../types/crawler'
+import type { AuthSession, ProxyResourceUsage, TimeSettings, TimeSettingsPayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+
+const props = defineProps<{
+  session: AuthSession | null
+}>()
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -20,6 +24,7 @@ const nowTick = shallowRef(Date.now())
 const serverTimeOffsetMs = shallowRef(0)
 let countdownTimer: number | undefined
 let nextProxyResetRefreshAttemptAt = 0
+const isSuperadmin = computed(() => props.session?.role === 'superadmin')
 
 const form = reactive<TimeSettingsPayload>({
   cleanupWeekday: 6,
@@ -104,7 +109,9 @@ const proxyResetCountdownText = computed(() => {
 onMounted(() => {
   startCountdown()
   void loadSettings()
-  void loadProxyUsage()
+  if (isSuperadmin.value) {
+    void loadProxyUsage()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -411,7 +418,7 @@ function formatBytes(value?: number | null) {
       </div>
     </section>
 
-    <section v-loading="proxyLoading" class="time-panel proxy-usage-panel">
+    <section v-if="isSuperadmin" v-loading="proxyLoading" class="time-panel proxy-usage-panel">
       <div class="time-panel-head">
         <div>
           <h2>代理流量</h2>
@@ -447,7 +454,7 @@ function formatBytes(value?: number | null) {
       </div>
     </section>
 
-    <section v-loading="loading || queueLoading" class="time-panel">
+    <section v-if="isSuperadmin" v-loading="loading || queueLoading" class="time-panel">
       <div class="time-panel-head">
         <h2>后台队列状态</h2>
         <div class="panel-head-actions">
