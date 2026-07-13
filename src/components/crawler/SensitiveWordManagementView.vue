@@ -272,7 +272,6 @@ function statusTagType(row: SensitiveWord) {
       <div>
         <p class="eyebrow">System Settings</p>
         <h1>敏感词管理</h1>
-        <p class="page-subtitle">维护全局采集清洗规则，变更后会影响后续商品标题与卖点文案处理。</p>
       </div>
       <div class="head-actions">
         <input
