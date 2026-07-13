@@ -8,6 +8,7 @@ import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
 import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
+import SensitiveWordManagementView from './components/crawler/SensitiveWordManagementView.vue'
 import StoreManagerView from './components/crawler/StoreManagerView.vue'
 import SyncTaskView from './components/crawler/SyncTaskView.vue'
 import ThemeSettingsView from './components/crawler/ThemeSettingsView.vue'
@@ -39,6 +40,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },
+      { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },
     ],
   },

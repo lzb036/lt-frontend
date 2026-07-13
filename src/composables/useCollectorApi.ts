@@ -22,6 +22,9 @@ import type {
   ScheduledCrawlPayload,
   SecretProfile,
   SecretProfilePayload,
+  SensitiveWord,
+  SensitiveWordImportResult,
+  SensitiveWordPayload,
   SourceType,
   StoreAccount,
   StoreEmptyCabinetFoldersResult,
@@ -130,6 +133,40 @@ export function useCollectorApi() {
       { params: { refresh } },
     )
     return response.data.proxyUsage
+  }
+
+  async function listSensitiveWordsPage(params: PageParams & { keyword?: string }) {
+    const response = await apiClient.get<PageResult<SensitiveWord>>('/crawler/settings/sensitive-words', { params })
+    return response.data
+  }
+
+  async function createSensitiveWord(payload: SensitiveWordPayload) {
+    const response = await apiClient.post<{ sensitiveWord: SensitiveWord }>('/crawler/settings/sensitive-words', payload)
+    return response.data
+  }
+
+  async function updateSensitiveWord(wordId: number, payload: SensitiveWordPayload) {
+    const response = await apiClient.put<{ sensitiveWord: SensitiveWord }>(
+      `/crawler/settings/sensitive-words/${wordId}`,
+      payload,
+    )
+    return response.data
+  }
+
+  async function deleteSensitiveWord(wordId: number) {
+    await apiClient.delete<{ deleted: boolean }>(`/crawler/settings/sensitive-words/${wordId}`)
+  }
+
+  async function downloadSensitiveWordTemplate() {
+    const response = await apiClient.get<Blob>('/crawler/settings/sensitive-words/template', { responseType: 'blob' })
+    return response.data
+  }
+
+  async function importSensitiveWords(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post<SensitiveWordImportResult>('/crawler/settings/sensitive-words/import', formData)
+    return response.data
   }
 
   async function listSources() {
@@ -646,6 +683,12 @@ export function useCollectorApi() {
     runScheduledTaskCleanup,
     runUnlistedProductCleanup,
     getProxyResourceUsage,
+    listSensitiveWordsPage,
+    createSensitiveWord,
+    updateSensitiveWord,
+    deleteSensitiveWord,
+    downloadSensitiveWordTemplate,
+    importSensitiveWords,
     listSources,
     listSourcesPage,
     saveSource,

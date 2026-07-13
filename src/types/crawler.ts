@@ -472,6 +472,28 @@ export interface ManualCrawlImportResult {
   }>
 }
 
+export type SensitiveWordRuleType = 'literal' | 'bracket'
+
+export interface SensitiveWord {
+  id: number
+  word: string
+  ruleType: SensitiveWordRuleType
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SensitiveWordPayload {
+  word: string
+  enabled: boolean
+}
+
+export interface SensitiveWordImportResult {
+  createdCount: number
+  duplicateCount: number
+  invalidCount: number
+}
+
 export interface TimeSettings {
   cleanupWeekday: number
   cleanupTime: string
