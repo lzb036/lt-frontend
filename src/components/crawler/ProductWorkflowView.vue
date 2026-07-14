@@ -2425,7 +2425,7 @@ function sanitizedDescriptionHtml(value: string) {
                   :loading="isPendingInlineSaving(row)"
                   @click="deleteSelectedPendingImages(row)"
                 >
-                  删除图片{{ selectedPendingImageCount(row.id) > 0 ? ` (${selectedPendingImageCount(row.id)})` : '' }}
+                  删除图片
                 </el-button>
                 <el-button :icon="Finished" link type="success" @click="approveProduct(row)">
                   审核通过
@@ -2897,21 +2897,22 @@ function sanitizedDescriptionHtml(value: string) {
 .pending-image-selector {
   position: absolute;
   z-index: 2;
-  top: 6px;
-  left: 6px;
+  top: 8px;
+  left: 8px;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   place-items: center;
-  border: 1px solid rgb(255 255 255 / 88%);
-  border-radius: 4px;
-  background: rgb(255 255 255 / 92%);
-  box-shadow: 0 1px 4px rgb(15 23 42 / 20%);
 }
 
 .pending-image-selector :deep(.el-checkbox) {
   height: 20px;
   margin-right: 0;
+}
+
+.pending-image-selector :deep(.el-checkbox__inner) {
+  width: 20px;
+  height: 20px;
 }
 
 .pending-product-image {
