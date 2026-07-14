@@ -5,6 +5,7 @@ import { ElMessageBox } from 'element-plus'
 import {
   Aim,
   AlarmClock,
+  Cpu,
   Document,
   Expand,
   Finished,
@@ -117,6 +118,14 @@ const menuGroups = computed(() => {
       path: '/system/user',
       label: '用户管理',
       icon: UserFilled,
+    })
+    groups.push({
+      key: 'ai-management',
+      label: 'AI 管理',
+      icon: Cpu,
+      children: [
+        { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
+      ],
     })
   }
   if (hasPermission(props.session, 'settings.manage')) {

@@ -1,4 +1,6 @@
 import type {
+  AiTitleSettings,
+  AiTitleSettingsPayload,
   AuthSession,
   CrawlSource,
   CrawlSourcePayload,
@@ -13,6 +15,8 @@ import type {
   ProductDetailEditPayload,
   ProductDetail,
   ProductItem,
+  ProductTitleVersion,
+  ProductTitleVersionList,
   ProxyResourceUsage,
   ReviewStatus,
   RoleDefinition,
@@ -35,7 +39,7 @@ import type {
   TimeSettingsPayload,
   UserAccount,
 } from '../types/crawler'
-import { apiClient } from '../utils/api'
+import { apiClient, resolveApiBaseUrl } from '../utils/api'
 
 type ApiPageResponse<K extends string, T> = Record<K, T[]> & {
   total: number
@@ -333,6 +337,70 @@ export function useCollectorApi() {
   async function updateProductLocalDetail(productId: number, payload: ProductDetailEditPayload) {
     const response = await apiClient.put<{ product: ProductDetail }>(`/crawler/products/${productId}/local-detail`, payload)
     return response.data.product
+  }
+
+  async function getAiTitleSettings() {
+    const response = await apiClient.get<{ settings: AiTitleSettings }>('/crawler/settings/ai-title')
+    return response.data.settings
+  }
+
+  async function updateAiTitleSettings(payload: AiTitleSettingsPayload) {
+    const response = await apiClient.put<{ settings: AiTitleSettings }>('/crawler/settings/ai-title', payload)
+    return response.data.settings
+  }
+
+  async function testAiTitleSettings() {
+    const response = await apiClient.post<{ success: boolean; message: string }>('/crawler/settings/ai-title/test')
+    return response.data
+  }
+
+  async function listProductTitleVersions(productId: number) {
+    const response = await apiClient.get<ProductTitleVersionList>(`/crawler/products/${productId}/title-versions`)
+    return response.data
+  }
+
+  async function saveProductTitleVersion(productId: number, versionId: number) {
+    const response = await apiClient.post<{ version: ProductTitleVersion }>(
+      `/crawler/products/${productId}/title-versions/save`,
+      { versionId },
+    )
+    return response.data.version
+  }
+
+  async function streamProductTitleVersion(
+    productId: number,
+    handlers: {
+      onDelta: (content: string) => void
+      onCompleted: (version: ProductTitleVersion) => void
+    },
+  ) {
+    const response = await fetch(`${resolveApiBaseUrl()}/crawler/products/${productId}/title-versions/generate`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Accept: 'text/event-stream' },
+    })
+    if (!response.ok || !response.body) {
+      const payload = await response.json().catch(() => null)
+      throw new Error(payload?.detail || `生成请求失败（HTTP ${response.status}）`)
+    }
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+      for (const block of events) {
+        const dataLine = block.split('\n').find((line) => line.startsWith('data:'))
+        if (!dataLine) continue
+        const event = JSON.parse(dataLine.slice(5).trim())
+        if (event.type === 'delta') handlers.onDelta(String(event.content || ''))
+        if (event.type === 'completed') handlers.onCompleted(event.version as ProductTitleVersion)
+        if (event.type === 'error') throw new Error(String(event.message || '生成标题失败'))
+      }
+      if (done) break
+    }
   }
 
   async function uploadProductImageDraft(productId: number, file: File) {
@@ -709,6 +777,12 @@ export function useCollectorApi() {
     updateProductPrice,
     updateProductDetail,
     updateProductLocalDetail,
+    getAiTitleSettings,
+    updateAiTitleSettings,
+    testAiTitleSettings,
+    listProductTitleVersions,
+    saveProductTitleVersion,
+    streamProductTitleVersion,
     uploadProductImageDraft,
     uploadProductImageDraftBase64,
     productImageDownloadUrl,

@@ -227,6 +227,46 @@ export interface ProductDetail extends ProductItem {
   }
 }
 
+export interface AiTitleSettings {
+  enabled: boolean
+  apiBaseUrl: string
+  apiKeyConfigured: boolean
+  apiKeyMasked: string
+  modelName: string
+  titlePrompt: string
+  subtitlePrompt: string
+  temperature: number
+  maxTokens: number
+}
+
+export interface AiTitleSettingsPayload {
+  enabled: boolean
+  apiBaseUrl: string
+  apiKey: string
+  modelName: string
+  titlePrompt: string
+  subtitlePrompt: string
+  temperature: number
+  maxTokens: number
+}
+
+export interface ProductTitleVersion {
+  id: number
+  productId: number
+  title: string
+  subtitle: string
+  source: 'ai' | 'manual' | 'original' | 'final'
+  modelName: string
+  isSelected: boolean
+  createdBy: string
+  createdAt?: string | null
+}
+
+export interface ProductTitleVersionList {
+  current: { title: string; subtitle: string }
+  versions: ProductTitleVersion[]
+}
+
 export interface StoreAccount {
   id: number
   ownerUsername: string

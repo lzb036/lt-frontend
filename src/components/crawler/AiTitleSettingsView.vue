@@ -1,0 +1,139 @@
+<script setup lang="ts">
+import { onMounted, reactive, shallowRef } from 'vue'
+import { Connection, Key, MagicStick } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+
+import { useCollectorApi } from '../../composables/useCollectorApi'
+import type { AiTitleSettingsPayload } from '../../types/crawler'
+import { toApiErrorMessage } from '../../utils/api'
+
+const api = useCollectorApi()
+const loading = shallowRef(false)
+const saving = shallowRef(false)
+const testing = shallowRef(false)
+const keyConfigured = shallowRef(false)
+const keyMasked = shallowRef('')
+const form = reactive<AiTitleSettingsPayload>({
+  enabled: true,
+  apiBaseUrl: '',
+  apiKey: '',
+  modelName: 'qwen-vl-max',
+  titlePrompt: '',
+  subtitlePrompt: '',
+  temperature: 0.3,
+  maxTokens: 1000,
+})
+
+onMounted(() => void loadSettings())
+
+async function loadSettings() {
+  loading.value = true
+  try {
+    const settings = await api.getAiTitleSettings()
+    Object.assign(form, settings, { apiKey: '' })
+    keyConfigured.value = settings.apiKeyConfigured
+    keyMasked.value = settings.apiKeyMasked
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载标题优化配置失败'))
+  } finally {
+    loading.value = false
+  }
+}
+
+async function saveSettings() {
+  saving.value = true
+  try {
+    const settings = await api.updateAiTitleSettings({ ...form })
+    keyConfigured.value = settings.apiKeyConfigured
+    keyMasked.value = settings.apiKeyMasked
+    form.apiKey = ''
+    ElMessage.success('标题优化配置已保存')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '保存标题优化配置失败'))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function testConnection() {
+  testing.value = true
+  try {
+    const result = await api.testAiTitleSettings()
+    ElMessage.success(result.message)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '测试连接失败'))
+  } finally {
+    testing.value = false
+  }
+}
+</script>
+
+<template>
+  <section class="page-stack" v-loading="loading">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">AI Management</p>
+        <h1>标题优化</h1>
+      </div>
+      <div class="head-actions">
+        <el-button :icon="Connection" :loading="testing" @click="testConnection">测试连接</el-button>
+        <el-button type="primary" :icon="MagicStick" :loading="saving" @click="saveSettings">保存</el-button>
+      </div>
+    </div>
+
+    <section class="work-panel">
+      <el-form label-position="top">
+        <div class="form-grid">
+          <el-form-item label="功能状态">
+            <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
+          </el-form-item>
+          <el-form-item label="模型名称">
+            <el-input v-model="form.modelName" placeholder="例如 qwen-vl-max" />
+          </el-form-item>
+        </div>
+        <el-form-item label="OpenAI 兼容地址">
+          <el-input v-model="form.apiBaseUrl" placeholder="https://.../compatible-mode/v1" />
+        </el-form-item>
+        <el-form-item label="API Key">
+          <el-input
+            v-model="form.apiKey"
+            :prefix-icon="Key"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            :placeholder="keyConfigured ? `已配置 ${keyMasked}，留空则不修改` : '请输入 API Key'"
+          />
+        </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="温度">
+            <el-input-number v-model="form.temperature" :min="0" :max="2" :step="0.1" />
+          </el-form-item>
+          <el-form-item label="最大输出 Token">
+            <el-input-number v-model="form.maxTokens" :min="100" :max="10000" :step="100" />
+          </el-form-item>
+        </div>
+        <el-form-item label="商品标题提示词">
+          <el-input v-model="form.titlePrompt" type="textarea" :rows="8" maxlength="10000" show-word-limit />
+        </el-form-item>
+        <el-form-item label="商品副标题提示词">
+          <el-input v-model="form.subtitlePrompt" type="textarea" :rows="8" maxlength="10000" show-word-limit />
+        </el-form-item>
+      </el-form>
+    </section>
+  </section>
+</template>
+
+<style scoped>
+.page-stack { display: grid; gap: 18px; }
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.eyebrow { margin: 0 0 6px; color: var(--accent); font-size: 12px; font-weight: 800; }
+.page-head h1 { margin: 0; color: var(--text-main); font-size: 26px; font-weight: 800; }
+.head-actions { display: flex; gap: 10px; }
+.work-panel { border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); box-shadow: var(--shadow-sm); padding: 18px; }
+.form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 760px) {
+  .page-head { align-items: stretch; flex-direction: column; }
+  .head-actions { justify-content: flex-end; }
+  .form-grid { grid-template-columns: 1fr; gap: 0; }
+}
+</style>

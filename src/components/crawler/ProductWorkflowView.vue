@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Download, EditPen, Finished, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
+import { Delete, Download, EditPen, Finished, MagicStick, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -9,6 +9,7 @@ import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem,
 import { toApiErrorMessage } from '../../utils/api'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
+import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
 
 type PendingImageOperation =
   | { type: 'replace'; sourceUrl: string; file: File; previewUrl: string }
@@ -87,6 +88,17 @@ const listingForm = reactive({
 const listingDialogVisible = shallowRef(false)
 const listingDialogProductIds = shallowRef<number[]>([])
 const listingDialogTitle = shallowRef('上架商品')
+const titleOptimizationVisible = shallowRef(false)
+const titleOptimizationProduct = shallowRef<ProductItem | null>(null)
+
+function openTitleOptimization(product: ProductItem) {
+  titleOptimizationProduct.value = product
+  titleOptimizationVisible.value = true
+}
+
+async function handleTitleOptimizationSaved() {
+  await refreshAll({ loadStores: false })
+}
 
 const statusCopy = computed(() => {
   const map: Record<ReviewStatus, { label: string; tag: 'success' | 'warning' | 'danger' | 'info'; empty: string }> = {
@@ -2395,7 +2407,7 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
           <template #default="{ row }">
             <div class="row-action-stack">
               <el-button :icon="View" link type="primary" :disabled="isProductBusy(row)" @click="openProductDetail(row)">
@@ -2417,6 +2429,9 @@ function sanitizedDescriptionHtml(value: string) {
                 </el-button>
               </template>
               <template v-if="status === 'pending'">
+                <el-button :icon="MagicStick" link type="primary" @click="openTitleOptimization(row)">
+                  优化标题
+                </el-button>
                 <el-button
                   :icon="Delete"
                   link
@@ -2454,6 +2469,12 @@ function sanitizedDescriptionHtml(value: string) {
         />
       </div>
     </section>
+
+    <ProductTitleOptimizationDialog
+      v-model="titleOptimizationVisible"
+      :product="titleOptimizationProduct"
+      @saved="handleTitleOptimizationSaved"
+    />
 
     <el-dialog v-model="listingDialogVisible" :title="listingDialogTitle" width="520px" append-to-body>
       <el-form label-position="top" class="listing-dialog-form">
