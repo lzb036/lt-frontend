@@ -263,7 +263,6 @@ export interface ProductTitleVersion {
 }
 
 export interface ProductTitleVersionList {
-  current: { title: string; subtitle: string }
   versions: ProductTitleVersion[]
 }
 
