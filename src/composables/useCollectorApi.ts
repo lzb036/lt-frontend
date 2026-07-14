@@ -386,6 +386,7 @@ export function useCollectorApi() {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let completed = false
     while (true) {
       const { done, value } = await reader.read()
       buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
@@ -396,10 +397,16 @@ export function useCollectorApi() {
         if (!dataLine) continue
         const event = JSON.parse(dataLine.slice(5).trim())
         if (event.type === 'delta') handlers.onDelta(String(event.content || ''))
-        if (event.type === 'completed') handlers.onCompleted(event.version as ProductTitleVersion)
+        if (event.type === 'completed') {
+          completed = true
+          handlers.onCompleted(event.version as ProductTitleVersion)
+        }
         if (event.type === 'error') throw new Error(String(event.message || '生成标题失败'))
       }
       if (done) break
+    }
+    if (!completed) {
+      throw new Error('生成连接已结束，但服务器没有保存新的历史版本')
     }
   }
 
