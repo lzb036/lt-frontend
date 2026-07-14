@@ -47,6 +47,7 @@ const inlineImageFileInputRef = ref<HTMLInputElement | null>(null)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const selectedIds = ref<number[]>([])
+const selectedPendingImages = shallowRef<Map<number, Set<string>>>(new Map())
 const hiddenProducts = shallowRef<Map<number, ProductItem>>(new Map())
 const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
@@ -115,6 +116,7 @@ watch(
   () => props.status,
   () => {
     selectedIds.value = []
+    selectedPendingImages.value = new Map()
     hiddenProducts.value = new Map()
     resetPage()
     void refreshAll()
@@ -174,6 +176,7 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
     })
     products.value = result.items
     syncPendingInlineDrafts(result.items)
+    reconcilePendingImageSelections(result.items)
     reconcileHiddenProducts(result.items)
     setPageResult(result)
   } catch (error) {
@@ -267,8 +270,68 @@ function productListImageUrls(product: ProductItem) {
     .filter((url, index, values) => Boolean(url) && values.indexOf(url) === index)
 }
 
+function selectedPendingImageUrls(productId: number) {
+  return selectedPendingImages.value.get(productId) || new Set<string>()
+}
+
+function selectedPendingImageCount(productId: number) {
+  return selectedPendingImageUrls(productId).size
+}
+
+function isPendingImageSelected(productId: number, imageUrl: string) {
+  return selectedPendingImageUrls(productId).has(imageUrl)
+}
+
+function togglePendingImageSelection(productId: number, imageUrl: string, selected: boolean) {
+  const nextSelections = new Map(selectedPendingImages.value)
+  const nextImages = new Set(nextSelections.get(productId) || [])
+  if (selected) {
+    nextImages.add(imageUrl)
+  } else {
+    nextImages.delete(imageUrl)
+  }
+  if (nextImages.size > 0) {
+    nextSelections.set(productId, nextImages)
+  } else {
+    nextSelections.delete(productId)
+  }
+  selectedPendingImages.value = nextSelections
+}
+
+function clearPendingImageSelection(productId: number) {
+  if (!selectedPendingImages.value.has(productId)) {
+    return
+  }
+  const nextSelections = new Map(selectedPendingImages.value)
+  nextSelections.delete(productId)
+  selectedPendingImages.value = nextSelections
+}
+
+function reconcilePendingImageSelections(nextProducts: ProductItem[]) {
+  if (props.status !== 'pending' || selectedPendingImages.value.size < 1) {
+    if (props.status !== 'pending') {
+      selectedPendingImages.value = new Map()
+    }
+    return
+  }
+  const nextSelections = new Map<number, Set<string>>()
+  for (const product of nextProducts) {
+    const selectedImages = selectedPendingImages.value.get(product.id)
+    if (!selectedImages?.size) {
+      continue
+    }
+    const currentImages = new Set(productListImageUrls(product))
+    const retainedImages = new Set([...selectedImages].filter((image) => currentImages.has(image)))
+    if (retainedImages.size > 0) {
+      nextSelections.set(product.id, retainedImages)
+    }
+  }
+  selectedPendingImages.value = nextSelections
+}
+
 function mergeUpdatedProduct(product: ProductItem) {
   products.value = products.value.map((item) => (item.id === product.id ? { ...item, ...product } : item))
+  reconcilePendingImageSelections(products.value)
   if (props.status === 'pending') {
     setPendingInlineDraft(product)
   }
@@ -320,12 +383,14 @@ function collectedAtToValue() {
 
 function handlePageChange() {
   clearSelection()
+  selectedPendingImages.value = new Map()
   void refreshAll({ loadStores: false })
 }
 
 function handlePageSizeChange() {
   resetPage()
   clearSelection()
+  selectedPendingImages.value = new Map()
   void refreshAll({ loadStores: false })
 }
 
@@ -1500,9 +1565,11 @@ async function savePendingInlineProduct(
     if (options.successMessage) {
       ElMessage.success(options.successMessage)
     }
+    return true
   } catch (error) {
     setPendingInlineDraft(product)
     ElMessage.error(toApiErrorMessage(error, options.fallbackMessage))
+    return false
   } finally {
     setPendingInlineSaving(product.id, false)
   }
@@ -1659,6 +1726,54 @@ async function deletePendingInlineImage(product: ProductItem, imageIndex: number
     ElMessage.error(toApiErrorMessage(error, '删除商品图片失败'))
   } finally {
     setPendingInlineSaving(product.id, false)
+  }
+}
+
+async function deleteSelectedPendingImages(product: ProductItem) {
+  if (props.status !== 'pending' || product.reviewStatus !== 'pending' || isPendingInlineSaving(product)) {
+    return
+  }
+  const selectedImages = new Set(selectedPendingImageUrls(product.id))
+  if (selectedImages.size < 1) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除商品「${productDisplayName(product)}」中选中的 ${selectedImages.size} 张图片？`,
+      '删除图片',
+      {
+        confirmButtonText: '删除图片',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    const detail = await api.getProductDetail(product.id)
+    const currentImages = detailImageUrlsFromProduct(detail)
+    const removeUrls = currentImages.filter((image) => selectedImages.has(image))
+    if (removeUrls.length < 1) {
+      clearPendingImageSelection(product.id)
+      ElMessage.warning('选中的图片已发生变化，请重新选择')
+      return
+    }
+    const draftState = pendingInlineDraft(product)
+    const saved = await savePendingInlineProduct(product, {
+      title: draftState.title.trim() || detail.detail.title || product.title,
+      tagline: draftState.tagline.trim(),
+      imageChanges: {
+        images: currentImages.filter((image) => !selectedImages.has(image)),
+        replacements: [],
+        removeUrls,
+      },
+      successMessage: `已删除 ${removeUrls.length} 张商品图片`,
+      fallbackMessage: '批量删除商品图片失败',
+    })
+    if (saved) {
+      clearPendingImageSelection(product.id)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '批量删除商品图片失败'))
+    }
   }
 }
 
@@ -1929,7 +2044,7 @@ function sanitizedDescriptionHtml(value: string) {
             批量标记异常
           </el-button>
           <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
-            批量删除
+            批量删除商品
           </el-button>
         </div>
         <div v-if="status === 'error'" class="batch-action-group">
@@ -1971,7 +2086,7 @@ function sanitizedDescriptionHtml(value: string) {
           :loading="operating"
           @click="removeSelected"
         >
-          批量删除
+          批量删除商品
         </el-button>
         <div v-if="status === 'approved' || status === 'listed_master'" class="approved-head-actions">
           <el-button
@@ -1984,7 +2099,7 @@ function sanitizedDescriptionHtml(value: string) {
             {{ status === 'listed_master' ? '批量重新上架' : '批量上架' }}
           </el-button>
           <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1 || hasSelectedProductBusy()" :loading="operating" @click="removeSelected">
-            批量删除
+            批量删除商品
           </el-button>
         </div>
         <el-button :icon="Refresh" :loading="loading" @click="refreshAll">
@@ -2148,7 +2263,20 @@ function sanitizedDescriptionHtml(value: string) {
                 />
               </div>
               <div class="pending-image-editor">
-                <div v-for="(image, imageIndex) in productListImageUrls(row)" :key="`${row.id}-${image}-${imageIndex}`" class="pending-image-card">
+                <div
+                  v-for="(image, imageIndex) in productListImageUrls(row)"
+                  :key="`${row.id}-${image}-${imageIndex}`"
+                  class="pending-image-card"
+                  :class="{ 'is-selected': isPendingImageSelected(row.id, image) }"
+                >
+                  <div class="pending-image-selector" @click.stop>
+                    <el-checkbox
+                      :model-value="isPendingImageSelected(row.id, image)"
+                      :disabled="isPendingInlineSaving(row)"
+                      :aria-label="`选择第 ${imageIndex + 1} 张图片`"
+                      @change="togglePendingImageSelection(row.id, image, Boolean($event))"
+                    />
+                  </div>
                   <el-image
                     class="pending-product-image"
                     :src="image"
@@ -2285,10 +2413,20 @@ function sanitizedDescriptionHtml(value: string) {
                   {{ status === 'listed_master' ? '重新上架' : '上架' }}
                 </el-button>
                 <el-button :icon="Delete" link type="danger" :disabled="isProductBusy(row)" @click="removeProduct(row)">
-                  删除
+                  删除商品
                 </el-button>
               </template>
               <template v-if="status === 'pending'">
+                <el-button
+                  :icon="Delete"
+                  link
+                  type="danger"
+                  :disabled="selectedPendingImageCount(row.id) < 1 || isPendingInlineSaving(row)"
+                  :loading="isPendingInlineSaving(row)"
+                  @click="deleteSelectedPendingImages(row)"
+                >
+                  删除图片{{ selectedPendingImageCount(row.id) > 0 ? ` (${selectedPendingImageCount(row.id)})` : '' }}
+                </el-button>
                 <el-button :icon="Finished" link type="success" @click="approveProduct(row)">
                   审核通过
                 </el-button>
@@ -2296,7 +2434,7 @@ function sanitizedDescriptionHtml(value: string) {
                   标记异常
                 </el-button>
                 <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
-                  删除
+                  删除商品
                 </el-button>
               </template>
             </div>
@@ -2742,11 +2880,38 @@ function sanitizedDescriptionHtml(value: string) {
 }
 
 .pending-image-card {
+  position: relative;
   display: grid;
   align-content: start;
   gap: 8px;
   width: 100%;
   min-width: 0;
+  border-radius: 6px;
+}
+
+.pending-image-card.is-selected {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 3px;
+}
+
+.pending-image-selector {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  left: 6px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 88%);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 1px 4px rgb(15 23 42 / 20%);
+}
+
+.pending-image-selector :deep(.el-checkbox) {
+  height: 20px;
+  margin-right: 0;
 }
 
 .pending-product-image {
