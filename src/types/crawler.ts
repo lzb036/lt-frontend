@@ -145,6 +145,7 @@ export interface ProductItem {
   currency: string
   salesCount?: number | null
   genreId: string
+  genrePath: string
   reviewStatus: ReviewStatus
   lastError?: string | null
   listedAt?: string | null
@@ -162,6 +163,11 @@ export interface ProductListedStore {
   itemUrl?: string | null
   productId?: number | null
   listedAt?: string | null
+}
+
+export interface RakutenGenreOption {
+  genreId: string
+  genrePath: string
 }
 
 export interface ProductVariant {

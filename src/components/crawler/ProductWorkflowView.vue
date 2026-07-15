@@ -7,8 +7,10 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { hasValidProductGenre, invalidGenreProducts } from '../../utils/productGenre'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
+import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
 import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
 
 type PendingImageOperation =
@@ -579,6 +581,13 @@ async function confirmReviewStatus(productIds: number[], status: ReviewStatus, o
 }
 
 async function approveSelected() {
+  const invalidProducts = invalidGenreProducts(products.value, selectedIds.value)
+  if (invalidProducts.length > 0) {
+    const names = invalidProducts.slice(0, 3).map(productDisplayName).join('、')
+    const suffix = invalidProducts.length > 3 ? '等' : ''
+    ElMessage.warning(`${invalidProducts.length} 个商品缺少有效品类：${names}${suffix}。请先选择品类后再审核。`)
+    return
+  }
   await confirmReviewStatus(selectedIds.value, 'approved', {
     title: '批量审核通过',
     message: `确认将选中的 ${selectedIds.value.length} 个商品批量审核通过？该操作只修改本地数据库。`,
@@ -588,6 +597,10 @@ async function approveSelected() {
 }
 
 async function approveProduct(product: ProductItem) {
+  if (!hasValidProductGenre(product)) {
+    ElMessage.warning('请先选择有效品类，当前商品不能审核通过')
+    return
+  }
   await confirmReviewStatus([product.id], 'approved', {
     title: '审核通过',
     message: `确认将商品「${productDisplayName(product)}」审核通过？该操作只修改本地数据库。`,
@@ -2272,6 +2285,11 @@ function sanitizedDescriptionHtml(value: string) {
                   :disabled="isPendingInlineSaving(row)"
                   @update:model-value="setPendingInlineDraftField(row, 'tagline', $event)"
                   @blur="savePendingInlineText(row)"
+                />
+                <PendingProductGenreSelect
+                  :product="row"
+                  :disabled="isPendingInlineSaving(row)"
+                  @updated="mergeUpdatedProduct"
                 />
               </div>
               <div class="pending-image-editor">

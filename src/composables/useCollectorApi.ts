@@ -16,6 +16,7 @@ import type {
   ProductDetailEditPayload,
   ProductDetail,
   ProductItem,
+  RakutenGenreOption,
   ProductTitleVersion,
   ProductTitleVersionList,
   ProxyResourceUsage,
@@ -297,6 +298,21 @@ export function useCollectorApi() {
   async function updateProductStatus(payload: { productIds: number[]; status: ReviewStatus; message?: string }) {
     const response = await apiClient.put<{ products: ProductItem[] }>('/crawler/products/status', payload)
     return response.data.products
+  }
+
+  async function searchRakutenGenres(keyword: string, limit = 30) {
+    const response = await apiClient.get<{ genres: RakutenGenreOption[] }>('/crawler/products/genres', {
+      params: { keyword, limit },
+    })
+    return response.data.genres
+  }
+
+  async function updatePendingProductGenre(productId: number, genreId: string) {
+    const response = await apiClient.put<{ product: ProductItem }>(
+      `/crawler/products/${productId}/genre`,
+      { genreId },
+    )
+    return response.data.product
   }
 
   async function deleteProducts(productIds: number[]) {
@@ -789,6 +805,8 @@ export function useCollectorApi() {
     listProducts,
     listProductsPage,
     updateProductStatus,
+    searchRakutenGenres,
+    updatePendingProductGenre,
     deleteProducts,
     getProductDetail,
     updateProductPrice,
