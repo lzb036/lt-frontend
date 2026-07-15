@@ -277,13 +277,42 @@ async function saveGenre(genreId: string) {
 }
 
 .pending-product-genre-cascader {
+  display: flex;
   width: 100%;
+  max-width: 100%;
   min-height: 260px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+}
+
+.pending-product-genre-cascader :deep(.el-cascader-menu) {
+  flex: 0 0 180px;
+  min-width: 180px;
+  max-width: 180px;
+  height: 320px;
+}
+
+.pending-product-genre-cascader :deep(.el-cascader-node__label) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(.pending-product-genre-popper.el-popover) {
+  box-sizing: border-box;
+  max-width: calc(100vw - 48px);
+  overflow: hidden;
 }
 
 @media (max-width: 720px) {
   .pending-product-genre {
     grid-template-columns: 1fr;
+  }
+
+  :global(.pending-product-genre-popper.el-popover) {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
   }
 }
 </style>
