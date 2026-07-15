@@ -397,6 +397,14 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function confirmPendingProductReplacement(productId: number, manageNumber: string) {
+    const response = await apiClient.post<ProductReplacement>(
+      `/crawler/products/${productId}/confirm-replacement`,
+      { manageNumber },
+    )
+    return response.data
+  }
+
   async function cancelProductReplacement(taskId: string) {
     const response = await apiClient.post<ProductReplacement>(
       `/crawler/product-replacements/${taskId}/cancel`,
@@ -865,6 +873,7 @@ export function useCollectorApi() {
     getProductReplacement,
     updateProductReplacementDraft,
     confirmProductReplacement,
+    confirmPendingProductReplacement,
     cancelProductReplacement,
     getAiTitleSettings,
     getAiTitleProviders,

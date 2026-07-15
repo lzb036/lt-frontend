@@ -402,7 +402,11 @@ async function confirmReplacement() {
       },
     )
     confirming.value = true
-    replacement.value = await api.confirmProductReplacement(replacement.value.task.id, result.value)
+    const pendingProductId = replacement.value.pendingProduct?.id
+    if (!pendingProductId) {
+      throw new Error('待审核替换商品不存在')
+    }
+    replacement.value = await api.confirmPendingProductReplacement(pendingProductId, result.value)
     ElMessage.success('替换任务已提交，请等待执行完成')
     startPolling()
   } catch (error) {

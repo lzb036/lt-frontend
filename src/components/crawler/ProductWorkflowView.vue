@@ -129,10 +129,9 @@ async function handleProductReplacementCompleted() {
 }
 
 async function confirmPendingReplacement(product: ProductItem) {
-  const taskId = product.replacementTaskId
   const manageNumber = product.replacementTargetManageNumber || ''
-  if (!taskId || !manageNumber) {
-    ElMessage.error('替换商品缺少关联任务或目标商品管理编号')
+  if (!manageNumber) {
+    ElMessage.error('替换商品缺少目标商品管理编号')
     return
   }
   try {
@@ -148,9 +147,9 @@ async function confirmPendingReplacement(product: ProductItem) {
       },
     )
     operating.value = true
-    await api.confirmProductReplacement(taskId, result.value)
+    const replacement = await api.confirmPendingProductReplacement(product.id, result.value)
     ElMessage.success('替换任务已提交')
-    await pollPendingReplacement(taskId)
+    await pollPendingReplacement(replacement.task.id)
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '确认替换失败'))
