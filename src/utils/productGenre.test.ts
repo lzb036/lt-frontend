@@ -1,5 +1,10 @@
 import type { ProductItem } from '../types/crawler'
-import { hasValidProductGenre, invalidGenreProducts } from './productGenre'
+import {
+  canEditProductDetailGenre,
+  hasValidProductGenre,
+  invalidGenreProducts,
+  shouldShowProductDetailGenre,
+} from './productGenre'
 
 const validProduct = {
   id: 1,
@@ -26,4 +31,18 @@ if (hasValidProductGenre(invalidProduct)) {
 const invalid = invalidGenreProducts([validProduct, invalidProduct], [1, 2])
 if (invalid.length !== 1 || invalid[0]?.id !== 2) {
   throw new Error('expected selected invalid products only')
+}
+
+if (!shouldShowProductDetailGenre('approved')) {
+  throw new Error('expected approved product details to show genre')
+}
+
+if (canEditProductDetailGenre('approved')) {
+  throw new Error('expected approved product genre to be read-only')
+}
+
+for (const status of ['pending', 'listed', 'listed_master']) {
+  if (!shouldShowProductDetailGenre(status) || !canEditProductDetailGenre(status)) {
+    throw new Error(`expected ${status} product genre to remain editable`)
+  }
 }

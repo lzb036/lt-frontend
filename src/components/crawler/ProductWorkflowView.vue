@@ -7,7 +7,12 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
-import { hasValidProductGenre, invalidGenreProducts } from '../../utils/productGenre'
+import {
+  canEditProductDetailGenre,
+  hasValidProductGenre,
+  invalidGenreProducts,
+  shouldShowProductDetailGenre,
+} from '../../utils/productGenre'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
 import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
@@ -2716,11 +2721,11 @@ function sanitizedDescriptionHtml(value: string) {
             <div v-else class="detail-cover detail-cover-empty">无图</div>
             <div class="detail-main">
               <el-form label-position="top" class="detail-edit-form">
-                <el-form-item v-if="['pending', 'listed', 'listed_master'].includes(status) && detailGenreProduct" label="商品品类">
+                <el-form-item v-if="shouldShowProductDetailGenre(status) && detailGenreProduct" label="商品品类">
                   <PendingProductGenreSelect
                     :product="detailGenreProduct"
                     mode="draft"
-                    :disabled="detailSaving"
+                    :disabled="detailSaving || !canEditProductDetailGenre(status)"
                     @selected="selectDetailGenre"
                   />
                 </el-form-item>
