@@ -1423,6 +1423,44 @@ function listedStoreRealName(store: { storeId: number; storeName?: string; alias
   return current?.storeName || store.storeName || listedStoreLabel(store)
 }
 
+function listedStoreProductCode(store: ProductListedStore) {
+  return normalizeUrlPart(store.manageNumber || store.itemNumber)
+}
+
+function fallbackCopyText(text: string) {
+  const input = document.createElement('textarea')
+  input.value = text
+  input.setAttribute('readonly', 'true')
+  input.style.position = 'fixed'
+  input.style.left = '-9999px'
+  input.style.top = '0'
+  document.body.appendChild(input)
+  input.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(input)
+  if (!copied) {
+    throw new Error('copy failed')
+  }
+}
+
+async function copyListedStoreProductCode(store: ProductListedStore) {
+  const code = listedStoreProductCode(store)
+  if (!code) {
+    ElMessage.warning('该店铺商品没有可复制的编号')
+    return
+  }
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(code)
+    } else {
+      fallbackCopyText(code)
+    }
+    ElMessage.success(`已复制商品编号：${code}`)
+  } catch {
+    ElMessage.error('复制商品编号失败')
+  }
+}
+
 function normalizeUrlPart(value: unknown) {
   return String(value || '').trim().replace(/\s+/g, ' ')
 }
@@ -2496,10 +2534,26 @@ function sanitizedDescriptionHtml(value: string) {
               <el-tooltip
                 v-for="store in row.listedStores"
                 :key="`${row.id}-${store.storeId}`"
-                :content="listedStoreRealName(store)"
                 placement="top"
+                :enterable="true"
               >
-                <el-tag size="small" type="success">
+                <template #content>
+                  <div class="listed-store-tooltip">
+                    <strong>{{ listedStoreRealName(store) }}</strong>
+                    <span>商品管理编号：{{ store.manageNumber || '-' }}</span>
+                    <span>商品编号：{{ store.itemNumber || '-' }}</span>
+                    <span>点击店铺标签复制商品管理编号</span>
+                  </div>
+                </template>
+                <el-tag
+                  class="listed-store-copy-tag"
+                  size="small"
+                  type="success"
+                  tabindex="0"
+                  @click="copyListedStoreProductCode(store)"
+                  @keydown.enter.prevent="copyListedStoreProductCode(store)"
+                  @keydown.space.prevent="copyListedStoreProductCode(store)"
+                >
                   {{ listedStoreLabel(store) }}
                 </el-tag>
               </el-tooltip>
@@ -3153,6 +3207,17 @@ function sanitizedDescriptionHtml(value: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.listed-store-copy-tag {
+  cursor: pointer;
+}
+
+.listed-store-tooltip {
+  display: grid;
+  gap: 4px;
+  max-width: 420px;
+  word-break: break-all;
 }
 
 .listing-dialog-form {
