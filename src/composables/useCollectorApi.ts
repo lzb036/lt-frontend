@@ -1,6 +1,7 @@
 import type {
   AiTitleSettings,
   AiTitleSettingsPayload,
+  AiProviderOption,
   AuthSession,
   CrawlSource,
   CrawlSourcePayload,
@@ -342,6 +343,11 @@ export function useCollectorApi() {
   async function getAiTitleSettings() {
     const response = await apiClient.get<{ settings: AiTitleSettings }>('/crawler/settings/ai-title')
     return response.data.settings
+  }
+
+  async function getAiTitleProviders() {
+    const response = await apiClient.get<{ providers: AiProviderOption[] }>('/crawler/settings/ai-title/providers')
+    return response.data.providers
   }
 
   async function updateAiTitleSettings(payload: AiTitleSettingsPayload) {
@@ -785,6 +791,7 @@ export function useCollectorApi() {
     updateProductDetail,
     updateProductLocalDetail,
     getAiTitleSettings,
+    getAiTitleProviders,
     updateAiTitleSettings,
     testAiTitleSettings,
     listProductTitleVersions,

@@ -229,26 +229,32 @@ export interface ProductDetail extends ProductItem {
 }
 
 export interface AiTitleSettings {
-  enabled: boolean
+  provider: string
   apiBaseUrl: string
   apiKeyConfigured: boolean
   apiKeyMasked: string
   modelName: string
   titlePrompt: string
   subtitlePrompt: string
-  temperature: number
-  maxTokens: number
+  verified: boolean
+  verifiedAt?: string | null
+  lastError?: string | null
 }
 
 export interface AiTitleSettingsPayload {
-  enabled: boolean
+  provider: string
   apiBaseUrl: string
   apiKey: string
   modelName: string
   titlePrompt: string
   subtitlePrompt: string
-  temperature: number
-  maxTokens: number
+}
+
+export interface AiProviderOption {
+  value: string
+  label: string
+  apiBaseUrl: string
+  models: string[]
 }
 
 export interface ProductTitleVersion {
