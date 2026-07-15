@@ -15,12 +15,15 @@ interface CascaderLazyNode {
 const props = withDefaults(defineProps<{
   product: ProductItem
   disabled?: boolean
+  mode?: 'immediate' | 'draft'
 }>(), {
   disabled: false,
+  mode: 'immediate',
 })
 
 const emit = defineEmits<{
   updated: [product: ProductItem]
+  selected: [genre: RakutenGenreOption]
 }>()
 
 const api = useCollectorApi()
@@ -29,7 +32,7 @@ const searching = shallowRef(false)
 const searchGenreId = shallowRef('')
 const searchOptions = shallowRef<RakutenGenreOption[]>([])
 const selectedPath = shallowRef<string[]>([])
-const genreIdsByPath = new Map<string, string>()
+const genreOptionsByPath = new Map<string, RakutenGenreOption>()
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const currentSegments = computed(() => splitGenrePath(props.product.genrePathZh || props.product.genrePath))
@@ -61,7 +64,7 @@ async function loadGenreChildren(node: CascaderLazyNode, resolve: (nodes: Rakute
     const children = await api.listRakutenGenreChildren(parentPath)
     for (const child of children) {
       if (child.genreId) {
-        genreIdsByPath.set(child.genrePath, child.genreId)
+        genreOptionsByPath.set(child.genrePath, child)
       }
     }
     resolve(children)
@@ -73,11 +76,11 @@ async function loadGenreChildren(node: CascaderLazyNode, resolve: (nodes: Rakute
 
 async function selectCascaderGenre(paths: string[]) {
   const genrePath = paths.at(-1) || ''
-  const genreId = genreIdsByPath.get(genrePath) || ''
-  if (!genreId) {
+  const genre = genreOptionsByPath.get(genrePath)
+  if (!genre) {
     return
   }
-  await saveGenre(genreId)
+  await saveGenre(genre)
   selectedPath.value = []
 }
 
@@ -107,18 +110,26 @@ async function selectSearchGenre(genreId: string) {
   if (!genreId) {
     return
   }
-  await saveGenre(genreId)
+  const genre = searchOptions.value.find((option) => option.genreId === genreId)
+  if (!genre) {
+    return
+  }
+  await saveGenre(genre)
   searchGenreId.value = ''
   searchOptions.value = []
 }
 
-async function saveGenre(genreId: string) {
-  if (!genreId || genreId === props.product.genreId || saving.value) {
+async function saveGenre(genre: RakutenGenreOption) {
+  if (!genre.genreId || genre.genreId === props.product.genreId || saving.value) {
+    return
+  }
+  if (props.mode === 'draft') {
+    emit('selected', genre)
     return
   }
   saving.value = true
   try {
-    const updated = await api.updatePendingProductGenre(props.product.id, genreId)
+    const updated = await api.updatePendingProductGenre(props.product.id, genre.genreId)
     emit('updated', updated)
     ElMessage.success('品类已更新')
   } catch (error) {

@@ -5,7 +5,7 @@ import { Delete, Download, EditPen, Finished, MagicStick, Refresh, Search, Top, 
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
+import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { hasValidProductGenre, invalidGenreProducts } from '../../utils/productGenre'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
@@ -67,6 +67,9 @@ const detailForm = reactive({
   productId: null as number | null,
   title: '',
   tagline: '',
+  genreId: '',
+  genrePath: '',
+  genrePathZh: '',
   variants: [] as ProductVariantEditPayload[],
 })
 const replacingImageIndex = shallowRef<number | null>(null)
@@ -92,6 +95,17 @@ const listingDialogProductIds = shallowRef<number[]>([])
 const listingDialogTitle = shallowRef('上架商品')
 const titleOptimizationVisible = shallowRef(false)
 const titleOptimizationProduct = shallowRef<ProductItem | null>(null)
+const detailGenreProduct = computed<ProductItem | null>(() => {
+  if (!selectedProductDetail.value) {
+    return null
+  }
+  return {
+    ...selectedProductDetail.value,
+    genreId: detailForm.genreId,
+    genrePath: detailForm.genrePath,
+    genrePathZh: detailForm.genrePathZh,
+  }
+})
 
 function openTitleOptimization(product: ProductItem) {
   titleOptimizationProduct.value = product
@@ -1444,6 +1458,9 @@ function resetDetailForm() {
   detailForm.productId = null
   detailForm.title = ''
   detailForm.tagline = ''
+  detailForm.genreId = ''
+  detailForm.genrePath = ''
+  detailForm.genrePathZh = ''
   detailForm.variants = []
 }
 
@@ -1465,6 +1482,9 @@ function fillDetailForm(product: ProductDetail) {
   detailForm.productId = product.id
   detailForm.title = product.detail.title || product.title || ''
   detailForm.tagline = product.detail.tagline || ''
+  detailForm.genreId = product.genreId || ''
+  detailForm.genrePath = product.genrePath || ''
+  detailForm.genrePathZh = product.genrePathZh || ''
   detailForm.variants = product.detail.variants.map((variant) => ({
     variantId: variant.variantId,
     standardPrice: Number(variant.standardPrice || 0),
@@ -1493,6 +1513,12 @@ function detailSaveButtonText() {
   return props.status === 'listed' ? '同步修改' : '保存'
 }
 
+function selectDetailGenre(genre: RakutenGenreOption) {
+  detailForm.genreId = genre.genreId
+  detailForm.genrePath = genre.genrePath
+  detailForm.genrePathZh = genre.genrePathZh
+}
+
 async function submitDetailChange() {
   if (!detailForm.productId) {
     ElMessage.warning('请先打开商品详情')
@@ -1500,6 +1526,10 @@ async function submitDetailChange() {
   }
   if (!detailForm.title.trim()) {
     ElMessage.warning('商品标题不能为空')
+    return
+  }
+  if (props.status === 'pending' && (!/^\d{6}$/.test(detailForm.genreId) || !detailForm.genrePath)) {
+    ElMessage.warning('请先选择有效品类')
     return
   }
   const variants = detailForm.variants.map((variant) => ({
@@ -1525,6 +1555,7 @@ async function submitDetailChange() {
     const payload = {
       title: detailForm.title.trim(),
       tagline: detailForm.tagline.trim(),
+      genreId: props.status === 'pending' ? detailForm.genreId : undefined,
       variants,
       imageChanges,
     }
@@ -2538,6 +2569,14 @@ function sanitizedDescriptionHtml(value: string) {
             <div v-else class="detail-cover detail-cover-empty">无图</div>
             <div class="detail-main">
               <el-form label-position="top" class="detail-edit-form">
+                <el-form-item v-if="status === 'pending' && detailGenreProduct" label="商品品类">
+                  <PendingProductGenreSelect
+                    :product="detailGenreProduct"
+                    mode="draft"
+                    :disabled="detailSaving"
+                    @selected="selectDetailGenre"
+                  />
+                </el-form-item>
                 <el-form-item label="商品标题">
                   <el-input
                     v-model="detailForm.title"

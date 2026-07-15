@@ -201,6 +201,7 @@ export interface ProductVariantEditPayload {
 export interface ProductDetailEditPayload {
   title: string
   tagline: string
+  genreId?: string
   variants: ProductVariantEditPayload[]
   imageChanges?: {
     images: string[]
