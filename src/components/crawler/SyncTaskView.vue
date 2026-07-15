@@ -239,6 +239,9 @@ function taskTypeLabel(task: SyncTask) {
   if (task.taskType === 'product_delete') {
     return '批量删除'
   }
+  if (task.taskType === 'product_replace') {
+    return '商品替换'
+  }
   return '商品同步'
 }
 

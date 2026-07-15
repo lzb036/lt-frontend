@@ -1,5 +1,5 @@
 export type UserRole = 'superadmin' | 'operator'
-export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url'
+export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url' | 'product_replace'
 export type TaskStatus = 'preview_ready' | 'queued' | 'running' | 'success' | 'partial' | 'failed' | 'cancelled'
 export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'listed_master' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'

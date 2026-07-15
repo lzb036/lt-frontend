@@ -60,6 +60,7 @@ const sourceTypeOptions: Array<{ label: string; value: SourceType }> = [
 const sourceTypeLabels: Record<string, string> = {
   shop: '店铺采集',
   product_url: '单个商品采集',
+  product_replace: '商品替换采集',
   ranking: '排行榜采集',
   keyword: '关键词采集',
 }
@@ -595,6 +596,10 @@ function taskFinished(row: CrawlTask) {
   return row.status !== 'queued' && row.status !== 'running'
 }
 
+function taskRestartable(row: CrawlTask) {
+  return taskFinished(row) && row.sourceType !== 'product_replace'
+}
+
 function taskCancelable(row: CrawlTask) {
   return (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
 }
@@ -750,7 +755,7 @@ function statusType(row: CrawlTask) {
             >
               {{ taskWaitingCancel(row) ? '终止中' : '终止' }}
             </el-button>
-            <el-button v-if="taskFinished(row)" :icon="VideoPlay" link type="primary" @click="restartTask(row)">
+            <el-button v-if="taskRestartable(row)" :icon="VideoPlay" link type="primary" @click="restartTask(row)">
               重新采集
             </el-button>
             <el-button
