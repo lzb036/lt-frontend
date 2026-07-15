@@ -11,6 +11,7 @@ import {
   Finished,
   Fold,
   OfficeBuilding,
+  Reading,
   Refresh,
   Sell,
   Setting,
@@ -160,6 +161,12 @@ function toggleSidebarCollapsed() {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
+async function openOperatorManual() {
+  if (activePath.value !== '/help/operator-manual') {
+    await router.push('/help/operator-manual')
+  }
+}
+
 async function confirmLogout() {
   try {
     await ElMessageBox.confirm('确认退出当前账号？', '退出登录', {
@@ -244,6 +251,18 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
       </el-menu>
 
       <footer class="shell-sidebar-footer">
+        <button
+          type="button"
+          class="sidebar-action-button"
+          :class="{ 'is-active': activePath === '/help/operator-manual' }"
+          :aria-label="sidebarCollapsed ? '使用手册' : undefined"
+          @click="openOperatorManual"
+        >
+          <el-icon class="sidebar-action-icon">
+            <Reading />
+          </el-icon>
+          <span class="sidebar-action-label">使用手册</span>
+        </button>
         <button
           type="button"
           class="sidebar-action-button sidebar-logout-button"
@@ -520,6 +539,12 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   background: var(--panel-muted);
   color: var(--text-main);
   outline: none;
+}
+
+.sidebar-action-button.is-active {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .sidebar-logout-button {

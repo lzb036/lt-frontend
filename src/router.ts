@@ -6,6 +6,7 @@ import CollectionShopView from './components/crawler/CollectionShopView.vue'
 import CrawlTaskManager from './components/crawler/CrawlTaskManager.vue'
 import ListingTaskView from './components/crawler/ListingTaskView.vue'
 import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
+import OperatorManualView from './components/crawler/OperatorManualView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
 import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
@@ -43,6 +44,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },
       { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
+      { path: 'help/operator-manual', name: 'operator-manual', component: OperatorManualView, meta: { title: '使用手册' } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },
     ],
   },
