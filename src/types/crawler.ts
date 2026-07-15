@@ -151,6 +151,8 @@ export interface ProductItem {
   replacementTaskId?: string | null
   replacementTargetProductId?: number | null
   replacementTargetManageNumber?: string | null
+  replacementTargetStoreId?: number | null
+  replacementTargetStoreName?: string | null
   lastError?: string | null
   listedAt?: string | null
   createdAt?: string | null

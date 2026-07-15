@@ -124,6 +124,10 @@ async function handleProductReplacementCreated() {
   await refreshAll({ loadStores: false })
 }
 
+async function handleProductReplacementCompleted() {
+  await refreshAll({ loadStores: false })
+}
+
 async function confirmPendingReplacement(product: ProductItem) {
   const taskId = product.replacementTaskId
   const manageNumber = product.replacementTargetManageNumber || ''
@@ -2351,6 +2355,17 @@ function sanitizedDescriptionHtml(value: string) {
         <el-table-column :label="status === 'pending' ? '商品信息' : '图片'" :min-width="status === 'pending' ? 960 : 86">
           <template #default="{ row }">
             <div v-if="status === 'pending'" class="pending-product-content">
+              <div v-if="row.replacementTaskId" class="pending-replacement-marker">
+                <el-tag type="warning" effect="plain">
+                  替换商品
+                </el-tag>
+                <span>
+                  目标店铺：{{ row.replacementTargetStoreName || `店铺 ${row.replacementTargetStoreId || '-'}` }}
+                </span>
+                <span>
+                  商品管理编号：{{ row.replacementTargetManageNumber || '-' }}
+                </span>
+              </div>
               <div class="pending-inline-fields">
                 <PendingProductGenreSelect
                   :product="row"
@@ -2573,7 +2588,7 @@ function sanitizedDescriptionHtml(value: string) {
                 <el-button v-else :icon="Finished" link type="success" @click="approveProduct(row)">
                   审核通过
                 </el-button>
-                <el-button :icon="EditPen" link type="warning" @click="markError([row.id], row)">
+                <el-button v-if="!row.replacementTaskId" :icon="EditPen" link type="warning" @click="markError([row.id], row)">
                   标记异常
                 </el-button>
                 <el-button :icon="Delete" link type="danger" @click="removeProduct(row)">
@@ -2608,6 +2623,7 @@ function sanitizedDescriptionHtml(value: string) {
       v-model="replacementVisible"
       :product="replacementProduct"
       @created="handleProductReplacementCreated"
+      @completed="handleProductReplacementCompleted"
     />
 
     <el-dialog v-model="listingDialogVisible" :title="listingDialogTitle" width="520px" append-to-body>
@@ -3040,6 +3056,14 @@ function sanitizedDescriptionHtml(value: string) {
   gap: 12px;
   width: 100%;
   min-width: 0;
+}
+
+.pending-replacement-marker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  color: var(--text-muted);
 }
 
 .pending-image-card {

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, EditPen, Refresh, Search, Upload } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type {
@@ -32,14 +31,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   created: [product: ProductItem]
+  completed: [product: ProductItem]
 }>()
 
 const visible = defineModel<boolean>({ required: true })
 const api = useCollectorApi()
-const router = useRouter()
 const sourceUrl = shallowRef('')
 const collecting = shallowRef(false)
 const saving = shallowRef(false)
+const confirming = shallowRef(false)
 const imageOperating = shallowRef(false)
 const replacement = shallowRef<ProductReplacement | null>(null)
 const pendingDetail = shallowRef<ProductDetail | null>(null)
@@ -57,6 +57,7 @@ const draft = ref({
   genrePathZh: '',
   variants: [] as ProductVariantEditPayload[],
 })
+let pollTimer: ReturnType<typeof setTimeout> | null = null
 
 const beforeImages = computed(() => {
   const images = replacement.value?.before.detail?.images || replacement.value?.before.images || []
@@ -73,6 +74,13 @@ const changedFields = computed(() => ({
   images: imageSignature(beforeImages.value) !== imageSignature(currentImages.value),
 }))
 const changedCount = computed(() => Object.values(changedFields.value).filter(Boolean).length)
+const taskRunning = computed(() => ['queued', 'running'].includes(replacement.value?.task.status || ''))
+const targetManageNumber = computed(() =>
+  replacement.value?.pendingProduct?.replacementTargetManageNumber
+  || props.product?.rakutenManageNumber
+  || props.product?.itemNumber
+  || ''
+)
 const draftGenreProduct = computed<ProductItem | null>(() => {
   const pending = replacement.value?.pendingProduct
   if (!pending) {
@@ -91,6 +99,8 @@ watch(visible, (nextVisible) => {
     resetDialog()
   }
 })
+
+onBeforeUnmount(stopPolling)
 
 async function collectSourceProduct() {
   if (!props.product) {
@@ -375,9 +385,71 @@ async function saveDraft() {
   }
 }
 
-async function openPendingProducts() {
-  visible.value = false
-  await router.push({ name: 'pending-products' })
+async function confirmReplacement() {
+  if (!replacement.value || !(await saveDraft())) {
+    return
+  }
+  try {
+    const result = await ElMessageBox.prompt(
+      `确认后将直接替换目标店铺商品。请输入商品管理编号「${targetManageNumber.value}」确认。`,
+      '确认替换店铺商品',
+      {
+        confirmButtonText: '确认替换',
+        cancelButtonText: '取消',
+        type: 'warning',
+        inputPlaceholder: '输入目标商品管理编号',
+        inputValidator: (value) => value === targetManageNumber.value || '商品管理编号不正确',
+      },
+    )
+    confirming.value = true
+    replacement.value = await api.confirmProductReplacement(replacement.value.task.id, result.value)
+    ElMessage.success('替换任务已提交，请等待执行完成')
+    startPolling()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '确认替换失败'))
+    }
+  } finally {
+    confirming.value = false
+  }
+}
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setTimeout(pollReplacement, 1500)
+}
+
+async function pollReplacement() {
+  if (!replacement.value) {
+    return
+  }
+  try {
+    const next = await api.getProductReplacement(replacement.value.task.id)
+    replacement.value = next
+    if (next.task.status === 'success') {
+      const product = next.result?.product
+      if (product) {
+        emit('completed', product)
+      }
+      ElMessage.success('店铺商品替换完成')
+      visible.value = false
+      return
+    }
+    if (['failed', 'partial', 'cancelled'].includes(next.task.status)) {
+      ElMessage.error(next.task.errorDetail || next.task.message || '店铺商品替换失败')
+      return
+    }
+    startPolling()
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '查询替换任务失败'))
+  }
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = null
+  }
 }
 
 function normalizeImageExt(ext: string, imageBase64: string) {
@@ -394,6 +466,7 @@ function clearPreviewUrls() {
 }
 
 function resetDialog() {
+  stopPolling()
   clearPreviewUrls()
   sourceUrl.value = ''
   replacement.value = null
@@ -431,6 +504,13 @@ function resetDialog() {
       </div>
 
       <template v-else>
+        <el-alert
+          v-if="taskRunning"
+          :title="replacement.task.message || '正在执行商品替换'"
+          type="info"
+          show-icon
+          :closable="false"
+        />
         <div class="replacement-differences">
           <span class="replacement-difference-title">共 {{ changedCount }} 项变更</span>
           <el-tag
@@ -531,10 +611,10 @@ function resetDialog() {
     </div>
 
     <template #footer>
-      <el-button v-if="replacement" @click="visible = false">关闭</el-button>
-      <template v-if="replacement">
-        <el-button :loading="saving" @click="saveDraft">保存草稿</el-button>
-        <el-button type="primary" @click="openPendingProducts">前往待审核商品</el-button>
+      <el-button v-if="replacement" @click="visible = false">{{ taskRunning ? '关闭' : '取消' }}</el-button>
+      <template v-if="replacement && !taskRunning">
+        <el-button :loading="saving" @click="saveDraft">保存</el-button>
+        <el-button type="danger" :loading="confirming" @click="confirmReplacement">确认替换</el-button>
       </template>
     </template>
   </el-dialog>
