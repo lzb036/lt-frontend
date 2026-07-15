@@ -266,10 +266,6 @@ function differenceText(key: string) {
   >
     <div class="replacement-dialog">
       <div v-if="!replacement" class="replacement-source">
-        <div class="replacement-target">
-          <strong>{{ product?.title }}</strong>
-          <span>商品管理编号：{{ targetManageNumber }}</span>
-        </div>
         <el-input
           v-model="sourceUrl"
           placeholder="输入用于替换的乐天商品链接"
@@ -281,6 +277,7 @@ function differenceText(key: string) {
         <el-button type="primary" :icon="Refresh" :loading="collecting" @click="collectSourceProduct">
           开始采集
         </el-button>
+        <el-button @click="visible = false">取消</el-button>
       </div>
 
       <template v-else>
@@ -402,7 +399,7 @@ function differenceText(key: string) {
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">{{ taskRunning ? '关闭' : '取消' }}</el-button>
+      <el-button v-if="replacement" @click="visible = false">{{ taskRunning ? '关闭' : '取消' }}</el-button>
       <template v-if="replacement && !taskRunning">
         <el-button :loading="saving" @click="saveDraft()">保存草稿</el-button>
         <el-button type="danger" :loading="confirming" @click="confirmReplacement">确认替换</el-button>
@@ -422,14 +419,8 @@ function differenceText(key: string) {
 }
 
 .replacement-source {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-}
-
-.replacement-target {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 16px;
 }
 
