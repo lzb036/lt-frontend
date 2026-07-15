@@ -2262,6 +2262,11 @@ function sanitizedDescriptionHtml(value: string) {
           <template #default="{ row }">
             <div v-if="status === 'pending'" class="pending-product-content">
               <div class="pending-inline-fields">
+                <PendingProductGenreSelect
+                  :product="row"
+                  :disabled="isPendingInlineSaving(row)"
+                  @updated="mergeUpdatedProduct"
+                />
                 <el-input
                   class="pending-title-input"
                   :model-value="pendingInlineDraft(row).title"
@@ -2285,11 +2290,6 @@ function sanitizedDescriptionHtml(value: string) {
                   :disabled="isPendingInlineSaving(row)"
                   @update:model-value="setPendingInlineDraftField(row, 'tagline', $event)"
                   @blur="savePendingInlineText(row)"
-                />
-                <PendingProductGenreSelect
-                  :product="row"
-                  :disabled="isPendingInlineSaving(row)"
-                  @updated="mergeUpdatedProduct"
                 />
               </div>
               <div class="pending-image-editor">

@@ -5,12 +5,14 @@ const validProduct = {
   id: 1,
   genreId: '100001',
   genrePath: '一级>二级',
+  genrePathZh: '一级>二级',
 } as unknown as ProductItem
 
 const invalidProduct = {
   id: 2,
   genreId: '',
   genrePath: '',
+  genrePathZh: '',
 } as unknown as ProductItem
 
 if (!hasValidProductGenre(validProduct)) {

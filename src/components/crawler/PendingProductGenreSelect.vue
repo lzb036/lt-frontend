@@ -32,13 +32,13 @@ const selectedPath = shallowRef<string[]>([])
 const genreIdsByPath = new Map<string, string>()
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-const currentSegments = computed(() => splitGenrePath(props.product.genrePath))
+const currentSegments = computed(() => splitGenrePath(props.product.genrePathZh || props.product.genrePath))
 const currentLabel = computed(() => currentSegments.value.at(-1) || '请选择品类')
 const cascaderProps = {
   lazy: true,
   emitPath: true,
   value: 'genrePath',
-  label: 'label',
+  label: 'labelZh',
   leaf: 'leaf',
   lazyLoad: loadGenreChildren,
 }
@@ -176,13 +176,13 @@ async function saveGenre(genreId: string) {
           <el-option
             v-for="option in searchOptions"
             :key="option.genreId"
-            :label="option.genrePath"
+            :label="option.genrePathZh || option.genrePath"
             :value="option.genreId"
           >
             <div class="pending-product-genre-search-option">
               <div class="pending-product-genre-breadcrumb">
                 <template
-                  v-for="(segment, index) in splitGenrePath(option.genrePath)"
+                  v-for="(segment, index) in splitGenrePath(option.genrePathZh || option.genrePath)"
                   :key="`${option.genreId}-${index}`"
                 >
                   <span v-if="index > 0" class="pending-product-genre-separator">/</span>

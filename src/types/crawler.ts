@@ -146,6 +146,7 @@ export interface ProductItem {
   salesCount?: number | null
   genreId: string
   genrePath: string
+  genrePathZh: string
   reviewStatus: ReviewStatus
   lastError?: string | null
   listedAt?: string | null
@@ -168,10 +169,12 @@ export interface ProductListedStore {
 export interface RakutenGenreOption {
   genreId: string
   genrePath: string
+  genrePathZh: string
 }
 
 export interface RakutenGenreNode extends RakutenGenreOption {
   label: string
+  labelZh: string
   leaf: boolean
 }
 
