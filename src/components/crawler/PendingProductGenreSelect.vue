@@ -212,8 +212,9 @@ async function saveGenre(genreId: string) {
 <style scoped>
 .pending-product-genre {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) auto;
+  grid-template-columns: minmax(240px, 360px) auto;
   align-items: center;
+  justify-content: start;
   gap: 8px 12px;
   min-width: 0;
 }
@@ -308,6 +309,7 @@ async function saveGenre(genreId: string) {
 @media (max-width: 720px) {
   .pending-product-genre {
     grid-template-columns: 1fr;
+    justify-content: stretch;
   }
 
   :global(.pending-product-genre-popper.el-popover) {
