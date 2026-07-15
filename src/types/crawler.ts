@@ -28,6 +28,7 @@ export interface UserPermissions {
   manageProducts: boolean
   manageStores: boolean
   manageSettings: boolean
+  manageAi: boolean
 }
 
 export interface AuthSession {

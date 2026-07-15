@@ -46,6 +46,7 @@ const permissionOptions = [
   { label: '任务管理', value: 'crawler.manage' },
   { label: '商品管理', value: 'products.manage' },
   { label: '店铺管理', value: 'stores.manage' },
+  { label: 'AI 管理', value: 'ai.manage' },
 ]
 
 onMounted(() => {

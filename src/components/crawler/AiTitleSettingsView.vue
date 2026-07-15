@@ -83,14 +83,9 @@ async function testConnection() {
 
     <section class="work-panel">
       <el-form label-position="top">
-        <div class="form-grid">
-          <el-form-item label="功能状态">
-            <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
-          </el-form-item>
-          <el-form-item label="模型名称">
-            <el-input v-model="form.modelName" placeholder="例如 qwen-vl-max" />
-          </el-form-item>
-        </div>
+        <el-form-item label="模型名称">
+          <el-input v-model="form.modelName" placeholder="例如 qwen3-vl-plus" />
+        </el-form-item>
         <el-form-item label="OpenAI 兼容地址">
           <el-input v-model="form.apiBaseUrl" placeholder="https://.../compatible-mode/v1" />
         </el-form-item>
@@ -104,14 +99,6 @@ async function testConnection() {
             :placeholder="keyConfigured ? `已配置 ${keyMasked}，留空则不修改` : '请输入 API Key'"
           />
         </el-form-item>
-        <div class="form-grid">
-          <el-form-item label="温度">
-            <el-input-number v-model="form.temperature" :min="0" :max="2" :step="0.1" />
-          </el-form-item>
-          <el-form-item label="最大输出 Token">
-            <el-input-number v-model="form.maxTokens" :min="100" :max="10000" :step="100" />
-          </el-form-item>
-        </div>
         <el-form-item label="商品标题提示词">
           <el-input v-model="form.titlePrompt" type="textarea" :rows="8" maxlength="10000" show-word-limit />
         </el-form-item>
@@ -130,10 +117,8 @@ async function testConnection() {
 .page-head h1 { margin: 0; color: var(--text-main); font-size: 26px; font-weight: 800; }
 .head-actions { display: flex; gap: 10px; }
 .work-panel { border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); box-shadow: var(--shadow-sm); padding: 18px; }
-.form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 @media (max-width: 760px) {
   .page-head { align-items: stretch; flex-direction: column; }
   .head-actions { justify-content: flex-end; }
-  .form-grid { grid-template-columns: 1fr; gap: 0; }
 }
 </style>

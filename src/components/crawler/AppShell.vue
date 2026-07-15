@@ -119,6 +119,8 @@ const menuGroups = computed(() => {
       label: '用户管理',
       icon: UserFilled,
     })
+  }
+  if (hasPermission(props.session, 'ai.manage')) {
     groups.push({
       key: 'ai-management',
       label: 'AI 管理',

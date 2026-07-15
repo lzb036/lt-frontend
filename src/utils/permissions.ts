@@ -23,6 +23,7 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltHj/collectionShops', permission: 'crawler.manage' },
   { path: '/ltShop/GoodsUp', permission: 'stores.manage' },
   { path: '/system/user', superadminOnly: true },
+  { path: '/ai/title-optimization', permission: 'ai.manage' },
   { path: '/system/theme', permission: 'settings.manage' },
   { path: '/system/time', permission: 'settings.manage' },
 ]

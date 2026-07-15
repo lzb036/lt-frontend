@@ -57,6 +57,7 @@ const permissionOptions = [
   { label: '商品管理', value: 'products.manage' },
   { label: '店铺管理', value: 'stores.manage' },
   { label: '系统设置', value: 'settings.manage' },
+  { label: 'AI 管理', value: 'ai.manage' },
 ]
 
 const editForm = reactive({
