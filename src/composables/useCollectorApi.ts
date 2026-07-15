@@ -373,6 +373,10 @@ export function useCollectorApi() {
     return response.data.version
   }
 
+  async function deleteProductTitleVersion(productId: number, versionId: number) {
+    await apiClient.delete(`/crawler/products/${productId}/title-versions/${versionId}`)
+  }
+
   async function streamProductTitleVersion(
     productId: number,
     handlers: {
@@ -796,6 +800,7 @@ export function useCollectorApi() {
     testAiTitleSettings,
     listProductTitleVersions,
     saveProductTitleVersion,
+    deleteProductTitleVersion,
     streamProductTitleVersion,
     uploadProductImageDraft,
     uploadProductImageDraftBase64,

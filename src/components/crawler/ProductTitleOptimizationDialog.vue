@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, watch } from 'vue'
-import { MagicStick, Select } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { Delete, MagicStick, Select } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type { ProductItem, ProductTitleVersion } from '../../types/crawler'
@@ -13,6 +13,7 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const generating = shallowRef(false)
 const saving = shallowRef(false)
+const deletingVersionId = shallowRef<number | null>(null)
 const versions = shallowRef<ProductTitleVersion[]>([])
 const selectedVersionId = shallowRef<number | null>(null)
 const streamText = shallowRef('')
@@ -123,6 +124,34 @@ async function saveVersion() {
     saving.value = false
   }
 }
+
+async function deleteVersion(version: ProductTitleVersion) {
+  if (!props.product || version.isSelected) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除 ${sourceLabel(version)}「${version.title}」？删除后无法恢复。`,
+      '删除标题版本',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    deletingVersionId.value = version.id
+    await api.deleteProductTitleVersion(props.product.id, version.id)
+    if (selectedVersionId.value === version.id) {
+      selectedVersionId.value = null
+    }
+    await loadVersions()
+    ElMessage.success('标题版本已删除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '删除标题版本失败'))
+    }
+  } finally {
+    deletingVersionId.value = null
+  }
+}
 </script>
 
 <template>
@@ -152,6 +181,19 @@ async function saveVersion() {
                 <el-tag v-if="version.isSelected" size="small" type="success">当前使用</el-tag>
                 <span v-if="version.modelName">{{ version.modelName }}</span>
                 <span>{{ version.createdAt || '-' }}</span>
+                <el-tooltip :content="version.isSelected ? '当前使用的版本不能删除' : '删除该历史版本'">
+                  <el-button
+                    class="version-delete"
+                    :icon="Delete"
+                    link
+                    type="danger"
+                    :disabled="version.isSelected"
+                    :loading="deletingVersionId === version.id"
+                    @click.stop.prevent="deleteVersion(version)"
+                  >
+                    删除
+                  </el-button>
+                </el-tooltip>
               </div>
               <div class="title-fields">
                 <div><span>标题</span><p>{{ version.title }}</p></div>
@@ -178,8 +220,9 @@ async function saveVersion() {
 .version-row { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; cursor: pointer; }
 .version-row:has(.is-checked) { border-color: var(--accent); background: var(--panel-soft); }
 .version-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; color: var(--text-muted); font-size: 12px; }
+.version-delete { margin-left: auto; }
 .version-content { min-width: 0; display: grid; gap: 6px; }
-.title-fields { display: grid; gap: 10px; }
+.title-fields { display: grid; gap: 10px; color: var(--text-main); font-size: 14px; }
 .title-fields > div { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; }
 .title-fields span { color: var(--text-muted); }
 .title-fields p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
