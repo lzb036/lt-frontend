@@ -16,6 +16,7 @@ import type {
   ProductDetailEditPayload,
   ProductDetail,
   ProductItem,
+  ProductReplacement,
   RakutenGenreOption,
   RakutenGenreNode,
   ProductTitleVersion,
@@ -362,6 +363,45 @@ export function useCollectorApi() {
   async function updateProductLocalDetail(productId: number, payload: ProductDetailEditPayload) {
     const response = await apiClient.put<{ product: ProductDetail }>(`/crawler/products/${productId}/local-detail`, payload)
     return response.data.product
+  }
+
+  async function createProductReplacement(productId: number, sourceUrl: string) {
+    const response = await apiClient.post<ProductReplacement>(
+      `/crawler/store-products/${productId}/replacement`,
+      { sourceUrl },
+    )
+    return response.data
+  }
+
+  async function getProductReplacement(taskId: string) {
+    const response = await apiClient.get<ProductReplacement>(`/crawler/product-replacements/${taskId}`)
+    return response.data
+  }
+
+  async function updateProductReplacementDraft(
+    taskId: string,
+    payload: Partial<Pick<ProductReplacement['after'], 'title' | 'tagline' | 'genreId' | 'price' | 'images' | 'descriptions' | 'variants'>>,
+  ) {
+    const response = await apiClient.put<ProductReplacement>(
+      `/crawler/product-replacements/${taskId}/draft`,
+      payload,
+    )
+    return response.data
+  }
+
+  async function confirmProductReplacement(taskId: string, manageNumber: string) {
+    const response = await apiClient.post<ProductReplacement>(
+      `/crawler/product-replacements/${taskId}/confirm`,
+      { manageNumber },
+    )
+    return response.data
+  }
+
+  async function cancelProductReplacement(taskId: string) {
+    const response = await apiClient.post<ProductReplacement>(
+      `/crawler/product-replacements/${taskId}/cancel`,
+    )
+    return response.data
   }
 
   async function getAiTitleSettings() {
@@ -821,6 +861,11 @@ export function useCollectorApi() {
     updateProductPrice,
     updateProductDetail,
     updateProductLocalDetail,
+    createProductReplacement,
+    getProductReplacement,
+    updateProductReplacementDraft,
+    confirmProductReplacement,
+    cancelProductReplacement,
     getAiTitleSettings,
     getAiTitleProviders,
     updateAiTitleSettings,

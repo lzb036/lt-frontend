@@ -1,6 +1,6 @@
 export type UserRole = 'superadmin' | 'operator'
 export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url'
-export type TaskStatus = 'queued' | 'running' | 'success' | 'partial' | 'failed' | 'cancelled'
+export type TaskStatus = 'preview_ready' | 'queued' | 'running' | 'success' | 'partial' | 'failed' | 'cancelled'
 export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'listed_master' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
@@ -421,6 +421,40 @@ export interface SyncTask {
   finishedAt?: string | null
   createdAt?: string | null
   updatedAt?: string | null
+}
+
+export interface ProductReplacementDraft {
+  title: string
+  tagline: string
+  genreId: string
+  genrePath: string
+  genrePathZh: string
+  price?: number | null
+  images: string[]
+  descriptions: ProductDescription[]
+  variants: Record<string, Record<string, unknown>>
+  raw?: Record<string, unknown>
+}
+
+export interface ProductReplacementDifferenceItem {
+  changed: boolean
+  before?: unknown
+  after?: unknown
+  beforeCount?: number
+  afterCount?: number
+}
+
+export interface ProductReplacement {
+  task: SyncTask
+  targetProductId: number
+  sourceUrl: string
+  before: ProductDetail
+  after: ProductReplacementDraft
+  difference: Record<string, ProductReplacementDifferenceItem>
+  result?: {
+    product?: ProductDetail
+    recoveryRequired?: boolean
+  }
 }
 
 export interface RoleDefinition {

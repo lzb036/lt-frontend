@@ -12,6 +12,7 @@ import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/mei
 import CopyableTableText from './CopyableTableText.vue'
 import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
 import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
+import StoreProductReplacementDialog from './StoreProductReplacementDialog.vue'
 
 type PendingImageOperation =
   | { type: 'replace'; sourceUrl: string; file: File; previewUrl: string }
@@ -95,6 +96,8 @@ const listingDialogProductIds = shallowRef<number[]>([])
 const listingDialogTitle = shallowRef('上架商品')
 const titleOptimizationVisible = shallowRef(false)
 const titleOptimizationProduct = shallowRef<ProductItem | null>(null)
+const replacementVisible = shallowRef(false)
+const replacementProduct = shallowRef<ProductItem | null>(null)
 const detailGenreProduct = computed<ProductItem | null>(() => {
   if (!selectedProductDetail.value) {
     return null
@@ -110,6 +113,15 @@ const detailGenreProduct = computed<ProductItem | null>(() => {
 function openTitleOptimization(product: ProductItem) {
   titleOptimizationProduct.value = product
   titleOptimizationVisible.value = true
+}
+
+function openProductReplacement(product: ProductItem) {
+  replacementProduct.value = product
+  replacementVisible.value = true
+}
+
+function handleProductReplacementCompleted(product: ProductItem) {
+  mergeUpdatedProduct(product)
 }
 
 async function handleTitleOptimizationSaved() {
@@ -2462,6 +2474,16 @@ function sanitizedDescriptionHtml(value: string) {
               <el-button :icon="View" link type="primary" :disabled="isProductBusy(row)" @click="openProductDetail(row)">
                 查看详情
               </el-button>
+              <el-button
+                v-if="status === 'listed'"
+                :icon="Refresh"
+                link
+                type="warning"
+                :disabled="isProductBusy(row)"
+                @click="openProductReplacement(row)"
+              >
+                替换商品
+              </el-button>
               <template v-if="status === 'approved' || status === 'listed_master'">
                 <el-button
                   :icon="Upload"
@@ -2523,6 +2545,12 @@ function sanitizedDescriptionHtml(value: string) {
       v-model="titleOptimizationVisible"
       :product="titleOptimizationProduct"
       @saved="handleTitleOptimizationSaved"
+    />
+
+    <StoreProductReplacementDialog
+      v-model="replacementVisible"
+      :product="replacementProduct"
+      @completed="handleProductReplacementCompleted"
     />
 
     <el-dialog v-model="listingDialogVisible" :title="listingDialogTitle" width="520px" append-to-body>
