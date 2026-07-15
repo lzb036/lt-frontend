@@ -17,6 +17,7 @@ import type {
   ProductDetail,
   ProductItem,
   RakutenGenreOption,
+  RakutenGenreNode,
   ProductTitleVersion,
   ProductTitleVersionList,
   ProxyResourceUsage,
@@ -303,6 +304,13 @@ export function useCollectorApi() {
   async function searchRakutenGenres(keyword: string, limit = 30) {
     const response = await apiClient.get<{ genres: RakutenGenreOption[] }>('/crawler/products/genres', {
       params: { keyword, limit },
+    })
+    return response.data.genres
+  }
+
+  async function listRakutenGenreChildren(parentPath = '') {
+    const response = await apiClient.get<{ genres: RakutenGenreNode[] }>('/crawler/products/genres/children', {
+      params: { parentPath },
     })
     return response.data.genres
   }
@@ -806,6 +814,7 @@ export function useCollectorApi() {
     listProductsPage,
     updateProductStatus,
     searchRakutenGenres,
+    listRakutenGenreChildren,
     updatePendingProductGenre,
     deleteProducts,
     getProductDetail,

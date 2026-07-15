@@ -170,6 +170,11 @@ export interface RakutenGenreOption {
   genrePath: string
 }
 
+export interface RakutenGenreNode extends RakutenGenreOption {
+  label: string
+  leaf: boolean
+}
+
 export interface ProductVariant {
   variantId: string
   merchantDefinedSkuId: string
