@@ -1480,13 +1480,6 @@ function primaryProductPageUrl(product: ProductDetail) {
   return props.status === 'listed' ? currentStoreProductPageUrl(product) : sourceProductPageUrl(product)
 }
 
-function openStoreProductPage(url: string | number | object) {
-  const normalizedUrl = normalizeUrlPart(url)
-  if (normalizedUrl) {
-    window.open(normalizedUrl, '_blank', 'noopener')
-  }
-}
-
 function listingStatusCopy(product: ProductItem) {
   if (product.rakutenListingStatus === 'unlisted') {
     return { label: '未上架', type: 'info' as const }
@@ -1590,7 +1583,7 @@ async function submitDetailChange() {
     ElMessage.warning('商品标题不能为空')
     return
   }
-  if (['pending', 'listed'].includes(props.status) && (!/^\d{6}$/.test(detailForm.genreId) || !detailForm.genrePath)) {
+  if (['pending', 'listed', 'listed_master'].includes(props.status) && (!/^\d{6}$/.test(detailForm.genreId) || !detailForm.genrePath)) {
     ElMessage.warning('请先选择有效品类')
     return
   }
@@ -1617,7 +1610,7 @@ async function submitDetailChange() {
     const payload = {
       title: detailForm.title.trim(),
       tagline: detailForm.tagline.trim(),
-      genreId: ['pending', 'listed'].includes(props.status) ? detailForm.genreId : undefined,
+      genreId: ['pending', 'listed', 'listed_master'].includes(props.status) ? detailForm.genreId : undefined,
       variants,
       imageChanges,
     }
@@ -2669,7 +2662,7 @@ function sanitizedDescriptionHtml(value: string) {
             <div v-else class="detail-cover detail-cover-empty">无图</div>
             <div class="detail-main">
               <el-form label-position="top" class="detail-edit-form">
-                <el-form-item v-if="(status === 'pending' || status === 'listed') && detailGenreProduct" label="商品品类">
+                <el-form-item v-if="['pending', 'listed', 'listed_master'].includes(status) && detailGenreProduct" label="商品品类">
                   <PendingProductGenreSelect
                     :product="detailGenreProduct"
                     mode="draft"
@@ -2711,7 +2704,7 @@ function sanitizedDescriptionHtml(value: string) {
                 <span v-if="status === 'listed'">上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
                 <span v-if="status === 'listed'">更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
               </div>
-              <div class="detail-link-actions">
+              <div v-if="status !== 'listed_master'" class="detail-link-actions">
                 <el-button
                   v-if="primaryProductPageUrl(selectedProductDetail)"
                   :icon="View"
@@ -2724,39 +2717,6 @@ function sanitizedDescriptionHtml(value: string) {
                 >
                   {{ primaryProductPageLabel() }}
                 </el-button>
-                <template v-if="status === 'listed_master' && listedStorePageLinks(selectedProductDetail).length === 1">
-                  <el-button
-                    :icon="View"
-                    link
-                    type="success"
-                    tag="a"
-                    :href="listedStorePageLinks(selectedProductDetail)[0].url"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    打开店铺商品页
-                  </el-button>
-                </template>
-                <el-dropdown
-                  v-else-if="status === 'listed_master' && listedStorePageLinks(selectedProductDetail).length > 1"
-                  trigger="click"
-                  @command="openStoreProductPage"
-                >
-                  <el-button :icon="View" link type="success">
-                    打开店铺商品页
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item
-                        v-for="link in listedStorePageLinks(selectedProductDetail)"
-                        :key="link.url"
-                        :command="link.url"
-                      >
-                        {{ link.label }}
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
               </div>
             </div>
           </div>
