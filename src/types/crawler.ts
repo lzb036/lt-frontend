@@ -148,6 +148,9 @@ export interface ProductItem {
   genrePath: string
   genrePathZh: string
   reviewStatus: ReviewStatus
+  replacementTaskId?: string | null
+  replacementTargetProductId?: number | null
+  replacementTargetManageNumber?: string | null
   lastError?: string | null
   listedAt?: string | null
   createdAt?: string | null
@@ -451,6 +454,7 @@ export interface ProductReplacement {
   before: ProductDetail
   after: ProductReplacementDraft
   difference: Record<string, ProductReplacementDifferenceItem>
+  pendingProduct?: ProductItem | null
   result?: {
     product?: ProductDetail
     recoveryRequired?: boolean

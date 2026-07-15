@@ -120,8 +120,55 @@ function openProductReplacement(product: ProductItem) {
   replacementVisible.value = true
 }
 
-function handleProductReplacementCompleted(product: ProductItem) {
-  mergeUpdatedProduct(product)
+async function handleProductReplacementCreated() {
+  await refreshAll({ loadStores: false })
+}
+
+async function confirmPendingReplacement(product: ProductItem) {
+  const taskId = product.replacementTaskId
+  const manageNumber = product.replacementTargetManageNumber || ''
+  if (!taskId || !manageNumber) {
+    ElMessage.error('替换商品缺少关联任务或目标商品管理编号')
+    return
+  }
+  try {
+    const result = await ElMessageBox.prompt(
+      `确认后将用当前待审核商品替换目标店铺商品。请输入商品管理编号「${manageNumber}」确认。`,
+      '确认替换店铺商品',
+      {
+        confirmButtonText: '确认替换',
+        cancelButtonText: '取消',
+        type: 'warning',
+        inputPlaceholder: '输入目标商品管理编号',
+        inputValidator: (value) => value === manageNumber || '商品管理编号不正确',
+      },
+    )
+    operating.value = true
+    await api.confirmProductReplacement(taskId, result.value)
+    ElMessage.success('替换任务已提交')
+    await pollPendingReplacement(taskId)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '确认替换失败'))
+    }
+  } finally {
+    operating.value = false
+  }
+}
+
+async function pollPendingReplacement(taskId: string) {
+  for (;;) {
+    const replacement = await api.getProductReplacement(taskId)
+    if (replacement.task.status === 'success') {
+      ElMessage.success('店铺商品替换完成')
+      await refreshAll({ loadStores: false })
+      return
+    }
+    if (['failed', 'partial', 'cancelled'].includes(replacement.task.status)) {
+      throw new Error(replacement.task.errorDetail || replacement.task.message || '店铺商品替换失败')
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 1500))
+  }
 }
 
 async function handleTitleOptimizationSaved() {
@@ -2513,7 +2560,17 @@ function sanitizedDescriptionHtml(value: string) {
                 >
                   删除图片
                 </el-button>
-                <el-button :icon="Finished" link type="success" @click="approveProduct(row)">
+                <el-button
+                  v-if="row.replacementTaskId"
+                  :icon="Refresh"
+                  link
+                  type="danger"
+                  :disabled="operating"
+                  @click="confirmPendingReplacement(row)"
+                >
+                  确认替换
+                </el-button>
+                <el-button v-else :icon="Finished" link type="success" @click="approveProduct(row)">
                   审核通过
                 </el-button>
                 <el-button :icon="EditPen" link type="warning" @click="markError([row.id], row)">
@@ -2550,7 +2607,7 @@ function sanitizedDescriptionHtml(value: string) {
     <StoreProductReplacementDialog
       v-model="replacementVisible"
       :product="replacementProduct"
-      @completed="handleProductReplacementCompleted"
+      @created="handleProductReplacementCreated"
     />
 
     <el-dialog v-model="listingDialogVisible" :title="listingDialogTitle" width="520px" append-to-body>
