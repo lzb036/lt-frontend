@@ -1590,7 +1590,7 @@ async function submitDetailChange() {
     ElMessage.warning('商品标题不能为空')
     return
   }
-  if (props.status === 'pending' && (!/^\d{6}$/.test(detailForm.genreId) || !detailForm.genrePath)) {
+  if (['pending', 'listed'].includes(props.status) && (!/^\d{6}$/.test(detailForm.genreId) || !detailForm.genrePath)) {
     ElMessage.warning('请先选择有效品类')
     return
   }
@@ -1617,7 +1617,7 @@ async function submitDetailChange() {
     const payload = {
       title: detailForm.title.trim(),
       tagline: detailForm.tagline.trim(),
-      genreId: props.status === 'pending' ? detailForm.genreId : undefined,
+      genreId: ['pending', 'listed'].includes(props.status) ? detailForm.genreId : undefined,
       variants,
       imageChanges,
     }
@@ -2669,7 +2669,7 @@ function sanitizedDescriptionHtml(value: string) {
             <div v-else class="detail-cover detail-cover-empty">无图</div>
             <div class="detail-main">
               <el-form label-position="top" class="detail-edit-form">
-                <el-form-item v-if="status === 'pending' && detailGenreProduct" label="商品品类">
+                <el-form-item v-if="(status === 'pending' || status === 'listed') && detailGenreProduct" label="商品品类">
                   <PendingProductGenreSelect
                     :product="detailGenreProduct"
                     mode="draft"
