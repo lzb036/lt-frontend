@@ -293,6 +293,135 @@ export interface ProductTitleVersionList {
   versions: ProductTitleVersion[]
 }
 
+export type SalesAnalysisSyncStatus = 'idle' | 'queued' | 'running' | 'completed' | 'error'
+
+export type SalesAnalysisToolName =
+  | 'list_owned_stores'
+  | 'get_store_sales_overview'
+  | 'get_product_sales_ranking'
+  | 'get_product_sales_trend'
+  | 'compare_product_sales'
+  | 'get_sku_sales_breakdown'
+  | 'get_slow_moving_products'
+  | 'get_sales_adjustment_summary'
+
+export interface SalesAnalysisStore {
+  id: number
+  name: string
+  code: string
+  enabled: boolean
+}
+
+export interface SalesAnalysisStoreList {
+  stores: SalesAnalysisStore[]
+  dataUpdatedAt?: string | null
+}
+
+export interface SalesAnalysisSyncState {
+  id: string
+  storeId: number
+  status: SalesAnalysisSyncStatus
+  alreadyRunning: boolean
+  initialSyncCompleted: boolean
+  progressCurrent: number
+  progressTotal: number
+  lastSuccessfulSyncAt?: string | null
+  lastRemoteUpdatedAt?: string | null
+  lastError: string
+}
+
+export interface SalesAnalysisConversation {
+  id: number
+  title: string
+  storeScope: number[]
+  lastMessageAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface SalesAnalysisDateRange {
+  start: string
+  end: string
+}
+
+export interface SalesAnalysisToolResult {
+  store?: {
+    id: number
+    name: string
+  }
+  range?: SalesAnalysisDateRange
+  metric?: string
+  dataUpdatedAt?: string | null
+  unresolvedAdjustmentCount?: number
+  rows?: Array<Record<string, unknown>>
+  series?: Array<Record<string, unknown>>
+  comparison?: Record<string, unknown>
+  manageNumber?: string
+  grain?: 'day' | 'week' | 'month' | string
+  threshold?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export interface SalesAnalysisToolRecord {
+  toolName: SalesAnalysisToolName | string
+  label?: string
+  arguments: Record<string, unknown>
+  result: SalesAnalysisToolResult
+}
+
+export interface SalesAnalysisMessage {
+  id: number
+  conversationId: number
+  question: string
+  answer: string
+  toolName: string
+  toolArguments: Array<Record<string, unknown>>
+  resultSummary: SalesAnalysisToolRecord[]
+  modelName: string
+  storeScope: number[]
+  statisticsWindow: Partial<SalesAnalysisDateRange>
+  fallback?: boolean
+  historyTruncated?: boolean
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface SalesAnalysisMessagePage {
+  messages: SalesAnalysisMessage[]
+  total: number
+  page: number
+  pageSize: number
+  truncated: boolean
+}
+
+export type SalesAnalysisStreamEvent =
+  | { type: 'status'; message: string }
+  | {
+    type: 'tool_call'
+    toolName: SalesAnalysisToolName | string
+    label: string
+    arguments: Record<string, unknown>
+  }
+  | {
+    type: 'tool_result'
+    toolName: SalesAnalysisToolName | string
+    label: string
+    result: SalesAnalysisToolResult
+  }
+  | { type: 'delta'; content: string }
+  | { type: 'completed'; message: SalesAnalysisMessage }
+  | { type: 'error'; message: string }
+
+export interface SalesAnalysisStreamHandlers {
+  onEvent?: (event: SalesAnalysisStreamEvent) => void
+  onStatus?: (message: string) => void
+  onToolCall?: (event: Extract<SalesAnalysisStreamEvent, { type: 'tool_call' }>) => void
+  onToolResult?: (event: Extract<SalesAnalysisStreamEvent, { type: 'tool_result' }>) => void
+  onDelta?: (content: string) => void
+  onCompleted?: (message: SalesAnalysisMessage) => void
+  onError?: (message: string) => void
+}
+
 export interface StoreAccount {
   id: number
   ownerUsername: string

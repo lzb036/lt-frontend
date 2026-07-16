@@ -6,6 +6,7 @@ import {
   Aim,
   AlarmClock,
   Cpu,
+  DataAnalysis,
   Document,
   Expand,
   Finished,
@@ -127,6 +128,7 @@ const menuGroups = computed(() => {
       label: 'AI 管理',
       icon: Cpu,
       children: [
+        { path: '/ai/product-analysis', label: '商品分析', icon: DataAnalysis },
         { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
       ],
     })

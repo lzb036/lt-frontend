@@ -25,6 +25,14 @@ import type {
   ReviewStatus,
   RoleDefinition,
   RolePayload,
+  SalesAnalysisConversation,
+  SalesAnalysisMessage,
+  SalesAnalysisMessagePage,
+  SalesAnalysisStoreList,
+  SalesAnalysisStreamEvent,
+  SalesAnalysisStreamHandlers,
+  SalesAnalysisSyncState,
+  SalesAnalysisToolResult,
   ScheduleImportResult,
   ScheduledCrawl,
   ScheduledCrawlPayload,
@@ -57,6 +65,86 @@ function toPageResult<K extends string, T>(data: ApiPageResponse<K, T>, key: K):
     total: data.total,
     page: data.page,
     pageSize: data.pageSize,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function normalizeSalesAnalysisEvent(value: unknown): SalesAnalysisStreamEvent {
+  if (!isRecord(value) || typeof value.type !== 'string') {
+    throw new Error('销量分析事件格式无效')
+  }
+  if (value.type === 'status') {
+    return { type: 'status', message: String(value.message || '') }
+  }
+  if (value.type === 'tool_call') {
+    return {
+      type: 'tool_call',
+      toolName: String(value.toolName || ''),
+      label: String(value.label || value.toolName || '分析工具'),
+      arguments: isRecord(value.arguments) ? value.arguments : {},
+    }
+  }
+  if (value.type === 'tool_result') {
+    return {
+      type: 'tool_result',
+      toolName: String(value.toolName || ''),
+      label: String(value.label || value.toolName || '分析结果'),
+      result: isRecord(value.result) ? value.result as SalesAnalysisToolResult : {},
+    }
+  }
+  if (value.type === 'delta') {
+    return { type: 'delta', content: String(value.content || '') }
+  }
+  if (value.type === 'completed') {
+    if (!isRecord(value.message)) {
+      throw new Error('销量分析完成事件缺少消息数据')
+    }
+    return {
+      type: 'completed',
+      message: value.message as unknown as SalesAnalysisMessage,
+    }
+  }
+  if (value.type === 'error') {
+    return {
+      type: 'error',
+      message: String(value.message || '销量分析失败，请稍后重试。'),
+    }
+  }
+  throw new Error('销量分析事件类型无效')
+}
+
+function emitSalesAnalysisEvent(
+  handlers: SalesAnalysisStreamHandlers,
+  event: SalesAnalysisStreamEvent,
+) {
+  handlers.onEvent?.(event)
+  if (event.type === 'status') handlers.onStatus?.(event.message)
+  if (event.type === 'tool_call') handlers.onToolCall?.(event)
+  if (event.type === 'tool_result') handlers.onToolResult?.(event)
+  if (event.type === 'delta') handlers.onDelta?.(event.content)
+  if (event.type === 'completed') handlers.onCompleted?.(event.message)
+  if (event.type === 'error') handlers.onError?.(event.message)
+}
+
+function parseSalesAnalysisSseBlock(
+  block: string,
+  handlers: SalesAnalysisStreamHandlers,
+) {
+  const data = block
+    .split('\n')
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .join('\n')
+  if (!data) {
+    return
+  }
+  const event = normalizeSalesAnalysisEvent(JSON.parse(data))
+  emitSalesAnalysisEvent(handlers, event)
+  if (event.type === 'error') {
+    throw new Error(event.message)
   }
 }
 
@@ -447,6 +535,112 @@ export function useCollectorApi() {
 
   async function deleteProductTitleVersion(productId: number, versionId: number) {
     await apiClient.delete(`/crawler/products/${productId}/title-versions/${versionId}`)
+  }
+
+  async function listSalesAnalysisStores(): Promise<SalesAnalysisStoreList> {
+    const response = await apiClient.get<SalesAnalysisStoreList>('/crawler/sales-analysis/stores')
+    return response.data
+  }
+
+  async function getSalesAnalysisSyncState(storeId: number): Promise<SalesAnalysisSyncState> {
+    const response = await apiClient.get<{ syncState: SalesAnalysisSyncState }>(
+      '/crawler/sales-analysis/sync-state',
+      { params: { storeId } },
+    )
+    return response.data.syncState
+  }
+
+  async function queueSalesAnalysisSync(storeId: number): Promise<SalesAnalysisSyncState> {
+    const response = await apiClient.post<{ syncTask: SalesAnalysisSyncState }>(
+      '/crawler/sales-analysis/sync',
+      { storeId },
+    )
+    return response.data.syncTask
+  }
+
+  async function getSalesAnalysisSyncTask(taskId: string): Promise<SalesAnalysisSyncState> {
+    const response = await apiClient.get<{ syncTask: SalesAnalysisSyncState }>(
+      `/crawler/sales-analysis/sync/${encodeURIComponent(taskId)}`,
+    )
+    return response.data.syncTask
+  }
+
+  async function listSalesAnalysisConversations(): Promise<SalesAnalysisConversation[]> {
+    const response = await apiClient.get<{ conversations: SalesAnalysisConversation[] }>(
+      '/crawler/sales-analysis/conversations',
+    )
+    return response.data.conversations
+  }
+
+  async function createSalesAnalysisConversation(title = '新分析'): Promise<SalesAnalysisConversation> {
+    const response = await apiClient.post<{ conversation: SalesAnalysisConversation }>(
+      '/crawler/sales-analysis/conversations',
+      { title },
+    )
+    return response.data.conversation
+  }
+
+  async function deleteSalesAnalysisConversation(conversationId: number): Promise<void> {
+    await apiClient.delete<{ deleted: boolean }>(
+      `/crawler/sales-analysis/conversations/${conversationId}`,
+    )
+  }
+
+  async function listSalesAnalysisMessages(
+    conversationId: number,
+    page = 1,
+    limit = 50,
+  ): Promise<SalesAnalysisMessagePage> {
+    const response = await apiClient.get<SalesAnalysisMessagePage>(
+      `/crawler/sales-analysis/conversations/${conversationId}/messages`,
+      { params: { page, limit } },
+    )
+    return response.data
+  }
+
+  async function streamSalesAnalysisMessage(
+    conversationId: number,
+    message: string,
+    handlers: SalesAnalysisStreamHandlers,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const response = await fetch(
+      `${resolveApiBaseUrl()}/crawler/sales-analysis/conversations/${conversationId}/messages`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'text/event-stream',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+        signal,
+      },
+    )
+    if (!response.ok || !response.body) {
+      const payload = await response.json().catch(() => null)
+      throw new Error(payload?.detail || `销量分析请求失败（HTTP ${response.status}）`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+      buffer = buffer.replace(/\r\n/g, '\n')
+      const blocks = buffer.split('\n\n')
+      buffer = blocks.pop() || ''
+      for (const block of blocks) {
+        parseSalesAnalysisSseBlock(block, handlers)
+      }
+      if (done) {
+        break
+      }
+    }
+    if (buffer.trim()) {
+      parseSalesAnalysisSseBlock(buffer, handlers)
+    }
   }
 
   async function streamProductTitleVersion(
@@ -882,6 +1076,15 @@ export function useCollectorApi() {
     listProductTitleVersions,
     saveProductTitleVersion,
     deleteProductTitleVersion,
+    listSalesAnalysisStores,
+    getSalesAnalysisSyncState,
+    queueSalesAnalysisSync,
+    getSalesAnalysisSyncTask,
+    listSalesAnalysisConversations,
+    createSalesAnalysisConversation,
+    deleteSalesAnalysisConversation,
+    listSalesAnalysisMessages,
+    streamSalesAnalysisMessage,
     streamProductTitleVersion,
     uploadProductImageDraft,
     uploadProductImageDraftBase64,
