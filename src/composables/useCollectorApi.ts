@@ -61,10 +61,14 @@ export {
   recoverSalesAnalysisSyncStateAfterPollFailure,
   resolveSalesAnalysisConversationStoreId,
   resolveSalesAnalysisDefaultStoreId,
+  salesAnalysisConversationHasStoreScope,
   salesAnalysisConversationScopedStoreId,
+  salesAnalysisConversationStoreScopeUnavailable,
   salesAnalysisConversationStoreConflict,
   salesAnalysisQuestionLimit,
   salesAnalysisResultCompletenessWarning,
+  salesAnalysisSyncStateIsActive,
+  salesAnalysisSyncStateStaleMessage,
   salesAnalysisStoreRoutingSuffix,
 } from './salesAnalysisHelpers'
 

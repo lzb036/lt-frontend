@@ -19,6 +19,8 @@ import {
   recoverSalesAnalysisSyncStateAfterPollFailure,
   resolveSalesAnalysisConversationStoreId,
   resolveSalesAnalysisDefaultStoreId,
+  salesAnalysisSyncStateIsActive,
+  salesAnalysisSyncStateStaleMessage,
   salesAnalysisConversationStoreConflict,
   salesAnalysisQuestionLimit,
   salesAnalysisResultCompletenessWarning,
@@ -151,7 +153,7 @@ if (
     1,
   ) !== null
 ) {
-  throw new Error('expected unavailable scoped stores to require an explicit choice')
+  throw new Error('expected unavailable scoped stores to block the scoped conversation')
 }
 
 if (!salesAnalysisConversationStoreConflict(scopedConversation, ownedStores, 1)) {
@@ -160,6 +162,10 @@ if (!salesAnalysisConversationStoreConflict(scopedConversation, ownedStores, 1))
 
 if (salesAnalysisConversationStoreConflict(scopedConversation, ownedStores, 2)) {
   throw new Error('expected the scoped store selection to be accepted')
+}
+
+if (!salesAnalysisConversationStoreConflict({ ...scopedConversation, storeScope: [99] }, ownedStores, 1)) {
+  throw new Error('expected unavailable scoped stores to block sending in that conversation')
 }
 
 function message(id: number): SalesAnalysisMessage {
@@ -206,6 +212,34 @@ if (
   || failedSyncState.lastError !== '同步状态刷新失败'
 ) {
   throw new Error('expected poll failure recovery to clear stale active sync state')
+}
+
+const staleQueuedState: SalesAnalysisSyncState = {
+  id: 'sales-stale',
+  storeId: 1,
+  status: 'queued',
+  alreadyRunning: false,
+  initialSyncCompleted: true,
+  progressCurrent: 0,
+  progressTotal: 0,
+  lastError: '',
+}
+
+const staleRunningState: SalesAnalysisSyncState = {
+  ...staleQueuedState,
+  status: 'running',
+}
+
+if (salesAnalysisSyncStateIsActive(staleQueuedState) || salesAnalysisSyncStateIsActive(staleRunningState)) {
+  throw new Error('expected queued/running states with alreadyRunning false to be recoverable stale states')
+}
+
+if (!salesAnalysisSyncStateIsActive({ ...staleRunningState, alreadyRunning: true })) {
+  throw new Error('expected queued/running states with alreadyRunning true to remain active')
+}
+
+if (!salesAnalysisSyncStateStaleMessage(staleQueuedState).includes('立即更新')) {
+  throw new Error('expected stale sync states to explain that immediate update is recoverable')
 }
 
 const routingSuffix = salesAnalysisStoreRoutingSuffix(123)
@@ -299,4 +333,15 @@ for (const forbiddenMarkup of [
 
 if (!productSalesAnalysisViewSource.includes('立即更新')) {
   throw new Error('expected immediate sync action text to be exactly 立即更新')
+}
+
+for (const requiredSalesAmountCopy of [
+  '预估有效销售额',
+  'effectiveSalesAmountDefinition',
+  '不含优惠券、折扣、退款分摊和税费分摊',
+  '请新建会话后重新选择店铺',
+]) {
+  if (!productSalesAnalysisViewSource.includes(requiredSalesAmountCopy)) {
+    throw new Error(`expected final gate 2 sales analysis copy: ${requiredSalesAmountCopy}`)
+  }
 }

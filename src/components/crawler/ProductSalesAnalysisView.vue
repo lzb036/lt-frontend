@@ -31,10 +31,13 @@ import {
   recoverSalesAnalysisSyncStateAfterPollFailure,
   resolveSalesAnalysisConversationStoreId,
   resolveSalesAnalysisDefaultStoreId,
-  salesAnalysisConversationScopedStoreId,
+  salesAnalysisConversationHasStoreScope,
+  salesAnalysisConversationStoreScopeUnavailable,
   salesAnalysisConversationStoreConflict,
   salesAnalysisQuestionLimit,
   salesAnalysisResultCompletenessWarning,
+  salesAnalysisSyncStateIsActive,
+  salesAnalysisSyncStateStaleMessage,
   useCollectorApi,
 } from '../../composables/useCollectorApi'
 import type {
@@ -106,11 +109,11 @@ const RESULT_LABELS: Record<string, string> = {
   orderedUnits: '下单件数',
   effectiveUnits: '有效销量',
   grossSalesAmount: '下单金额',
-  effectiveSalesAmount: '有效销售额',
+  effectiveSalesAmount: '预估有效销售额',
   metricValue: '指标值',
   adjustmentRate: '调整比例',
   unitShare: '销量占比',
-  salesShare: '销售额占比',
+  salesShare: '预估有效销售额占比',
   listedAt: '上架日期',
   listedDays: '上架天数',
   adjustmentType: '调整类型',
@@ -135,20 +138,20 @@ const RESULT_COLUMNS: Record<string, ResultColumn[]> = {
     { key: 'orderedUnits', label: '下单件数', width: 100, kind: 'number' },
     { key: 'effectiveUnits', label: '有效销量', width: 100, kind: 'number' },
     { key: 'grossSalesAmount', label: '下单金额', width: 120, kind: 'money' },
-    { key: 'effectiveSalesAmount', label: '有效销售额', width: 130, kind: 'money' },
+    { key: 'effectiveSalesAmount', label: '预估有效销售额', width: 150, kind: 'money' },
   ],
   get_product_sales_trend: [
     { key: 'period', label: '统计周期', minWidth: 130 },
     { key: 'orderedUnits', label: '下单件数', width: 100, kind: 'number' },
     { key: 'effectiveUnits', label: '有效销量', width: 100, kind: 'number' },
-    { key: 'effectiveSalesAmount', label: '有效销售额', width: 130, kind: 'money' },
+    { key: 'effectiveSalesAmount', label: '预估有效销售额', width: 150, kind: 'money' },
   ],
   compare_product_sales: [
     { key: 'manageNumber', label: '商品管理编号', minWidth: 150 },
     { key: 'itemName', label: '商品名称', minWidth: 220 },
     { key: 'orderedUnits', label: '下单件数', width: 100, kind: 'number' },
     { key: 'effectiveUnits', label: '有效销量', width: 100, kind: 'number' },
-    { key: 'effectiveSalesAmount', label: '有效销售额', width: 130, kind: 'money' },
+    { key: 'effectiveSalesAmount', label: '预估有效销售额', width: 150, kind: 'money' },
     { key: 'adjustmentRate', label: '调整比例', width: 110, kind: 'percent' },
   ],
   get_sku_sales_breakdown: [
@@ -156,9 +159,9 @@ const RESULT_COLUMNS: Record<string, ResultColumn[]> = {
     { key: 'itemName', label: '商品名称', minWidth: 220 },
     { key: 'orderedUnits', label: '下单件数', width: 100, kind: 'number' },
     { key: 'effectiveUnits', label: '有效销量', width: 100, kind: 'number' },
-    { key: 'effectiveSalesAmount', label: '有效销售额', width: 130, kind: 'money' },
+    { key: 'effectiveSalesAmount', label: '预估有效销售额', width: 150, kind: 'money' },
     { key: 'unitShare', label: '销量占比', width: 110, kind: 'percent' },
-    { key: 'salesShare', label: '销售额占比', width: 120, kind: 'percent' },
+    { key: 'salesShare', label: '预估销售额占比', width: 130, kind: 'percent' },
   ],
   get_slow_moving_products: [
     { key: 'manageNumber', label: '商品管理编号', minWidth: 150 },
@@ -166,7 +169,7 @@ const RESULT_COLUMNS: Record<string, ResultColumn[]> = {
     { key: 'listedAt', label: '上架日期', width: 120 },
     { key: 'listedDays', label: '上架天数', width: 100, kind: 'number' },
     { key: 'effectiveUnits', label: '有效销量', width: 100, kind: 'number' },
-    { key: 'effectiveSalesAmount', label: '有效销售额', width: 130, kind: 'money' },
+    { key: 'effectiveSalesAmount', label: '预估有效销售额', width: 150, kind: 'money' },
   ],
   get_sales_adjustment_summary: [
     { key: 'adjustmentType', label: '调整类型', minWidth: 130 },
@@ -182,7 +185,7 @@ const OVERVIEW_METRICS = [
   { key: 'orderedUnits', label: '下单件数', kind: 'number' as const },
   { key: 'effectiveUnits', label: '有效销量', kind: 'number' as const },
   { key: 'grossSalesAmount', label: '下单金额', kind: 'money' as const },
-  { key: 'effectiveSalesAmount', label: '有效销售额', kind: 'money' as const },
+  { key: 'effectiveSalesAmount', label: '预估有效销售额', kind: 'money' as const },
   { key: 'canceledUnits', label: '取消件数', kind: 'number' as const },
   { key: 'refundedUnits', label: '退款件数', kind: 'number' as const },
   { key: 'returnedUnits', label: '退货件数', kind: 'number' as const },
@@ -197,6 +200,9 @@ const QUICK_QUESTIONS = [
 ]
 
 const HISTORY_PAGE_SIZE = 50
+const EFFECTIVE_SALES_AMOUNT_FALLBACK_DEFINITION = (
+  '预估有效销售额不含优惠券、折扣、退款分摊和税费分摊，仅用于商品分析参考。'
+)
 
 const api = useCollectorApi()
 const messageStreamRef = useTemplateRef<HTMLElement>('messageStream')
@@ -234,16 +240,11 @@ const selectedStore = computed(() => (
 const selectedConversation = computed(() => (
   conversations.value.find((conversation) => conversation.id === selectedConversationId.value) || null
 ))
-const selectedConversationScopedStoreId = computed(() => (
-  salesAnalysisConversationScopedStoreId(selectedConversation.value)
-))
-const selectedConversationScopedStore = computed(() => (
-  selectedConversationScopedStoreId.value
-    ? stores.value.find((store) => store.id === selectedConversationScopedStoreId.value) || null
-    : null
+const selectedConversationHasStoreScope = computed(() => (
+  salesAnalysisConversationHasStoreScope(selectedConversation.value)
 ))
 const selectedConversationStoreUnavailable = computed(() => (
-  Boolean(selectedConversationScopedStoreId.value && !selectedConversationScopedStore.value)
+  salesAnalysisConversationStoreScopeUnavailable(selectedConversation.value, stores.value)
 ))
 const currentConversationStoreConflict = computed(() => (
   salesAnalysisConversationStoreConflict(
@@ -258,11 +259,11 @@ const canSend = computed(() => Boolean(
   && selectedStore.value
   && composer.value.trim()
   && !streaming.value
+  && !selectedConversationStoreUnavailable.value
   && !currentConversationStoreConflict.value
 ))
-const syncIsActive = computed(() => (
-  syncState.value?.status === 'queued' || syncState.value?.status === 'running'
-))
+const syncIsActive = computed(() => salesAnalysisSyncStateIsActive(syncState.value))
+const syncStaleMessage = computed(() => salesAnalysisSyncStateStaleMessage(syncState.value))
 const syncProgress = computed(() => {
   const current = syncState.value?.progressCurrent || 0
   const total = syncState.value?.progressTotal || 0
@@ -271,6 +272,7 @@ const syncProgress = computed(() => {
 const syncStatusLabel = computed(() => {
   if (!selectedStoreId.value) return '请选择店铺'
   if (syncPollError.value) return '状态刷新失败'
+  if (syncStaleMessage.value) return '可重新更新'
   const status = syncState.value?.status
   if (status === 'queued') return '等待同步'
   if (status === 'running') return '同步中'
@@ -280,10 +282,11 @@ const syncStatusLabel = computed(() => {
 })
 const syncStatusType = computed(() => {
   if (syncPollError.value) return 'danger'
+  if (syncStaleMessage.value) return 'warning'
   const status = syncState.value?.status
   if (status === 'completed') return 'success'
   if (status === 'error') return 'danger'
-  if (status === 'queued' || status === 'running') return 'warning'
+  if (syncIsActive.value) return 'warning'
   return 'info'
 })
 const syncDisabledReason = computed(() => {
@@ -310,6 +313,7 @@ const displayedDataUpdatedAt = computed(() => (
 ))
 const hasOlderMessages = computed(() => messages.value.length < historyTotal.value)
 const visibleSyncError = computed(() => syncPollError.value || syncState.value?.lastError || '')
+const visibleSyncNotice = computed(() => syncStaleMessage.value)
 const activeToolRecords = computed<SalesAnalysisToolRecord[]>(() => (
   activeTurn.value?.tools
     .filter((tool): tool is ActiveTool & { result: SalesAnalysisToolResult } => Boolean(tool.result))
@@ -662,7 +666,7 @@ function applySyncState(state: SalesAnalysisSyncState) {
   syncPollError.value = ''
   syncState.value = state
   stopSyncPolling()
-  if (state.status === 'queued' || state.status === 'running') {
+  if (salesAnalysisSyncStateIsActive(state)) {
     syncPollTimer = window.setTimeout(() => {
       void pollSyncTask(state.id)
     }, 2000)
@@ -725,7 +729,7 @@ async function sendQuestion(questionValue?: string) {
     return
   }
   if (currentConversationStoreConflict.value) {
-    ElMessage.warning('该会话已绑定其他店铺，请切回会话店铺或新建会话。')
+    ElMessage.warning('该会话已绑定店铺上下文，请新建会话后重新选择店铺。')
     return
   }
   if (!question) {
@@ -971,6 +975,13 @@ function recordCompletenessWarning(result: SalesAnalysisToolResult) {
   return salesAnalysisResultCompletenessWarning(result)
 }
 
+function effectiveSalesAmountDefinition(result: SalesAnalysisToolResult) {
+  return String(
+    result.effectiveSalesAmountDefinition
+    || EFFECTIVE_SALES_AMOUNT_FALLBACK_DEFINITION,
+  )
+}
+
 function overviewMetrics(result: SalesAnalysisToolResult) {
   const row = result.rows?.[0] || {}
   return OVERVIEW_METRICS.map((metric) => ({
@@ -994,7 +1005,7 @@ function comparisonMetrics(result: SalesAnalysisToolResult) {
   return [
     { key: 'orderCount', label: '订单数环比', value: changes.orderCount },
     { key: 'effectiveUnits', label: '有效销量环比', value: changes.effectiveUnits },
-    { key: 'effectiveSalesAmount', label: '有效销售额环比', value: changes.effectiveSalesAmount },
+    { key: 'effectiveSalesAmount', label: '预估有效销售额环比', value: changes.effectiveSalesAmount },
   ]
 }
 
@@ -1093,7 +1104,7 @@ function adjustmentStatusLabel(value: unknown) {
             :loading="storesLoading"
             filterable
             placeholder="选择自有店铺"
-            :disabled="streaming"
+            :disabled="streaming || selectedConversationHasStoreScope"
           >
             <el-option
               v-for="store in stores"
@@ -1164,16 +1175,16 @@ function adjustmentStatusLabel(value: unknown) {
     <el-alert
       v-if="selectedConversationStoreUnavailable"
       class="store-disabled-alert"
-      title="该会话原绑定店铺当前不可选，请明确选择要分析的店铺后再发送。"
+      title="该会话原绑定店铺当前不可用。会话店铺范围不可更改，请新建会话后重新选择店铺。"
       type="warning"
       :closable="false"
       show-icon
     />
 
     <el-alert
-      v-if="currentConversationStoreConflict"
+      v-if="currentConversationStoreConflict && !selectedConversationStoreUnavailable"
       class="store-disabled-alert"
-      title="该会话已有店铺上下文，请切回会话店铺或新建会话，避免跨店铺混用历史。"
+      title="该会话已有店铺上下文，不能选择其他店铺，请新建会话后重新选择店铺。"
       type="warning"
       :closable="false"
       show-icon
@@ -1337,6 +1348,12 @@ function adjustmentStatusLabel(value: unknown) {
                   </span>
                   <span v-if="record.result.dataUpdatedAt">
                     数据更新：{{ formatDateTime(record.result.dataUpdatedAt) }}
+                  </span>
+                  <span>
+                    预估有效销售额口径：{{ effectiveSalesAmountDefinition(record.result) }}
+                  </span>
+                  <span>
+                    说明：预估有效销售额不含优惠券、折扣、退款分摊和税费分摊。
                   </span>
                 </div>
                 <el-alert
@@ -1520,6 +1537,12 @@ function adjustmentStatusLabel(value: unknown) {
                   </span>
                   <span v-if="record.result.dataUpdatedAt">
                     数据更新：{{ formatDateTime(record.result.dataUpdatedAt) }}
+                  </span>
+                  <span>
+                    预估有效销售额口径：{{ effectiveSalesAmountDefinition(record.result) }}
+                  </span>
+                  <span>
+                    说明：预估有效销售额不含优惠券、折扣、退款分摊和税费分摊。
                   </span>
                 </div>
                 <el-alert
@@ -1712,6 +1735,13 @@ function adjustmentStatusLabel(value: unknown) {
           <el-alert
             v-if="syncState && !syncState.initialSyncCompleted && !syncIsActive"
             title="该店铺尚未完成首次销量同步。"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+          <el-alert
+            v-if="visibleSyncNotice"
+            :title="visibleSyncNotice"
             type="warning"
             :closable="false"
             show-icon

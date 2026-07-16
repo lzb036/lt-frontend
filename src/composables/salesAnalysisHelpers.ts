@@ -3,6 +3,7 @@ import type {
   SalesAnalysisMessage,
   SalesAnalysisStore,
   SalesAnalysisStreamEvent,
+  SalesAnalysisSyncState,
   SalesAnalysisToolResult,
 } from '../types/crawler'
 
@@ -75,6 +76,23 @@ export function salesAnalysisConversationScopedStoreId(
     : null
 }
 
+export function salesAnalysisConversationHasStoreScope(
+  conversation: Pick<SalesAnalysisConversation, 'storeScope'> | null | undefined,
+) {
+  return Boolean(conversation?.storeScope && conversation.storeScope.length > 0)
+}
+
+export function salesAnalysisConversationStoreScopeUnavailable(
+  conversation: Pick<SalesAnalysisConversation, 'storeScope'> | null | undefined,
+  stores: readonly SalesAnalysisStore[],
+) {
+  if (!salesAnalysisConversationHasStoreScope(conversation)) {
+    return false
+  }
+  const scopedStoreId = salesAnalysisConversationScopedStoreId(conversation)
+  return scopedStoreId === null || !stores.some((store) => store.id === scopedStoreId)
+}
+
 export function resolveSalesAnalysisConversationStoreId(
   conversation: Pick<SalesAnalysisConversation, 'storeScope'> | null | undefined,
   stores: readonly SalesAnalysisStore[],
@@ -95,12 +113,14 @@ export function salesAnalysisConversationStoreConflict(
   stores: readonly SalesAnalysisStore[],
   selectedStoreId: number | null,
 ) {
+  if (salesAnalysisConversationStoreScopeUnavailable(conversation, stores)) {
+    return true
+  }
   const scopedStoreId = salesAnalysisConversationScopedStoreId(conversation)
-  if (scopedStoreId === null || selectedStoreId === null) {
+  if (scopedStoreId === null) {
     return false
   }
-  const scopedStoreAvailable = stores.some((store) => store.id === scopedStoreId)
-  return scopedStoreAvailable && selectedStoreId !== scopedStoreId
+  return selectedStoreId !== scopedStoreId
 }
 
 export function mergeSalesAnalysisMessages(
@@ -131,6 +151,27 @@ export function recoverSalesAnalysisSyncStateAfterPollFailure<T extends {
     alreadyRunning: false,
     lastError: message,
   }
+}
+
+export function salesAnalysisSyncStateIsActive(
+  state: Pick<SalesAnalysisSyncState, 'alreadyRunning' | 'status'> | null | undefined,
+) {
+  return (
+    (state?.status === 'queued' || state?.status === 'running')
+    && state.alreadyRunning !== false
+  )
+}
+
+export function salesAnalysisSyncStateStaleMessage(
+  state: Pick<SalesAnalysisSyncState, 'alreadyRunning' | 'status'> | null | undefined,
+) {
+  if (
+    (state?.status === 'queued' || state?.status === 'running')
+    && state.alreadyRunning === false
+  ) {
+    return '上次同步状态已恢复为可重试，请点击立即更新重新提交。'
+  }
+  return ''
 }
 
 export function salesAnalysisStoreRoutingSuffix(storeId: number) {
