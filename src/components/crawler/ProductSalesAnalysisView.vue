@@ -24,7 +24,12 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { useCollectorApi } from '../../composables/useCollectorApi'
+import {
+  mergeSalesAnalysisMessages,
+  recoverSalesAnalysisSyncStateAfterPollFailure,
+  resolveSalesAnalysisDefaultStoreId,
+  useCollectorApi,
+} from '../../composables/useCollectorApi'
 import type {
   SalesAnalysisConversation,
   SalesAnalysisMessage,
@@ -199,6 +204,8 @@ const QUICK_QUESTIONS = [
   },
 ]
 
+const HISTORY_PAGE_SIZE = 50
+
 const api = useCollectorApi()
 const messageStreamRef = useTemplateRef<HTMLElement>('messageStream')
 
@@ -215,11 +222,16 @@ const conversationsLoading = shallowRef(false)
 const messages = shallowRef<SalesAnalysisMessage[]>([])
 const messagesLoading = shallowRef(false)
 const historyTruncated = shallowRef(false)
+const historyPage = shallowRef(1)
+const historyTotal = shallowRef(0)
+const historyLoadingOlder = shallowRef(false)
+const historyLoadError = shallowRef('')
 
 const composer = shallowRef('')
 const streaming = shallowRef(false)
 const activeTurn = shallowRef<ActiveTurn | null>(null)
 const streamController = shallowRef<AbortController | null>(null)
+const syncPollError = shallowRef('')
 
 let syncPollTimer: number | null = null
 let messageRequestId = 0
@@ -231,8 +243,7 @@ const selectedConversation = computed(() => (
   conversations.value.find((conversation) => conversation.id === selectedConversationId.value) || null
 ))
 const canSend = computed(() => Boolean(
-  selectedStore.value
-  && selectedConversation.value
+  selectedConversation.value
   && composer.value.trim()
   && !streaming.value,
 ))
@@ -245,6 +256,8 @@ const syncProgress = computed(() => {
   return total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0
 })
 const syncStatusLabel = computed(() => {
+  if (!selectedStoreId.value) return '请选择店铺'
+  if (syncPollError.value) return '状态刷新失败'
   const status = syncState.value?.status
   if (status === 'queued') return '等待同步'
   if (status === 'running') return '同步中'
@@ -253,6 +266,7 @@ const syncStatusLabel = computed(() => {
   return syncState.value?.initialSyncCompleted ? '已同步' : '尚未同步'
 })
 const syncStatusType = computed(() => {
+  if (syncPollError.value) return 'danger'
   const status = syncState.value?.status
   if (status === 'completed') return 'success'
   if (status === 'error') return 'danger'
@@ -260,11 +274,17 @@ const syncStatusType = computed(() => {
   return 'info'
 })
 const displayedDataUpdatedAt = computed(() => (
-  syncState.value?.lastRemoteUpdatedAt
-  || syncState.value?.lastSuccessfulSyncAt
-  || storeListUpdatedAt.value
-  || null
+  selectedStore.value
+    ? (
+      syncState.value?.lastRemoteUpdatedAt
+      || syncState.value?.lastSuccessfulSyncAt
+      || storeListUpdatedAt.value
+      || null
+    )
+    : null
 ))
+const hasOlderMessages = computed(() => messages.value.length < historyTotal.value)
+const visibleSyncError = computed(() => syncPollError.value || syncState.value?.lastError || '')
 const activeToolRecords = computed<SalesAnalysisToolRecord[]>(() => (
   activeTurn.value?.tools
     .filter((tool): tool is ActiveTool & { result: SalesAnalysisToolResult } => Boolean(tool.result))
@@ -292,6 +312,7 @@ onMounted(() => {
 watch(selectedStoreId, (storeId) => {
   stopSyncPolling()
   syncState.value = null
+  syncPollError.value = ''
   if (storeId) {
     void loadSyncState(storeId)
   }
@@ -318,13 +339,10 @@ async function loadStores() {
     const result = await api.listSalesAnalysisStores()
     stores.value = result.stores
     storeListUpdatedAt.value = result.dataUpdatedAt || null
-    if (!stores.value.some((store) => store.id === selectedStoreId.value)) {
-      selectedStoreId.value = (
-        stores.value.find((store) => store.enabled)?.id
-        || stores.value[0]?.id
-        || null
-      )
-    }
+    selectedStoreId.value = resolveSalesAnalysisDefaultStoreId(
+      stores.value,
+      selectedStoreId.value,
+    )
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载可分析店铺失败'))
   } finally {
@@ -369,7 +387,7 @@ async function createConversation() {
     conversations.value = [conversation, ...conversations.value]
     selectedConversationId.value = conversation.id
     messages.value = []
-    historyTruncated.value = false
+    resetHistoryState()
     activeTurn.value = null
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '新建分析会话失败'))
@@ -423,7 +441,7 @@ async function deleteConversation(conversation: SalesAnalysisConversation) {
       conversations.value = [created]
       selectedConversationId.value = created.id
       messages.value = []
-      historyTruncated.value = false
+      resetHistoryState()
     }
     ElMessage.success('分析会话已删除')
   } catch (error) {
@@ -435,14 +453,22 @@ async function deleteConversation(conversation: SalesAnalysisConversation) {
 
 async function loadMessages(conversationId: number): Promise<SalesAnalysisMessagePage | null> {
   const requestId = ++messageRequestId
+  messages.value = []
+  resetHistoryState()
   messagesLoading.value = true
   try {
-    const page = await api.listSalesAnalysisMessages(conversationId)
+    const page = await api.listSalesAnalysisMessages(
+      conversationId,
+      1,
+      HISTORY_PAGE_SIZE,
+    )
     if (requestId !== messageRequestId || conversationId !== selectedConversationId.value) {
       return null
     }
     messages.value = page.messages
     historyTruncated.value = page.truncated
+    historyPage.value = page.page
+    historyTotal.value = page.total
     await scrollMessagesToBottom()
     return page
   } catch (error) {
@@ -457,6 +483,77 @@ async function loadMessages(conversationId: number): Promise<SalesAnalysisMessag
   }
 }
 
+async function loadOlderMessages() {
+  const conversationId = selectedConversationId.value
+  if (
+    !conversationId
+    || historyLoadingOlder.value
+    || !hasOlderMessages.value
+  ) {
+    return
+  }
+  const element = messageStreamRef.value
+  const previousScrollHeight = element?.scrollHeight || 0
+  const previousScrollTop = element?.scrollTop || 0
+  historyLoadingOlder.value = true
+  historyLoadError.value = ''
+  try {
+    const page = await api.listSalesAnalysisMessages(
+      conversationId,
+      historyPage.value + 1,
+      HISTORY_PAGE_SIZE,
+    )
+    if (conversationId !== selectedConversationId.value) {
+      return
+    }
+    messages.value = mergeSalesAnalysisMessages(messages.value, page.messages)
+    historyPage.value = page.page
+    historyTotal.value = page.total
+    historyTruncated.value = historyTruncated.value || page.truncated
+    await nextTick()
+    if (element) {
+      element.scrollTop = previousScrollTop + Math.max(
+        0,
+        element.scrollHeight - previousScrollHeight,
+      )
+    }
+  } catch (error) {
+    historyLoadError.value = toApiErrorMessage(error, '加载更早记录失败')
+  } finally {
+    historyLoadingOlder.value = false
+  }
+}
+
+async function refreshLatestMessages(
+  conversationId: number,
+): Promise<SalesAnalysisMessagePage | null> {
+  try {
+    const page = await api.listSalesAnalysisMessages(
+      conversationId,
+      1,
+      HISTORY_PAGE_SIZE,
+    )
+    if (conversationId !== selectedConversationId.value) {
+      return null
+    }
+    messages.value = mergeSalesAnalysisMessages(messages.value, page.messages)
+    historyTotal.value = page.total
+    historyTruncated.value = historyTruncated.value || page.truncated
+    await scrollMessagesToBottom()
+    return page
+  } catch {
+    return null
+  }
+}
+
+function resetHistoryState() {
+  historyTruncated.value = false
+  historyPage.value = 1
+  historyTotal.value = 0
+  historyLoadError.value = ''
+  historyLoadingOlder.value = false
+}
+
 async function loadSyncState(storeId: number, silent = false) {
   if (!silent) {
     syncLoading.value = true
@@ -465,8 +562,14 @@ async function loadSyncState(storeId: number, silent = false) {
     const state = await api.getSalesAnalysisSyncState(storeId)
     applySyncState(state)
   } catch (error) {
+    const message = toApiErrorMessage(error, '销量同步状态刷新失败')
+    syncPollError.value = message
+    syncState.value = recoverSalesAnalysisSyncStateAfterPollFailure(
+      syncState.value,
+      message,
+    )
     if (!silent) {
-      ElMessage.error(toApiErrorMessage(error, '加载销量同步状态失败'))
+      ElMessage.error(message)
     }
   } finally {
     if (!silent) {
@@ -477,10 +580,15 @@ async function loadSyncState(storeId: number, silent = false) {
 
 async function queueSync() {
   const storeId = selectedStoreId.value
-  if (!storeId || syncIsActive.value) {
+  if (!storeId) {
+    ElMessage.warning('请先选择分析店铺')
+    return
+  }
+  if (syncIsActive.value) {
     return
   }
   syncLoading.value = true
+  syncPollError.value = ''
   try {
     const state = await api.queueSalesAnalysisSync(storeId)
     applySyncState(state)
@@ -497,6 +605,7 @@ function applySyncState(state: SalesAnalysisSyncState) {
     return
   }
   const previousStatus = syncState.value?.status
+  syncPollError.value = ''
   syncState.value = state
   stopSyncPolling()
   if (state.status === 'queued' || state.status === 'running') {
@@ -518,9 +627,25 @@ async function pollSyncTask(taskId: string) {
   try {
     const state = await api.getSalesAnalysisSyncTask(taskId)
     applySyncState(state)
-  } catch {
+  } catch (error) {
     stopSyncPolling()
+    const message = toApiErrorMessage(error, '同步状态刷新失败，请手动刷新')
+    syncPollError.value = message
+    syncState.value = recoverSalesAnalysisSyncStateAfterPollFailure(
+      syncState.value,
+      message,
+    )
   }
+}
+
+async function refreshSyncState() {
+  const storeId = selectedStoreId.value
+  if (!storeId) {
+    ElMessage.warning('请先选择分析店铺')
+    return
+  }
+  syncPollError.value = ''
+  await loadSyncState(storeId)
 }
 
 function stopSyncPolling() {
@@ -537,8 +662,16 @@ async function sendQuestion(questionValue?: string) {
   const question = (questionValue ?? composer.value).trim()
   const store = selectedStore.value
   const conversationId = selectedConversationId.value
-  if (!question || !store || !conversationId) {
-    ElMessage.warning('请选择店铺和分析会话，并填写问题')
+  if (!store) {
+    ElMessage.warning('请先选择分析店铺')
+    return
+  }
+  if (!conversationId) {
+    ElMessage.warning('请先选择分析会话')
+    return
+  }
+  if (!question) {
+    ElMessage.warning('请输入分析问题')
     return
   }
 
@@ -629,10 +762,12 @@ async function sendQuestion(questionValue?: string) {
 
     if (completedMessage) {
       const completed = completedMessage as SalesAnalysisMessage
-      messages.value = [
-        ...messages.value.filter((message) => message.id !== completed.id),
-        completed,
-      ]
+      const alreadyLoaded = messages.value.some((message) => message.id === completed.id)
+      messages.value = mergeSalesAnalysisMessages(messages.value, [completed])
+      historyTotal.value = Math.max(
+        messages.value.length,
+        historyTotal.value + (alreadyLoaded ? 0 : 1),
+      )
       activeTurn.value = null
       await scrollMessagesToBottom()
     } else {
@@ -658,7 +793,7 @@ async function refreshAfterInterruptedStream(
   conversationId: number,
   scopedQuestion: string,
 ) {
-  const page = await loadMessages(conversationId)
+  const page = await refreshLatestMessages(conversationId)
   const persisted = page?.messages.some((message) => message.question === scopedQuestion)
   if (persisted) {
     activeTurn.value = null
@@ -895,24 +1030,32 @@ function adjustmentStatusLabel(value: unknown) {
         <h1>商品分析</h1>
       </div>
       <div class="head-actions">
-        <el-select
-          v-model="selectedStoreId"
-          class="store-select"
-          :loading="storesLoading"
-          filterable
-          placeholder="选择自有店铺"
-          :disabled="streaming"
-        >
-          <el-option
-            v-for="store in stores"
-            :key="store.id"
-            :label="`${store.name}（${store.code}）`"
-            :value="store.id"
+        <div class="store-control">
+          <label class="control-label" for="sales-analysis-store">分析店铺</label>
+          <el-select
+            id="sales-analysis-store"
+            v-model="selectedStoreId"
+            class="store-select"
+            aria-label="分析店铺"
+            :loading="storesLoading"
+            filterable
+            placeholder="选择自有店铺"
+            :disabled="streaming"
           >
-            <span>{{ store.name }}</span>
-            <span class="store-option-code">{{ store.code }}</span>
-          </el-option>
-        </el-select>
+            <el-option
+              v-for="store in stores"
+              :key="store.id"
+              :label="`${store.name}（${store.code}）`"
+              :value="store.id"
+              :disabled="!store.enabled"
+            >
+              <span>{{ store.name }}</span>
+              <span class="store-option-code">
+                {{ store.enabled ? store.code : `${store.code} · 已停用` }}
+              </span>
+            </el-option>
+          </el-select>
+        </div>
         <el-tag :type="syncStatusType">
           {{ syncStatusLabel }}
         </el-tag>
@@ -920,7 +1063,7 @@ function adjustmentStatusLabel(value: unknown) {
           type="primary"
           :icon="Refresh"
           :loading="syncLoading"
-          :disabled="!selectedStoreId || syncIsActive"
+          :disabled="syncIsActive"
           @click="queueSync"
         >
           {{ syncIsActive ? '同步中' : '同步销量' }}
@@ -1011,6 +1154,39 @@ function adjustmentStatusLabel(value: unknown) {
           v-loading="messagesLoading"
           class="message-stream"
         >
+          <div
+            v-if="historyTotal > 0 || historyLoadError"
+            class="history-pagination"
+            aria-live="polite"
+          >
+            <el-button
+              v-if="hasOlderMessages && !historyLoadError"
+              size="small"
+              plain
+              aria-label="加载更早的分析记录"
+              :loading="historyLoadingOlder"
+              @click="loadOlderMessages"
+            >
+              加载更早记录
+            </el-button>
+            <span
+              v-else-if="!hasOlderMessages && historyTotal > 0"
+              class="history-end"
+            >
+              已加载全部 {{ historyTotal }} 条记录
+            </span>
+            <span v-if="historyLoadError" class="history-error">
+              {{ historyLoadError }}
+              <el-button
+                link
+                type="primary"
+                aria-label="重试加载更早的分析记录"
+                @click="loadOlderMessages"
+              >
+                重试
+              </el-button>
+            </span>
+          </div>
           <el-empty
             v-if="!messagesLoading && messages.length === 0 && !activeTurn"
             description="暂无分析记录"
@@ -1314,14 +1490,22 @@ function adjustmentStatusLabel(value: unknown) {
         </div>
 
         <footer class="composer">
+          <label
+            class="visually-hidden"
+            for="sales-analysis-question"
+          >
+            分析问题
+          </label>
           <el-input
+            id="sales-analysis-question"
             v-model="composer"
             type="textarea"
+            aria-label="分析问题"
             :rows="3"
             maxlength="100000"
             resize="none"
             placeholder="输入销量、销售额、排行、趋势或退款退货相关问题"
-            :disabled="!selectedConversation || !selectedStore"
+            :disabled="!selectedConversation"
           />
           <div class="composer-actions">
             <el-button
@@ -1348,9 +1532,21 @@ function adjustmentStatusLabel(value: unknown) {
 
       <aside class="context-pane">
         <section class="context-section">
-          <div class="context-title">
-            <el-icon><Shop /></el-icon>
-            <span>数据状态</span>
+          <div class="context-title context-title-actions">
+            <span>
+              <el-icon><Shop /></el-icon>
+              <span>数据状态</span>
+            </span>
+            <el-button
+              link
+              type="primary"
+              :icon="Refresh"
+              :loading="syncLoading"
+              aria-label="刷新销量同步状态"
+              @click="refreshSyncState"
+            >
+              刷新
+            </el-button>
           </div>
           <dl class="data-state-list">
             <div>
@@ -1385,8 +1581,8 @@ function adjustmentStatusLabel(value: unknown) {
             show-icon
           />
           <el-alert
-            v-if="syncState?.lastError"
-            :title="syncState.lastError"
+            v-if="visibleSyncError"
+            :title="visibleSyncError"
             type="error"
             :closable="false"
             show-icon
@@ -1403,7 +1599,7 @@ function adjustmentStatusLabel(value: unknown) {
             :key="item.label"
             type="button"
             class="quick-question"
-            :disabled="streaming || !selectedStore || !selectedConversation"
+            :disabled="streaming || !selectedConversation"
             @click="sendQuestion(item.question)"
           >
             <span>{{ item.label }}</span>
@@ -1458,6 +1654,17 @@ function adjustmentStatusLabel(value: unknown) {
   justify-content: flex-end;
   gap: 10px;
   min-width: 0;
+}
+
+.store-control {
+  display: grid;
+  gap: 4px;
+}
+
+.control-label {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .store-select {
@@ -1647,6 +1854,28 @@ function adjustmentStatusLabel(value: unknown) {
   overflow-y: auto;
   padding: 18px 20px 28px;
   scroll-behavior: smooth;
+}
+
+.history-pagination {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.history-end {
+  color: var(--text-faint);
+}
+
+.history-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--danger);
 }
 
 .message-group + .message-group {
@@ -1891,6 +2120,16 @@ function adjustmentStatusLabel(value: unknown) {
   padding: 12px 14px;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .composer-actions {
   display: flex;
   gap: 8px;
@@ -1908,6 +2147,18 @@ function adjustmentStatusLabel(value: unknown) {
 
 .context-section + .context-section {
   border-top: 1px solid var(--panel-border);
+}
+
+.context-title-actions {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.context-title-actions > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .data-state-list {
@@ -2047,6 +2298,10 @@ function adjustmentStatusLabel(value: unknown) {
   }
 
   .store-select {
+    width: 100%;
+  }
+
+  .store-control {
     width: 100%;
   }
 

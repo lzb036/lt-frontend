@@ -28,6 +28,7 @@ import type {
   SalesAnalysisConversation,
   SalesAnalysisMessage,
   SalesAnalysisMessagePage,
+  SalesAnalysisStore,
   SalesAnalysisStoreList,
   SalesAnalysisStreamEvent,
   SalesAnalysisStreamHandlers,
@@ -145,6 +146,43 @@ function parseSalesAnalysisSseBlock(
   emitSalesAnalysisEvent(handlers, event)
   if (event.type === 'error') {
     throw new Error(event.message)
+  }
+}
+
+export function resolveSalesAnalysisDefaultStoreId(
+  stores: readonly SalesAnalysisStore[],
+  currentStoreId: number | null,
+) {
+  const enabledStores = stores.filter((store) => store.enabled)
+  if (currentStoreId && enabledStores.some((store) => store.id === currentStoreId)) {
+    return currentStoreId
+  }
+  return enabledStores.length === 1 ? enabledStores[0]?.id || null : null
+}
+
+export function mergeSalesAnalysisMessages(
+  current: readonly SalesAnalysisMessage[],
+  incoming: readonly SalesAnalysisMessage[],
+) {
+  const byId = new Map<number, SalesAnalysisMessage>()
+  for (const message of [...current, ...incoming]) {
+    byId.set(message.id, message)
+  }
+  return [...byId.values()].sort((left, right) => left.id - right.id)
+}
+
+export function recoverSalesAnalysisSyncStateAfterPollFailure(
+  state: SalesAnalysisSyncState | null,
+  message: string,
+) {
+  if (!state) {
+    return null
+  }
+  return {
+    ...state,
+    status: 'error' as const,
+    alreadyRunning: false,
+    lastError: message,
   }
 }
 
