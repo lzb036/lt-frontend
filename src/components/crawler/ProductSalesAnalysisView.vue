@@ -25,9 +25,16 @@ import {
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
+  composeSalesAnalysisScopedMessage,
+  formatSalesAnalysisDateTime,
   mergeSalesAnalysisMessages,
   recoverSalesAnalysisSyncStateAfterPollFailure,
+  resolveSalesAnalysisConversationStoreId,
   resolveSalesAnalysisDefaultStoreId,
+  salesAnalysisConversationScopedStoreId,
+  salesAnalysisConversationStoreConflict,
+  salesAnalysisQuestionLimit,
+  salesAnalysisResultCompletenessWarning,
   useCollectorApi,
 } from '../../composables/useCollectorApi'
 import type {
@@ -182,26 +189,11 @@ const OVERVIEW_METRICS = [
 ]
 
 const QUICK_QUESTIONS = [
-  {
-    label: '近 30 天概览',
-    question: '请分析最近30天的订单数、有效销量和有效销售额，并与前30天对比。',
-  },
-  {
-    label: '销量前 10',
-    question: '请列出最近30天有效销量前10的商品，并说明销量集中度。',
-  },
-  {
-    label: '头部商品趋势',
-    question: '请找出最近30天有效销量前三的商品，并展示这些商品的每日销量趋势对比。',
-  },
-  {
-    label: '低销量商品',
-    question: '请列出已上架至少30天且最近30天有效销量不超过1件的商品。',
-  },
-  {
-    label: '退款退货影响',
-    question: '请汇总最近30天取消、退款和退货对有效销量与销售额的影响。',
-  },
+  '最近 30 天销量最高的 10 个商品',
+  '本月销量和上月相比怎么样',
+  '最近 30 天没有销量的上架商品',
+  '哪些商品退款退货最多',
+  '查看某个商品最近 90 天趋势',
 ]
 
 const HISTORY_PAGE_SIZE = 50
@@ -242,10 +234,31 @@ const selectedStore = computed(() => (
 const selectedConversation = computed(() => (
   conversations.value.find((conversation) => conversation.id === selectedConversationId.value) || null
 ))
+const selectedConversationScopedStoreId = computed(() => (
+  salesAnalysisConversationScopedStoreId(selectedConversation.value)
+))
+const selectedConversationScopedStore = computed(() => (
+  selectedConversationScopedStoreId.value
+    ? stores.value.find((store) => store.id === selectedConversationScopedStoreId.value) || null
+    : null
+))
+const selectedConversationStoreUnavailable = computed(() => (
+  Boolean(selectedConversationScopedStoreId.value && !selectedConversationScopedStore.value)
+))
+const currentConversationStoreConflict = computed(() => (
+  salesAnalysisConversationStoreConflict(
+    selectedConversation.value,
+    stores.value,
+    selectedStoreId.value,
+  )
+))
+const selectedStoreDisabled = computed(() => Boolean(selectedStore.value && !selectedStore.value.enabled))
 const canSend = computed(() => Boolean(
   selectedConversation.value
+  && selectedStore.value
   && composer.value.trim()
-  && !streaming.value,
+  && !streaming.value
+  && !currentConversationStoreConflict.value
 ))
 const syncIsActive = computed(() => (
   syncState.value?.status === 'queued' || syncState.value?.status === 'running'
@@ -273,6 +286,18 @@ const syncStatusType = computed(() => {
   if (status === 'queued' || status === 'running') return 'warning'
   return 'info'
 })
+const syncDisabledReason = computed(() => {
+  if (!selectedStore.value) return '请先选择分析店铺'
+  if (selectedStoreDisabled.value) return '店铺已停用，仍可查看历史销量分析，不能立即更新。'
+  if (syncIsActive.value) return '销量更新正在执行'
+  return ''
+})
+const canQueueSync = computed(() => Boolean(
+  selectedStore.value
+  && !selectedStoreDisabled.value
+  && !syncIsActive.value,
+))
+const composerMaxLength = computed(() => salesAnalysisQuestionLimit(selectedStoreId.value))
 const displayedDataUpdatedAt = computed(() => (
   selectedStore.value
     ? (
@@ -304,6 +329,16 @@ const unresolvedAdjustmentCount = computed(() => {
   )
   return Math.max(0, ...historyCounts, ...activeCounts)
 })
+const liveStatusText = computed(() => {
+  if (activeTurn.value?.error) {
+    return activeTurn.value.error
+  }
+  if (activeTurn.value?.status) {
+    return activeTurn.value.status
+  }
+  const latest = messages.value[messages.value.length - 1]
+  return latest ? `分析完成：${displayQuestion(latest.question)}` : ''
+})
 
 onMounted(() => {
   void initializePage()
@@ -327,10 +362,20 @@ onBeforeUnmount(() => {
 })
 
 async function initializePage() {
-  await Promise.all([
-    loadStores(),
-    loadInitialConversation(),
-  ])
+  await loadStores()
+  await loadInitialConversation()
+}
+
+function applySelectedConversationStoreScope(
+  conversation: SalesAnalysisConversation | null = selectedConversation.value,
+) {
+  selectedStoreId.value = conversation
+    ? resolveSalesAnalysisConversationStoreId(
+      conversation,
+      stores.value,
+      selectedStoreId.value,
+    )
+    : resolveSalesAnalysisDefaultStoreId(stores.value, selectedStoreId.value)
 }
 
 async function loadStores() {
@@ -339,10 +384,7 @@ async function loadStores() {
     const result = await api.listSalesAnalysisStores()
     stores.value = result.stores
     storeListUpdatedAt.value = result.dataUpdatedAt || null
-    selectedStoreId.value = resolveSalesAnalysisDefaultStoreId(
-      stores.value,
-      selectedStoreId.value,
-    )
+    applySelectedConversationStoreScope()
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载可分析店铺失败'))
   } finally {
@@ -360,6 +402,7 @@ async function loadInitialConversation() {
     }
     conversations.value = values
     selectedConversationId.value = values[0]?.id || null
+    applySelectedConversationStoreScope()
     if (selectedConversationId.value) {
       await loadMessages(selectedConversationId.value)
     }
@@ -373,6 +416,7 @@ async function loadInitialConversation() {
 async function refreshConversationList() {
   try {
     conversations.value = await api.listSalesAnalysisConversations()
+    applySelectedConversationStoreScope()
   } catch {
   }
 }
@@ -386,6 +430,7 @@ async function createConversation() {
     const conversation = await api.createSalesAnalysisConversation()
     conversations.value = [conversation, ...conversations.value]
     selectedConversationId.value = conversation.id
+    applySelectedConversationStoreScope(conversation)
     messages.value = []
     resetHistoryState()
     activeTurn.value = null
@@ -401,6 +446,9 @@ async function selectConversation(conversationId: number) {
     return
   }
   selectedConversationId.value = conversationId
+  applySelectedConversationStoreScope(
+    conversations.value.find((conversation) => conversation.id === conversationId) || null,
+  )
   activeTurn.value = null
   await loadMessages(conversationId)
 }
@@ -432,6 +480,7 @@ async function deleteConversation(conversation: SalesAnalysisConversation) {
       conversations.value = remaining
       if (selectedConversationId.value === conversation.id) {
         selectedConversationId.value = remaining[0]?.id || null
+        applySelectedConversationStoreScope()
         if (selectedConversationId.value) {
           await loadMessages(selectedConversationId.value)
         }
@@ -440,6 +489,7 @@ async function deleteConversation(conversation: SalesAnalysisConversation) {
       const created = await api.createSalesAnalysisConversation()
       conversations.value = [created]
       selectedConversationId.value = created.id
+      applySelectedConversationStoreScope(created)
       messages.value = []
       resetHistoryState()
     }
@@ -584,6 +634,10 @@ async function queueSync() {
     ElMessage.warning('请先选择分析店铺')
     return
   }
+  if (selectedStoreDisabled.value) {
+    ElMessage.warning('店铺已停用，仍可查看历史销量分析，不能立即更新。')
+    return
+  }
   if (syncIsActive.value) {
     return
   }
@@ -670,8 +724,19 @@ async function sendQuestion(questionValue?: string) {
     ElMessage.warning('请先选择分析会话')
     return
   }
+  if (currentConversationStoreConflict.value) {
+    ElMessage.warning('该会话已绑定其他店铺，请切回会话店铺或新建会话。')
+    return
+  }
   if (!question) {
     ElMessage.warning('请输入分析问题')
+    return
+  }
+  let scopedQuestion = ''
+  try {
+    scopedQuestion = composeSalesAnalysisScopedMessage(question, store.id)
+  } catch (error) {
+    ElMessage.warning(toApiErrorMessage(error, '分析问题超过系统限制，请缩短后再发送。'))
     return
   }
 
@@ -686,7 +751,6 @@ async function sendQuestion(questionValue?: string) {
   streaming.value = true
   const controller = new AbortController()
   streamController.value = controller
-  const scopedQuestion = `${question}\n\n店铺ID: ${store.id}`
   let completedMessage: SalesAnalysisMessage | null = null
   await scrollMessagesToBottom()
 
@@ -858,22 +922,7 @@ function conversationTime(conversation: SalesAnalysisConversation) {
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) {
-    return '暂无'
-  }
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-  return new Intl.DateTimeFormat('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(parsed)
+  return formatSalesAnalysisDateTime(value)
 }
 
 function toolLabel(record: SalesAnalysisToolRecord) {
@@ -916,6 +965,10 @@ function inferValueKind(key: string): ResultValueKind {
 
 function resultRows(record: SalesAnalysisToolRecord) {
   return record.result.rows || []
+}
+
+function recordCompletenessWarning(result: SalesAnalysisToolResult) {
+  return salesAnalysisResultCompletenessWarning(result)
 }
 
 function overviewMetrics(result: SalesAnalysisToolResult) {
@@ -1047,7 +1100,6 @@ function adjustmentStatusLabel(value: unknown) {
               :key="store.id"
               :label="`${store.name}（${store.code}）`"
               :value="store.id"
-              :disabled="!store.enabled"
             >
               <span>{{ store.name }}</span>
               <span class="store-option-code">
@@ -1059,16 +1111,33 @@ function adjustmentStatusLabel(value: unknown) {
         <el-tag :type="syncStatusType">
           {{ syncStatusLabel }}
         </el-tag>
-        <el-button
-          type="primary"
-          :icon="Refresh"
-          :loading="syncLoading"
-          :disabled="syncIsActive"
-          @click="queueSync"
+        <el-tooltip
+          :content="syncDisabledReason"
+          placement="bottom"
+          :disabled="!syncDisabledReason"
         >
-          {{ syncIsActive ? '同步中' : '同步销量' }}
-        </el-button>
+          <span class="sync-button-wrap">
+            <el-button
+              type="primary"
+              :icon="Refresh"
+              :loading="syncLoading"
+              :disabled="!canQueueSync"
+              @click="queueSync"
+            >
+              立即更新
+            </el-button>
+          </span>
+        </el-tooltip>
       </div>
+    </div>
+
+    <div
+      class="visually-hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {{ liveStatusText }}
     </div>
 
     <el-alert
@@ -1082,6 +1151,33 @@ function adjustmentStatusLabel(value: unknown) {
         存在 {{ unresolvedAdjustmentCount }} 笔退款或退货调整尚未明确归属，当前有效销量未扣减这些未确认调整。
       </template>
     </el-alert>
+
+    <el-alert
+      v-if="selectedStoreDisabled"
+      class="store-disabled-alert"
+      title="店铺已停用，仍可查看历史销量分析，不能立即更新。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
+
+    <el-alert
+      v-if="selectedConversationStoreUnavailable"
+      class="store-disabled-alert"
+      title="该会话原绑定店铺当前不可选，请明确选择要分析的店铺后再发送。"
+      type="warning"
+      :closable="false"
+      show-icon
+    />
+
+    <el-alert
+      v-if="currentConversationStoreConflict"
+      class="store-disabled-alert"
+      title="该会话已有店铺上下文，请切回会话店铺或新建会话，避免跨店铺混用历史。"
+      type="warning"
+      :closable="false"
+      show-icon
+    />
 
     <section class="analysis-workspace">
       <aside class="conversation-pane">
@@ -1153,6 +1249,7 @@ function adjustmentStatusLabel(value: unknown) {
           ref="messageStream"
           v-loading="messagesLoading"
           class="message-stream"
+          aria-live="polite"
         >
           <div
             v-if="historyTotal > 0 || historyLoadError"
@@ -1207,7 +1304,13 @@ function adjustmentStatusLabel(value: unknown) {
                 <span class="message-role">分析</span>
                 <span>{{ formatDateTime(message.updatedAt || message.createdAt) }}</span>
               </div>
-              <p class="assistant-answer">{{ displayAnswer(message.answer) }}</p>
+              <p
+                class="assistant-answer"
+                role="status"
+                aria-live="polite"
+              >
+                {{ displayAnswer(message.answer) }}
+              </p>
               <el-alert
                 v-if="message.fallback"
                 class="fallback-alert"
@@ -1243,6 +1346,14 @@ function adjustmentStatusLabel(value: unknown) {
                   :closable="false"
                   show-icon
                   :title="`有 ${record.result.unresolvedAdjustmentCount} 笔未归属调整未从有效销量中扣减。`"
+                />
+                <el-alert
+                  v-if="recordCompletenessWarning(record.result)"
+                  class="result-warning"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  :title="recordCompletenessWarning(record.result)"
                 />
 
                 <div
@@ -1341,20 +1452,37 @@ function adjustmentStatusLabel(value: unknown) {
             <div class="assistant-message">
               <div class="assistant-heading">
                 <span class="message-role">分析</span>
-                <span class="stream-status">{{ activeTurn.status }}</span>
+                <span
+                  class="stream-status"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {{ activeTurn.status }}
+                </span>
               </div>
-              <p v-if="activeTurn.answer" class="assistant-answer">
+              <p
+                v-if="activeTurn.answer"
+                class="assistant-answer"
+                role="status"
+                aria-live="polite"
+              >
                 {{ displayAnswer(activeTurn.answer) }}
               </p>
               <el-alert
                 v-if="activeTurn.error"
                 class="fallback-alert"
+                role="alert"
                 :title="activeTurn.error"
                 type="warning"
                 :closable="false"
                 show-icon
               />
-              <div v-if="activeTurn.tools.length > 0" class="tool-progress-list">
+              <div
+                v-if="activeTurn.tools.length > 0"
+                class="tool-progress-list"
+                role="status"
+                aria-live="polite"
+              >
                 <div
                   v-for="(tool, index) in activeTurn.tools"
                   :key="`${tool.toolName}-${index}`"
@@ -1401,6 +1529,14 @@ function adjustmentStatusLabel(value: unknown) {
                   :closable="false"
                   show-icon
                   :title="`有 ${record.result.unresolvedAdjustmentCount} 笔未归属调整未从有效销量中扣减。`"
+                />
+                <el-alert
+                  v-if="recordCompletenessWarning(record.result)"
+                  class="result-warning"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  :title="recordCompletenessWarning(record.result)"
                 />
                 <div
                   v-if="record.toolName === 'get_store_sales_overview'"
@@ -1502,7 +1638,7 @@ function adjustmentStatusLabel(value: unknown) {
             type="textarea"
             aria-label="分析问题"
             :rows="3"
-            maxlength="100000"
+            :maxlength="composerMaxLength"
             resize="none"
             placeholder="输入销量、销售额、排行、趋势或退款退货相关问题"
             :disabled="!selectedConversation"
@@ -1596,13 +1732,13 @@ function adjustmentStatusLabel(value: unknown) {
           </div>
           <button
             v-for="item in QUICK_QUESTIONS"
-            :key="item.label"
+            :key="item"
             type="button"
             class="quick-question"
             :disabled="streaming || !selectedConversation"
-            @click="sendQuestion(item.question)"
+            @click="sendQuestion(item)"
           >
-            <span>{{ item.label }}</span>
+            <span>{{ item }}</span>
             <el-icon><Promotion /></el-icon>
           </button>
         </section>
@@ -1678,8 +1814,16 @@ function adjustmentStatusLabel(value: unknown) {
   font-size: 12px;
 }
 
+.sync-button-wrap {
+  display: inline-flex;
+}
+
 .unresolved-alert {
   border: 1px solid color-mix(in srgb, var(--warning), transparent 55%);
+}
+
+.store-disabled-alert {
+  border: 1px solid var(--panel-border);
 }
 
 .analysis-workspace {

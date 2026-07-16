@@ -4,7 +4,7 @@ import {
   hasValidProductGenre,
   invalidGenreProducts,
   shouldShowProductDetailGenre,
-} from './productGenre'
+} from './productGenre.ts'
 
 const validProduct = {
   id: 1,

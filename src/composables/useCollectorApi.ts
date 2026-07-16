@@ -26,14 +26,11 @@ import type {
   RoleDefinition,
   RolePayload,
   SalesAnalysisConversation,
-  SalesAnalysisMessage,
   SalesAnalysisMessagePage,
-  SalesAnalysisStore,
   SalesAnalysisStoreList,
   SalesAnalysisStreamEvent,
   SalesAnalysisStreamHandlers,
   SalesAnalysisSyncState,
-  SalesAnalysisToolResult,
   ScheduleImportResult,
   ScheduledCrawl,
   ScheduledCrawlPayload,
@@ -53,6 +50,23 @@ import type {
   UserAccount,
 } from '../types/crawler'
 import { apiClient, resolveApiBaseUrl } from '../utils/api'
+import { normalizeSalesAnalysisEvent } from './salesAnalysisHelpers'
+
+export {
+  SALES_ANALYSIS_MESSAGE_MAX_LENGTH,
+  composeSalesAnalysisScopedMessage,
+  formatSalesAnalysisDateTime,
+  mergeSalesAnalysisMessages,
+  normalizeSalesAnalysisEvent,
+  recoverSalesAnalysisSyncStateAfterPollFailure,
+  resolveSalesAnalysisConversationStoreId,
+  resolveSalesAnalysisDefaultStoreId,
+  salesAnalysisConversationScopedStoreId,
+  salesAnalysisConversationStoreConflict,
+  salesAnalysisQuestionLimit,
+  salesAnalysisResultCompletenessWarning,
+  salesAnalysisStoreRoutingSuffix,
+} from './salesAnalysisHelpers'
 
 type ApiPageResponse<K extends string, T> = Record<K, T[]> & {
   total: number
@@ -67,54 +81,6 @@ function toPageResult<K extends string, T>(data: ApiPageResponse<K, T>, key: K):
     page: data.page,
     pageSize: data.pageSize,
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-export function normalizeSalesAnalysisEvent(value: unknown): SalesAnalysisStreamEvent {
-  if (!isRecord(value) || typeof value.type !== 'string') {
-    throw new Error('销量分析事件格式无效')
-  }
-  if (value.type === 'status') {
-    return { type: 'status', message: String(value.message || '') }
-  }
-  if (value.type === 'tool_call') {
-    return {
-      type: 'tool_call',
-      toolName: String(value.toolName || ''),
-      label: String(value.label || value.toolName || '分析工具'),
-      arguments: isRecord(value.arguments) ? value.arguments : {},
-    }
-  }
-  if (value.type === 'tool_result') {
-    return {
-      type: 'tool_result',
-      toolName: String(value.toolName || ''),
-      label: String(value.label || value.toolName || '分析结果'),
-      result: isRecord(value.result) ? value.result as SalesAnalysisToolResult : {},
-    }
-  }
-  if (value.type === 'delta') {
-    return { type: 'delta', content: String(value.content || '') }
-  }
-  if (value.type === 'completed') {
-    if (!isRecord(value.message)) {
-      throw new Error('销量分析完成事件缺少消息数据')
-    }
-    return {
-      type: 'completed',
-      message: value.message as unknown as SalesAnalysisMessage,
-    }
-  }
-  if (value.type === 'error') {
-    return {
-      type: 'error',
-      message: String(value.message || '销量分析失败，请稍后重试。'),
-    }
-  }
-  throw new Error('销量分析事件类型无效')
 }
 
 function emitSalesAnalysisEvent(
@@ -146,43 +112,6 @@ function parseSalesAnalysisSseBlock(
   emitSalesAnalysisEvent(handlers, event)
   if (event.type === 'error') {
     throw new Error(event.message)
-  }
-}
-
-export function resolveSalesAnalysisDefaultStoreId(
-  stores: readonly SalesAnalysisStore[],
-  currentStoreId: number | null,
-) {
-  const enabledStores = stores.filter((store) => store.enabled)
-  if (currentStoreId && enabledStores.some((store) => store.id === currentStoreId)) {
-    return currentStoreId
-  }
-  return enabledStores.length === 1 ? enabledStores[0]?.id || null : null
-}
-
-export function mergeSalesAnalysisMessages(
-  current: readonly SalesAnalysisMessage[],
-  incoming: readonly SalesAnalysisMessage[],
-) {
-  const byId = new Map<number, SalesAnalysisMessage>()
-  for (const message of [...current, ...incoming]) {
-    byId.set(message.id, message)
-  }
-  return [...byId.values()].sort((left, right) => left.id - right.id)
-}
-
-export function recoverSalesAnalysisSyncStateAfterPollFailure(
-  state: SalesAnalysisSyncState | null,
-  message: string,
-) {
-  if (!state) {
-    return null
-  }
-  return {
-    ...state,
-    status: 'error' as const,
-    alreadyRunning: false,
-    lastError: message,
   }
 }
 

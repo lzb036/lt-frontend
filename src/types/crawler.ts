@@ -310,6 +310,8 @@ export interface SalesAnalysisStore {
   name: string
   code: string
   enabled: boolean
+  initialSyncCompleted?: boolean
+  dataIncomplete?: boolean
 }
 
 export interface SalesAnalysisStoreList {
@@ -353,6 +355,9 @@ export interface SalesAnalysisToolResult {
   metric?: string
   dataUpdatedAt?: string | null
   unresolvedAdjustmentCount?: number
+  initialSyncCompleted?: boolean
+  dataIncomplete?: boolean
+  effectiveSalesAmountDefinition?: string
   rows?: Array<Record<string, unknown>>
   series?: Array<Record<string, unknown>>
   comparison?: Record<string, unknown>

@@ -1,4 +1,4 @@
-import { operatorManualSections, searchOperatorManualSections } from './operatorManual'
+import { operatorManualSections, searchOperatorManualSections } from './operatorManual.ts'
 
 if (operatorManualSections.length < 8) {
   throw new Error('expected the operator manual to cover all core workflows')
