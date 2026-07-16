@@ -3,6 +3,7 @@ dist/
 .env
 .env.local
 .env.*.local
+.superpowers/
 
 *.log
 npm-debug.log*
