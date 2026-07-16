@@ -161,7 +161,7 @@ const RESULT_COLUMNS: Record<string, ResultColumn[]> = {
     { key: 'effectiveUnits', label: '有效销量', width: 100, kind: 'number' },
     { key: 'effectiveSalesAmount', label: '预估有效销售额', width: 150, kind: 'money' },
     { key: 'unitShare', label: '销量占比', width: 110, kind: 'percent' },
-    { key: 'salesShare', label: '预估销售额占比', width: 130, kind: 'percent' },
+    { key: 'salesShare', label: '预估有效销售额占比', width: 150, kind: 'percent' },
   ],
   get_slow_moving_products: [
     { key: 'manageNumber', label: '商品管理编号', minWidth: 150 },

@@ -337,6 +337,7 @@ if (!productSalesAnalysisViewSource.includes('立即更新')) {
 
 for (const requiredSalesAmountCopy of [
   '预估有效销售额',
+  '预估有效销售额占比',
   'effectiveSalesAmountDefinition',
   '不含优惠券、折扣、退款分摊和税费分摊',
   '请新建会话后重新选择店铺',
