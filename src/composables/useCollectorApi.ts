@@ -563,11 +563,11 @@ export function useCollectorApi() {
     }
   }
 
-  async function retrySalesOrderSyncRun(runId: string): Promise<SalesOrderSyncRun> {
-    const response = await apiClient.post<{ run: SalesOrderSyncRun }>(
+  async function retrySalesOrderSyncRun(runId: string): Promise<SalesAnalysisSyncState> {
+    const response = await apiClient.post<{ syncTask: SalesAnalysisSyncState }>(
       `/crawler/sales-analysis/order-sync-runs/${encodeURIComponent(runId)}/retry`,
     )
-    return response.data.run
+    return response.data.syncTask
   }
 
   async function deleteSalesOrderSyncRuns(

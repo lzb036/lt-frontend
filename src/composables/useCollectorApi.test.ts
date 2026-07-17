@@ -82,7 +82,7 @@ const updateSalesOrderSyncGlobalSettings: (
 const listSalesOrderSyncRuns: (
   params: SalesOrderSyncRunListParams,
 ) => Promise<PageResult<SalesOrderSyncRun>> = api.listSalesOrderSyncRuns
-const retrySalesOrderSyncRun: (runId: string) => Promise<SalesOrderSyncRun> =
+const retrySalesOrderSyncRun: (runId: string) => Promise<SalesAnalysisSyncState> =
   api.retrySalesOrderSyncRun
 const deleteSalesOrderSyncRuns: (
   runIds: string[],
@@ -320,7 +320,18 @@ const historyApiAdapter: AxiosAdapter = async (config) => {
     method === 'post'
     && url === '/crawler/sales-analysis/order-sync-runs/sales-order-sync-1/retry'
   ) {
-    data = { run: { ...salesOrderSyncRun, id: 'sales-order-sync-2', triggerType: 'retry' } }
+    data = {
+      syncTask: {
+        id: 'sales-sync-7',
+        storeId: 7,
+        status: 'queued',
+        alreadyRunning: false,
+        initialSyncCompleted: false,
+        progressCurrent: 0,
+        progressTotal: 0,
+        lastError: '',
+      },
+    }
   } else if (method === 'delete' && url === '/crawler/sales-analysis/order-sync-runs') {
     data = { deletedCount: 1 }
   } else {
@@ -358,8 +369,8 @@ try {
   ) {
     throw new Error('expected sales order sync runs pagination to be normalized')
   }
-  if (retried.id !== 'sales-order-sync-2' || retried.triggerType !== 'retry') {
-    throw new Error('expected retried sales order sync run to be unwrapped')
+  if (retried.id !== 'sales-sync-7' || retried.status !== 'queued') {
+    throw new Error('expected retried sales order sync task to be unwrapped')
   }
   if (deleted.deletedCount !== 1) {
     throw new Error('expected sales order sync deletion result to be returned')
