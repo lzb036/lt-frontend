@@ -1,6 +1,9 @@
 import type {
+  AuthSession,
   SalesAnalysisSettings,
   SalesAnalysisSettingsPayload,
+  SalesOrderSyncGlobalSettings,
+  SalesOrderSyncGlobalSettingsPayload,
 } from '../types/crawler'
 
 export type SettingsDraftState = {
@@ -18,6 +21,17 @@ export type CatalogState<T> = {
   items: T[]
   loading: boolean
   error: string
+}
+
+export type SalesOrderSyncSettingsDraftState = {
+  draft: SalesOrderSyncGlobalSettingsPayload
+  defaults: SalesOrderSyncGlobalSettingsPayload
+  savedSnapshot: SalesOrderSyncGlobalSettingsPayload | null
+  loading: boolean
+  saving: boolean
+  error: string
+  isDirty: () => boolean
+  restoreDefaults: () => void
 }
 
 export function copySettingsPayload(
@@ -61,6 +75,36 @@ export function createCatalogState<T>(): CatalogState<T> {
     items: [],
     loading: false,
     error: '',
+  }
+}
+
+export function copySalesOrderSyncSettingsPayload(
+  settings: SalesOrderSyncGlobalSettingsPayload,
+): SalesOrderSyncGlobalSettingsPayload {
+  return {
+    enabled: settings.enabled,
+    intervalMinutes: settings.intervalMinutes,
+    successRetentionDays: settings.successRetentionDays,
+  }
+}
+
+export function createSalesOrderSyncSettingsDraftState(
+  defaults: SalesOrderSyncGlobalSettingsPayload,
+): SalesOrderSyncSettingsDraftState {
+  return {
+    draft: copySalesOrderSyncSettingsPayload(defaults),
+    defaults: copySalesOrderSyncSettingsPayload(defaults),
+    savedSnapshot: null,
+    loading: false,
+    saving: false,
+    error: '',
+    isDirty() {
+      return this.savedSnapshot !== null
+        && JSON.stringify(this.draft) !== JSON.stringify(this.savedSnapshot)
+    },
+    restoreDefaults() {
+      Object.assign(this.draft, this.defaults)
+    },
   }
 }
 
@@ -112,6 +156,58 @@ export async function saveSettingsDraftState(
   }
 }
 
+export function loadSalesOrderSyncSettingsDraftState(
+  state: SalesOrderSyncSettingsDraftState,
+  settingsOrRequest:
+    | SalesOrderSyncGlobalSettings
+    | Promise<SalesOrderSyncGlobalSettings>,
+): Promise<boolean> {
+  state.loading = true
+  state.error = ''
+  return Promise.resolve(settingsOrRequest)
+    .then((settings) => {
+      const snapshot = copySalesOrderSyncSettingsPayload(settings)
+      Object.assign(state.draft, snapshot)
+      state.savedSnapshot = snapshot
+      return true
+    })
+    .catch((error: unknown) => {
+      state.error = errorMessage(error)
+      return false
+    })
+    .finally(() => {
+      state.loading = false
+    })
+}
+
+export async function saveSalesOrderSyncSettingsDraftState(
+  state: SalesOrderSyncSettingsDraftState,
+  save: (
+    payload: SalesOrderSyncGlobalSettingsPayload,
+  ) => Promise<SalesOrderSyncGlobalSettings>,
+): Promise<boolean> {
+  state.saving = true
+  state.error = ''
+  const requestSnapshot = copySalesOrderSyncSettingsPayload(state.draft)
+  try {
+    const settings = await save(requestSnapshot)
+    const snapshot = copySalesOrderSyncSettingsPayload(settings)
+    const draftUnchanged = (
+      JSON.stringify(state.draft) === JSON.stringify(requestSnapshot)
+    )
+    if (draftUnchanged) {
+      Object.assign(state.draft, snapshot)
+    }
+    state.savedSnapshot = snapshot
+    return true
+  } catch (error) {
+    state.error = errorMessage(error)
+    return false
+  } finally {
+    state.saving = false
+  }
+}
+
 export async function loadCatalogState<T>(
   state: CatalogState<T>,
   load: () => Promise<T[]>,
@@ -131,6 +227,19 @@ export async function loadCatalogState<T>(
 
 export function shouldConfirmSettingsLeave(state: SettingsDraftState) {
   return state.isDirty()
+}
+
+export function shouldConfirmAnySettingsLeave(
+  personalState: SettingsDraftState,
+  globalState: SalesOrderSyncSettingsDraftState,
+) {
+  return personalState.isDirty() || globalState.isDirty()
+}
+
+export function canManageSalesOrderSyncSettings(
+  session: AuthSession | null | undefined,
+) {
+  return session?.role === 'superadmin'
 }
 
 function errorMessage(error: unknown) {

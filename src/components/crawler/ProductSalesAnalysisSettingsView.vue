@@ -7,17 +7,23 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import {
   createCatalogState,
+  createSalesOrderSyncSettingsDraftState,
   createSettingsDraftState,
+  canManageSalesOrderSyncSettings,
   loadCatalogState,
+  loadSalesOrderSyncSettingsDraftState,
   loadSettingsDraftState,
+  saveSalesOrderSyncSettingsDraftState,
   saveSettingsDraftState,
-  shouldConfirmSettingsLeave,
+  shouldConfirmAnySettingsLeave,
 } from '../../composables/salesAnalysisSettingsState'
 import { SALES_ANALYSIS_PREFERENCE_HELP } from '../../composables/salesAnalysisPreferenceHelp'
 import type {
+  AuthSession,
   SalesAnalysisCapability,
   SalesAnalysisConstraintSection,
   SalesAnalysisSettingsPayload,
+  SalesOrderSyncGlobalSettingsPayload,
 } from '../../types/crawler'
 import PreferenceHelpTooltip from './PreferenceHelpTooltip.vue'
 
@@ -33,19 +39,40 @@ const DEFAULT_SETTINGS: SalesAnalysisSettingsPayload = {
   customBusinessInstructions: '',
 }
 
+const DEFAULT_SALES_ORDER_SYNC_SETTINGS: SalesOrderSyncGlobalSettingsPayload = {
+  enabled: true,
+  intervalMinutes: 30,
+  successRetentionDays: 30,
+}
+
+const props = defineProps<{
+  session: AuthSession | null
+}>()
+
 const api = useCollectorApi()
 const activeTab = shallowRef('personal')
 const settingsState = reactive(createSettingsDraftState(DEFAULT_SETTINGS))
+const salesOrderSyncSettingsState = reactive(
+  createSalesOrderSyncSettingsDraftState(DEFAULT_SALES_ORDER_SYNC_SETTINGS),
+)
 const capabilityState = reactive(createCatalogState<SalesAnalysisCapability>())
 const constraintState = reactive(createCatalogState<SalesAnalysisConstraintSection>())
 const draft = settingsState.draft
+const salesOrderSyncDraft = salesOrderSyncSettingsState.draft
 const isDirty = computed(() => settingsState.isDirty())
+const salesOrderSyncIsDirty = computed(() => salesOrderSyncSettingsState.isDirty())
+const canManageSalesOrderSync = computed(() => (
+  canManageSalesOrderSyncSettings(props.session)
+))
 
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload)
   void loadPersonalSettings()
   void loadCapabilities()
   void loadConstraints()
+  if (canManageSalesOrderSync.value) {
+    void loadSalesOrderSyncSettings()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -53,7 +80,7 @@ onBeforeUnmount(() => {
 })
 
 onBeforeRouteLeave(async () => {
-  if (!shouldConfirmSettingsLeave(settingsState)) {
+  if (!shouldConfirmAnySettingsLeave(settingsState, salesOrderSyncSettingsState)) {
     return true
   }
   return confirmDiscardChanges()
@@ -85,6 +112,32 @@ function restoreDefaults() {
   settingsState.restoreDefaults()
 }
 
+async function loadSalesOrderSyncSettings() {
+  const loaded = await loadSalesOrderSyncSettingsDraftState(
+    salesOrderSyncSettingsState,
+    api.getSalesOrderSyncGlobalSettings(),
+  )
+  if (!loaded) {
+    ElMessage.error(salesOrderSyncSettingsState.error || '加载订单同步设置失败')
+  }
+}
+
+async function saveSalesOrderSyncSettings() {
+  const saved = await saveSalesOrderSyncSettingsDraftState(
+    salesOrderSyncSettingsState,
+    api.updateSalesOrderSyncGlobalSettings,
+  )
+  if (saved) {
+    ElMessage.success('订单同步设置已保存')
+  } else {
+    ElMessage.error(salesOrderSyncSettingsState.error || '保存订单同步设置失败')
+  }
+}
+
+function restoreSalesOrderSyncDefaults() {
+  salesOrderSyncSettingsState.restoreDefaults()
+}
+
 async function loadCapabilities() {
   await loadCatalogState(capabilityState, api.listSalesAnalysisCapabilities)
 }
@@ -94,7 +147,7 @@ async function loadConstraints() {
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (!shouldConfirmSettingsLeave(settingsState)) {
+  if (!shouldConfirmAnySettingsLeave(settingsState, salesOrderSyncSettingsState)) {
     return
   }
   event.preventDefault()
@@ -104,7 +157,7 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 async function confirmDiscardChanges() {
   try {
     await ElMessageBox.confirm(
-      '当前个人偏好尚未保存，离开后修改将丢失。',
+      '当前设置尚未保存，离开后修改将丢失。',
       '确认离开',
       {
         confirmButtonText: '放弃修改',
@@ -142,6 +195,29 @@ async function confirmDiscardChanges() {
           :loading="settingsState.saving"
           :disabled="settingsState.loading || !isDirty"
           @click="saveSettings"
+        >
+          保存设置
+        </el-button>
+      </div>
+      <div v-else-if="activeTab === 'order-sync' && canManageSalesOrderSync" class="head-actions">
+        <el-tag v-if="salesOrderSyncIsDirty" type="warning" effect="plain">有未保存修改</el-tag>
+        <el-button
+          :icon="RefreshLeft"
+          :disabled="
+            salesOrderSyncSettingsState.loading
+              || salesOrderSyncSettingsState.saving
+              || !salesOrderSyncSettingsState.savedSnapshot
+          "
+          @click="restoreSalesOrderSyncDefaults"
+        >
+          恢复默认
+        </el-button>
+        <el-button
+          type="primary"
+          :icon="Check"
+          :loading="salesOrderSyncSettingsState.saving"
+          :disabled="salesOrderSyncSettingsState.loading || !salesOrderSyncIsDirty"
+          @click="saveSalesOrderSyncSettings"
         >
           保存设置
         </el-button>
@@ -365,6 +441,67 @@ async function confirmDiscardChanges() {
           </el-form>
         </el-tab-pane>
 
+        <el-tab-pane
+          v-if="canManageSalesOrderSync"
+          label="订单同步设置"
+          name="order-sync"
+        >
+          <el-result
+            v-if="
+              salesOrderSyncSettingsState.error
+                && !salesOrderSyncSettingsState.savedSnapshot
+            "
+            icon="error"
+            title="订单同步设置加载失败"
+            :sub-title="salesOrderSyncSettingsState.error"
+          >
+            <template #extra>
+              <el-button
+                type="primary"
+                :icon="RefreshLeft"
+                @click="loadSalesOrderSyncSettings"
+              >
+                重试
+              </el-button>
+            </template>
+          </el-result>
+          <el-form
+            v-else
+            v-loading="salesOrderSyncSettingsState.loading"
+            class="preference-form"
+            label-position="top"
+          >
+            <div class="switch-list order-sync-switch-list">
+              <label class="switch-row">
+                <span>
+                  <strong>启用自动同步</strong>
+                  <small>关闭后停止自动获取订单，手动“立即更新”仍可使用。</small>
+                </span>
+                <el-switch v-model="salesOrderSyncDraft.enabled" />
+              </label>
+            </div>
+            <div class="form-grid">
+              <el-form-item label="自动同步间隔">
+                <el-input-number
+                  v-model="salesOrderSyncDraft.intervalMinutes"
+                  :min="5"
+                  :max="1440"
+                  :step="5"
+                />
+                <span class="field-suffix">分钟</span>
+              </el-form-item>
+              <el-form-item label="成功记录保留天数">
+                <el-input-number
+                  v-model="salesOrderSyncDraft.successRetentionDays"
+                  :min="1"
+                  :max="365"
+                />
+                <span class="field-suffix">天</span>
+              </el-form-item>
+            </div>
+          </el-form>
+        </el-tab-pane>
+
         <el-tab-pane label="安全约束" name="security">
           <div v-loading="constraintState.loading" class="tab-content">
             <el-result
@@ -544,6 +681,16 @@ async function confirmDiscardChanges() {
 
 .full-control {
   width: 100%;
+}
+
+.field-suffix {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.order-sync-switch-list {
+  margin-top: 0;
 }
 
 .switch-list {

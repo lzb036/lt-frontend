@@ -31,6 +31,8 @@ import type {
   SalesAnalysisMessagePage,
   SalesAnalysisSettings,
   SalesAnalysisSettingsPayload,
+  SalesOrderSyncGlobalSettings,
+  SalesOrderSyncGlobalSettingsPayload,
   SalesAnalysisStoreList,
   SalesAnalysisStreamEvent,
   SalesAnalysisStreamHandlers,
@@ -519,6 +521,23 @@ export function useCollectorApi() {
     payload: SalesAnalysisSettingsPayload,
   ): Promise<SalesAnalysisSettings> {
     const response = await apiClient.put<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis', payload)
+    return response.data.settings
+  }
+
+  async function getSalesOrderSyncGlobalSettings(): Promise<SalesOrderSyncGlobalSettings> {
+    const response = await apiClient.get<{ settings: SalesOrderSyncGlobalSettings }>(
+      '/crawler/settings/sales-order-sync',
+    )
+    return response.data.settings
+  }
+
+  async function updateSalesOrderSyncGlobalSettings(
+    payload: SalesOrderSyncGlobalSettingsPayload,
+  ): Promise<SalesOrderSyncGlobalSettings> {
+    const response = await apiClient.put<{ settings: SalesOrderSyncGlobalSettings }>(
+      '/crawler/settings/sales-order-sync',
+      payload,
+    )
     return response.data.settings
   }
 
@@ -1091,6 +1110,8 @@ export function useCollectorApi() {
     deleteProductTitleVersion,
     getSalesAnalysisSettings,
     updateSalesAnalysisSettings,
+    getSalesOrderSyncGlobalSettings,
+    updateSalesOrderSyncGlobalSettings,
     listSalesAnalysisCapabilities,
     listSalesAnalysisConstraints,
     listSalesAnalysisStores,

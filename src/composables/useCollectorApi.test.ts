@@ -10,6 +10,9 @@ import type {
   SalesAnalysisStoreList,
   SalesAnalysisStreamHandlers,
   SalesAnalysisSyncState,
+  SalesOrderSyncGlobalSettings,
+  SalesOrderSyncGlobalSettingsPayload,
+  SalesOrderSyncRun,
 } from '../types/crawler'
 import type { AxiosAdapter } from 'axios'
 import { readFileSync } from 'node:fs'
@@ -68,6 +71,11 @@ const streamMessage: (
   handlers: SalesAnalysisStreamHandlers,
   signal?: AbortSignal,
 ) => Promise<void> = api.streamSalesAnalysisMessage
+const getSalesOrderSyncGlobalSettings: () => Promise<SalesOrderSyncGlobalSettings> =
+  api.getSalesOrderSyncGlobalSettings
+const updateSalesOrderSyncGlobalSettings: (
+  payload: SalesOrderSyncGlobalSettingsPayload,
+) => Promise<SalesOrderSyncGlobalSettings> = api.updateSalesOrderSyncGlobalSettings
 
 void [
   getSettings,
@@ -83,6 +91,8 @@ void [
   deleteConversation,
   listMessages,
   streamMessage,
+  getSalesOrderSyncGlobalSettings,
+  updateSalesOrderSyncGlobalSettings,
 ]
 
 const settings: SalesAnalysisSettings = {
@@ -129,7 +139,31 @@ const constraintSection: SalesAnalysisConstraintSection = {
   items: ['只能分析当前用户拥有的店铺。'],
 }
 
-void [settingsPayload, capability, constraintSection]
+const salesOrderSyncRun: SalesOrderSyncRun = {
+  id: 'sales-order-sync-1',
+  ownerUsername: 'owner',
+  storeId: 1,
+  storeName: 'Store A',
+  triggerType: 'automatic',
+  parentRunId: null,
+  status: 'success',
+  initialSync: false,
+  progressCurrent: 120,
+  progressTotal: 120,
+  totalOrderCount: 120,
+  newOrderCount: 8,
+  updatedOrderCount: 17,
+  unchangedOrderCount: 94,
+  failedOrderCount: 1,
+  message: '同步完成',
+  errorDetail: null,
+  startedAt: '2026-07-17T10:00:00+08:00',
+  finishedAt: '2026-07-17T10:01:00+08:00',
+  createdAt: '2026-07-17T10:00:00+08:00',
+  updatedAt: '2026-07-17T10:01:00+08:00',
+}
+
+void [settingsPayload, capability, constraintSection, salesOrderSyncRun]
 
 const originalApiAdapter = apiClient.defaults.adapter
 const apiCalls: Array<{ method: string; url: string; body?: unknown }> = []
@@ -139,6 +173,16 @@ const savedSettings: SalesAnalysisSettings = {
   ...settings,
   defaultRankingLimit: 25,
   updatedAt: '2026-07-17T10:30:00',
+}
+const salesOrderSyncSettings: SalesOrderSyncGlobalSettings = {
+  enabled: true,
+  intervalMinutes: 30,
+  successRetentionDays: 30,
+}
+const savedSalesOrderSyncSettings: SalesOrderSyncGlobalSettings = {
+  enabled: false,
+  intervalMinutes: 60,
+  successRetentionDays: 45,
 }
 
 const settingsApiAdapter: AxiosAdapter = async (config) => {
@@ -158,6 +202,10 @@ const settingsApiAdapter: AxiosAdapter = async (config) => {
     data = { capabilities: mockedCapabilities }
   } else if (method === 'get' && url === '/crawler/settings/sales-analysis/constraints') {
     data = { constraints: mockedConstraints }
+  } else if (method === 'get' && url === '/crawler/settings/sales-order-sync') {
+    data = { settings: salesOrderSyncSettings }
+  } else if (method === 'put' && url === '/crawler/settings/sales-order-sync') {
+    data = { settings: savedSalesOrderSyncSettings }
   } else {
     throw new Error(`unexpected mocked API request: ${method.toUpperCase()} ${url}`)
   }
@@ -180,6 +228,12 @@ try {
   })
   const loadedCapabilities = await api.listSalesAnalysisCapabilities()
   const loadedConstraints = await api.listSalesAnalysisConstraints()
+  const loadedSalesOrderSyncSettings = await api.getSalesOrderSyncGlobalSettings()
+  const updatedSalesOrderSyncSettings = await api.updateSalesOrderSyncGlobalSettings({
+    enabled: false,
+    intervalMinutes: 60,
+    successRetentionDays: 45,
+  })
 
   if (loadedSettings !== settings) {
     throw new Error('expected settings response to be unwrapped')
@@ -192,6 +246,12 @@ try {
   }
   if (loadedConstraints !== mockedConstraints) {
     throw new Error('expected constraints response to be unwrapped')
+  }
+  if (loadedSalesOrderSyncSettings !== salesOrderSyncSettings) {
+    throw new Error('expected sales order sync settings response to be unwrapped')
+  }
+  if (updatedSalesOrderSyncSettings !== savedSalesOrderSyncSettings) {
+    throw new Error('expected updated sales order sync settings response to be unwrapped')
   }
 } finally {
   apiClient.defaults.adapter = originalApiAdapter
@@ -206,6 +266,16 @@ const expectedApiCalls = [
   { method: 'put', url: '/crawler/settings/sales-analysis', body: expectedSettingsUpdate },
   { method: 'get', url: '/crawler/settings/sales-analysis/capabilities', body: undefined },
   { method: 'get', url: '/crawler/settings/sales-analysis/constraints', body: undefined },
+  { method: 'get', url: '/crawler/settings/sales-order-sync', body: undefined },
+  {
+    method: 'put',
+    url: '/crawler/settings/sales-order-sync',
+    body: {
+      enabled: false,
+      intervalMinutes: 60,
+      successRetentionDays: 45,
+    },
+  },
 ]
 
 if (JSON.stringify(apiCalls) !== JSON.stringify(expectedApiCalls)) {

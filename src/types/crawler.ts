@@ -431,6 +431,49 @@ export interface SalesAnalysisSettings extends SalesAnalysisSettingsPayload {
   updatedAt?: string | null
 }
 
+export interface SalesOrderSyncGlobalSettingsPayload {
+  enabled: boolean
+  intervalMinutes: number
+  successRetentionDays: number
+}
+
+export interface SalesOrderSyncGlobalSettings extends SalesOrderSyncGlobalSettingsPayload {
+  updatedAt?: string | null
+}
+
+export type SalesOrderSyncTriggerType = 'automatic' | 'manual' | 'retry'
+export type SalesOrderSyncRunStatus =
+  | 'queued'
+  | 'running'
+  | 'success'
+  | 'partial'
+  | 'failed'
+  | 'cancelled'
+
+export interface SalesOrderSyncRun {
+  id: string
+  ownerUsername: string
+  storeId?: number | null
+  storeName: string
+  triggerType: SalesOrderSyncTriggerType
+  parentRunId?: string | null
+  status: SalesOrderSyncRunStatus
+  initialSync: boolean
+  progressCurrent: number
+  progressTotal: number
+  totalOrderCount: number
+  newOrderCount: number
+  updatedOrderCount: number
+  unchangedOrderCount: number
+  failedOrderCount: number
+  message: string
+  errorDetail?: string | null
+  startedAt?: string | null
+  finishedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 export interface SalesAnalysisCapability {
   key: string
   title: string

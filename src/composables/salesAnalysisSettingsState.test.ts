@@ -1,15 +1,26 @@
 import type {
+  AuthSession,
   SalesAnalysisCapability,
   SalesAnalysisConstraintSection,
   SalesAnalysisSettings,
   SalesAnalysisSettingsPayload,
+  SalesOrderSyncGlobalSettings,
+  SalesOrderSyncGlobalSettingsPayload,
 } from '../types/crawler'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
+  canManageSalesOrderSyncSettings,
   createCatalogState,
+  createSalesOrderSyncSettingsDraftState,
   createSettingsDraftState,
   loadCatalogState,
+  loadSalesOrderSyncSettingsDraftState,
   loadSettingsDraftState,
+  saveSalesOrderSyncSettingsDraftState,
   saveSettingsDraftState,
+  shouldConfirmAnySettingsLeave,
   shouldConfirmSettingsLeave,
 } from './salesAnalysisSettingsState.ts'
 
@@ -140,4 +151,92 @@ if (concurrentState.draft.customBusinessInstructions !== '保存请求期间新�
 }
 if (!concurrentState.isDirty()) {
   throw new Error('expected edits made after the save snapshot to remain unsaved')
+}
+
+const operatorSession = {
+  role: 'operator',
+} as AuthSession
+const superadminSession = {
+  role: 'superadmin',
+} as AuthSession
+
+if (canManageSalesOrderSyncSettings(operatorSession)) {
+  throw new Error('expected ordinary users not to see sales order sync settings')
+}
+if (!canManageSalesOrderSyncSettings(superadminSession)) {
+  throw new Error('expected superadmins to see sales order sync settings')
+}
+
+const salesOrderSyncDefaults: SalesOrderSyncGlobalSettingsPayload = {
+  enabled: true,
+  intervalMinutes: 30,
+  successRetentionDays: 30,
+}
+const loadedSalesOrderSyncSettings: SalesOrderSyncGlobalSettings = {
+  enabled: false,
+  intervalMinutes: 120,
+  successRetentionDays: 90,
+}
+const salesOrderSyncState = createSalesOrderSyncSettingsDraftState(
+  salesOrderSyncDefaults,
+)
+const globalPutPayloads: SalesOrderSyncGlobalSettingsPayload[] = []
+const globalPutCallCount = () => Number(globalPutPayloads.length)
+
+await loadSalesOrderSyncSettingsDraftState(
+  salesOrderSyncState,
+  loadedSalesOrderSyncSettings,
+)
+salesOrderSyncState.draft.intervalMinutes = 15
+salesOrderSyncState.restoreDefaults()
+
+if (globalPutCallCount() !== 0) {
+  throw new Error('expected restoring global defaults to avoid persistence')
+}
+if (
+  !salesOrderSyncState.isDirty()
+  || salesOrderSyncState.draft.enabled !== true
+  || salesOrderSyncState.draft.intervalMinutes !== 30
+  || salesOrderSyncState.draft.successRetentionDays !== 30
+) {
+  throw new Error('expected restoring global defaults to leave an unsaved draft')
+}
+if (!shouldConfirmAnySettingsLeave(draftState, salesOrderSyncState)) {
+  throw new Error('expected either dirty settings draft to require leave confirmation')
+}
+
+const globalSaved = await saveSalesOrderSyncSettingsDraftState(
+  salesOrderSyncState,
+  async (payload) => {
+    globalPutPayloads.push(payload)
+    return { ...payload }
+  },
+)
+
+if (!globalSaved || globalPutCallCount() !== 1 || salesOrderSyncState.isDirty()) {
+  throw new Error('expected explicit global settings save to persist once')
+}
+
+const settingsViewSource = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../components/crawler/ProductSalesAnalysisSettingsView.vue',
+  ),
+  'utf8',
+)
+
+for (const requiredMarkup of [
+  'v-if="canManageSalesOrderSync"',
+  'label="订单同步设置"',
+  'v-model="salesOrderSyncDraft.enabled"',
+  ':min="5"',
+  ':max="1440"',
+  ':min="1"',
+  ':max="365"',
+  '@click="restoreSalesOrderSyncDefaults"',
+  '@click="saveSalesOrderSyncSettings"',
+]) {
+  if (!settingsViewSource.includes(requiredMarkup)) {
+    throw new Error(`expected sales order sync settings markup: ${requiredMarkup}`)
+  }
 }
