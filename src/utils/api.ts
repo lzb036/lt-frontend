@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 export function resolveApiBaseUrl() {
-  const configured = (import.meta.env.VITE_API_BASE_URL || '').trim()
+  const configured = (import.meta.env?.VITE_API_BASE_URL || '').trim()
   return configured.length > 0 ? configured : '/api'
 }
 

@@ -11,9 +11,11 @@ import type {
   SalesAnalysisStreamHandlers,
   SalesAnalysisSyncState,
 } from '../types/crawler'
+import type { AxiosAdapter } from 'axios'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { apiClient } from '../utils/api.ts'
 import {
   SALES_ANALYSIS_MESSAGE_MAX_LENGTH,
   composeSalesAnalysisScopedMessage,
@@ -30,7 +32,7 @@ import {
   salesAnalysisResultCompletenessWarning,
   salesAnalysisStoreRoutingSuffix,
 } from './salesAnalysisHelpers.ts'
-import type { useCollectorApi } from './useCollectorApi.ts'
+import { useCollectorApi } from './useCollectorApi.ts'
 
 const productSalesAnalysisViewSource = readFileSync(
   resolve(
@@ -48,12 +50,7 @@ const productSalesAnalysisSettingsViewSource = readFileSync(
   'utf8',
 )
 
-const useCollectorApiSource = readFileSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), './useCollectorApi.ts'),
-  'utf8',
-)
-
-const api = {} as ReturnType<typeof useCollectorApi>
+const api = useCollectorApi()
 
 const getSettings: () => Promise<SalesAnalysisSettings> = api.getSalesAnalysisSettings
 const updateSettings: (
@@ -99,14 +96,14 @@ void [
 const settings: SalesAnalysisSettings = {
   defaultPeriodDays: 30,
   defaultRankingLimit: 10,
-  defaultMetric: 'effective_units',
+  defaultMetric: 'effectiveUnits',
   defaultGrain: 'day',
   answerDetailLevel: 'standard',
   prioritizeAdjustmentRisk: true,
   showDataUpdatedAt: true,
   showMetricDefinition: true,
   customBusinessInstructions: '',
-  createdAt: null,
+  createdAt: '2026-07-17T10:00:00',
   updatedAt: null,
 }
 
@@ -123,9 +120,11 @@ const settingsPayload: SalesAnalysisSettingsPayload = {
 }
 
 const capability: SalesAnalysisCapability = {
-  key: 'sales_overview',
+  key: 'storeOverview',
   title: '店铺销量概览',
   description: '查看指定店铺的销量汇总。',
+  example: '最近 30 天店铺销量表现如何？',
+  metrics: ['有效销量', '订单数'],
 }
 
 const constraintSection: SalesAnalysisConstraintSection = {
@@ -136,15 +135,85 @@ const constraintSection: SalesAnalysisConstraintSection = {
 
 void [settingsPayload, capability, constraintSection]
 
-for (const requiredApiContract of [
-  "apiClient.get<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis')",
-  "apiClient.put<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis', payload)",
-  "apiClient.get<{ capabilities: SalesAnalysisCapability[] }>('/crawler/settings/sales-analysis/capabilities')",
-  "apiClient.get<{ constraints: SalesAnalysisConstraintSection[] }>('/crawler/settings/sales-analysis/constraints')",
-]) {
-  if (!useCollectorApiSource.includes(requiredApiContract)) {
-    throw new Error(`expected sales analysis settings API contract: ${requiredApiContract}`)
+const originalApiAdapter = apiClient.defaults.adapter
+const apiCalls: Array<{ method: string; url: string; body?: unknown }> = []
+const mockedCapabilities = [capability]
+const mockedConstraints = [constraintSection]
+const savedSettings: SalesAnalysisSettings = {
+  ...settings,
+  defaultRankingLimit: 25,
+  updatedAt: '2026-07-17T10:30:00',
+}
+
+const settingsApiAdapter: AxiosAdapter = async (config) => {
+  const method = String(config.method || 'get').toLowerCase()
+  const url = String(config.url || '')
+  const body = typeof config.data === 'string'
+    ? JSON.parse(config.data)
+    : config.data
+  apiCalls.push({ method, url, body })
+
+  let data: unknown
+  if (method === 'get' && url === '/crawler/settings/sales-analysis') {
+    data = { settings }
+  } else if (method === 'put' && url === '/crawler/settings/sales-analysis') {
+    data = { settings: savedSettings }
+  } else if (method === 'get' && url === '/crawler/settings/sales-analysis/capabilities') {
+    data = { capabilities: mockedCapabilities }
+  } else if (method === 'get' && url === '/crawler/settings/sales-analysis/constraints') {
+    data = { constraints: mockedConstraints }
+  } else {
+    throw new Error(`unexpected mocked API request: ${method.toUpperCase()} ${url}`)
   }
+
+  return {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config,
+  }
+}
+
+apiClient.defaults.adapter = settingsApiAdapter
+try {
+  const loadedSettings = await api.getSalesAnalysisSettings()
+  const updatedSettings = await api.updateSalesAnalysisSettings({
+    ...settingsPayload,
+    defaultRankingLimit: 25,
+  })
+  const loadedCapabilities = await api.listSalesAnalysisCapabilities()
+  const loadedConstraints = await api.listSalesAnalysisConstraints()
+
+  if (loadedSettings !== settings) {
+    throw new Error('expected settings response to be unwrapped')
+  }
+  if (updatedSettings !== savedSettings) {
+    throw new Error('expected updated settings response to be unwrapped')
+  }
+  if (loadedCapabilities !== mockedCapabilities) {
+    throw new Error('expected capabilities response to be unwrapped')
+  }
+  if (loadedConstraints !== mockedConstraints) {
+    throw new Error('expected constraints response to be unwrapped')
+  }
+} finally {
+  apiClient.defaults.adapter = originalApiAdapter
+}
+
+const expectedSettingsUpdate = {
+  ...settingsPayload,
+  defaultRankingLimit: 25,
+}
+const expectedApiCalls = [
+  { method: 'get', url: '/crawler/settings/sales-analysis', body: undefined },
+  { method: 'put', url: '/crawler/settings/sales-analysis', body: expectedSettingsUpdate },
+  { method: 'get', url: '/crawler/settings/sales-analysis/capabilities', body: undefined },
+  { method: 'get', url: '/crawler/settings/sales-analysis/constraints', body: undefined },
+]
+
+if (JSON.stringify(apiCalls) !== JSON.stringify(expectedApiCalls)) {
+  throw new Error(`unexpected sales analysis settings API calls: ${JSON.stringify(apiCalls)}`)
 }
 
 for (const requiredSettingsViewContract of [

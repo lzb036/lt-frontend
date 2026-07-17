@@ -400,10 +400,10 @@ export interface SalesAnalysisMessagePage {
 }
 
 export type SalesAnalysisMetric =
-  | 'effective_units'
-  | 'ordered_units'
-  | 'estimated_effective_sales_amount'
-  | 'order_count'
+  | 'effectiveUnits'
+  | 'orderedUnits'
+  | 'effectiveSalesAmount'
+  | 'orderCount'
 
 export type SalesAnalysisGrain = 'day' | 'week' | 'month'
 
@@ -430,6 +430,8 @@ export interface SalesAnalysisCapability {
   key: string
   title: string
   description: string
+  example: string
+  metrics: string[]
 }
 
 export interface SalesAnalysisConstraintSection {

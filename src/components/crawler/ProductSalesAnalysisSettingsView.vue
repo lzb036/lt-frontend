@@ -15,7 +15,7 @@ import { toApiErrorMessage } from '../../utils/api'
 const DEFAULT_SETTINGS: SalesAnalysisSettingsPayload = {
   defaultPeriodDays: 30,
   defaultRankingLimit: 10,
-  defaultMetric: 'effective_units',
+  defaultMetric: 'effectiveUnits',
   defaultGrain: 'day',
   answerDetailLevel: 'standard',
   prioritizeAdjustmentRisk: true,
@@ -182,10 +182,10 @@ async function confirmDiscardChanges() {
               </el-form-item>
               <el-form-item label="默认分析指标">
                 <el-select v-model="draft.defaultMetric" class="full-control">
-                  <el-option label="有效销量" value="effective_units" />
-                  <el-option label="已下单商品数量" value="ordered_units" />
-                  <el-option label="预估有效销售额" value="estimated_effective_sales_amount" />
-                  <el-option label="订单数量" value="order_count" />
+                  <el-option label="有效销量" value="effectiveUnits" />
+                  <el-option label="已下单商品数量" value="orderedUnits" />
+                  <el-option label="预估有效销售额" value="effectiveSalesAmount" />
+                  <el-option label="订单数量" value="orderCount" />
                 </el-select>
               </el-form-item>
               <el-form-item label="默认趋势粒度">
