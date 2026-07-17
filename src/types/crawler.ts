@@ -474,6 +474,18 @@ export interface SalesOrderSyncRun {
   updatedAt?: string | null
 }
 
+export interface SalesOrderSyncRunListParams extends PageParams {
+  storeId?: number
+  triggerType?: SalesOrderSyncTriggerType
+  status?: SalesOrderSyncRunStatus
+  createdAtFrom?: string
+  createdAtTo?: string
+}
+
+export interface SalesOrderSyncRunDeleteResult {
+  deletedCount: number
+}
+
 export interface SalesAnalysisCapability {
   key: string
   title: string

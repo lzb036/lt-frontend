@@ -8,7 +8,7 @@ import {
   useTemplateRef,
   watch,
 } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import {
   ChatDotRound,
   CircleClose,
@@ -220,6 +220,7 @@ const EFFECTIVE_SALES_AMOUNT_FALLBACK_DEFINITION = (
 )
 
 const api = useCollectorApi()
+const router = useRouter()
 const messageStreamRef = useTemplateRef<HTMLElement>('messageStream')
 
 const stores = shallowRef<SalesAnalysisStore[]>([])
@@ -248,6 +249,17 @@ const streamController = shallowRef<AbortController | null>(null)
 const syncPollError = shallowRef('')
 
 let syncPollTimer: number | null = null
+
+function openOrderSyncHistory() {
+  if (!selectedStoreId.value) {
+    ElMessage.warning('请先选择分析店铺')
+    return
+  }
+  void router.push({
+    name: 'ai-order-sync-history',
+    query: { storeId: String(selectedStoreId.value) },
+  })
+}
 let messageRequestId = 0
 
 const selectedStore = computed(() => (
@@ -1782,6 +1794,14 @@ function adjustmentStatusLabel(value: unknown) {
               @click="refreshSyncState"
             >
               刷新
+            </el-button>
+            <el-button
+              link
+              type="primary"
+              :disabled="!selectedStoreId"
+              @click="openOrderSyncHistory"
+            >
+              查看订单获取记录
             </el-button>
           </div>
           <dl class="data-state-list">

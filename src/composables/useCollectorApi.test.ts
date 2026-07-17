@@ -1,4 +1,5 @@
 import type {
+  PageResult,
   SalesAnalysisCapability,
   SalesAnalysisConversation,
   SalesAnalysisConstraintSection,
@@ -12,6 +13,8 @@ import type {
   SalesAnalysisSyncState,
   SalesOrderSyncGlobalSettings,
   SalesOrderSyncGlobalSettingsPayload,
+  SalesOrderSyncRunDeleteResult,
+  SalesOrderSyncRunListParams,
   SalesOrderSyncRun,
 } from '../types/crawler'
 import type { AxiosAdapter } from 'axios'
@@ -76,6 +79,14 @@ const getSalesOrderSyncGlobalSettings: () => Promise<SalesOrderSyncGlobalSetting
 const updateSalesOrderSyncGlobalSettings: (
   payload: SalesOrderSyncGlobalSettingsPayload,
 ) => Promise<SalesOrderSyncGlobalSettings> = api.updateSalesOrderSyncGlobalSettings
+const listSalesOrderSyncRuns: (
+  params: SalesOrderSyncRunListParams,
+) => Promise<PageResult<SalesOrderSyncRun>> = api.listSalesOrderSyncRuns
+const retrySalesOrderSyncRun: (runId: string) => Promise<SalesOrderSyncRun> =
+  api.retrySalesOrderSyncRun
+const deleteSalesOrderSyncRuns: (
+  runIds: string[],
+) => Promise<SalesOrderSyncRunDeleteResult> = api.deleteSalesOrderSyncRuns
 
 void [
   getSettings,
@@ -93,6 +104,9 @@ void [
   streamMessage,
   getSalesOrderSyncGlobalSettings,
   updateSalesOrderSyncGlobalSettings,
+  listSalesOrderSyncRuns,
+  retrySalesOrderSyncRun,
+  deleteSalesOrderSyncRuns,
 ]
 
 const settings: SalesAnalysisSettings = {
@@ -280,6 +294,111 @@ const expectedApiCalls = [
 
 if (JSON.stringify(apiCalls) !== JSON.stringify(expectedApiCalls)) {
   throw new Error(`unexpected sales analysis settings API calls: ${JSON.stringify(apiCalls)}`)
+}
+
+const historyApiCalls: Array<{
+  method: string
+  url: string
+  params?: unknown
+  body?: unknown
+}> = []
+const historyApiAdapter: AxiosAdapter = async (config) => {
+  const method = String(config.method || 'get').toLowerCase()
+  const url = String(config.url || '')
+  const body = typeof config.data === 'string'
+    ? JSON.parse(config.data)
+    : config.data
+  historyApiCalls.push({ method, url, params: config.params, body })
+
+  let data: unknown
+  if (method === 'get' && url === '/crawler/sales-analysis/order-sync-runs') {
+    data = {
+      runs: [salesOrderSyncRun],
+      pagination: { total: 1, page: 2, pageSize: 30 },
+    }
+  } else if (
+    method === 'post'
+    && url === '/crawler/sales-analysis/order-sync-runs/sales-order-sync-1/retry'
+  ) {
+    data = { run: { ...salesOrderSyncRun, id: 'sales-order-sync-2', triggerType: 'retry' } }
+  } else if (method === 'delete' && url === '/crawler/sales-analysis/order-sync-runs') {
+    data = { deletedCount: 1 }
+  } else {
+    throw new Error(`unexpected mocked history API request: ${method.toUpperCase()} ${url}`)
+  }
+
+  return {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config,
+  }
+}
+
+apiClient.defaults.adapter = historyApiAdapter
+try {
+  const page = await api.listSalesOrderSyncRuns({
+    page: 2,
+    pageSize: 30,
+    storeId: 7,
+    triggerType: 'manual',
+    status: 'failed',
+    createdAtFrom: '2026-07-01T00:00:00+08:00',
+    createdAtTo: '2026-07-17T23:59:59+08:00',
+  })
+  const retried = await api.retrySalesOrderSyncRun('sales-order-sync-1')
+  const deleted = await api.deleteSalesOrderSyncRuns(['sales-order-sync-1'])
+
+  if (
+    page.total !== 1
+    || page.page !== 2
+    || page.pageSize !== 30
+    || page.items[0] !== salesOrderSyncRun
+  ) {
+    throw new Error('expected sales order sync runs pagination to be normalized')
+  }
+  if (retried.id !== 'sales-order-sync-2' || retried.triggerType !== 'retry') {
+    throw new Error('expected retried sales order sync run to be unwrapped')
+  }
+  if (deleted.deletedCount !== 1) {
+    throw new Error('expected sales order sync deletion result to be returned')
+  }
+} finally {
+  apiClient.defaults.adapter = originalApiAdapter
+}
+
+const expectedHistoryApiCalls = [
+  {
+    method: 'get',
+    url: '/crawler/sales-analysis/order-sync-runs',
+    params: {
+      page: 2,
+      pageSize: 30,
+      storeId: 7,
+      triggerType: 'manual',
+      status: 'failed',
+      createdAtFrom: '2026-07-01T00:00:00+08:00',
+      createdAtTo: '2026-07-17T23:59:59+08:00',
+    },
+    body: undefined,
+  },
+  {
+    method: 'post',
+    url: '/crawler/sales-analysis/order-sync-runs/sales-order-sync-1/retry',
+    params: undefined,
+    body: undefined,
+  },
+  {
+    method: 'delete',
+    url: '/crawler/sales-analysis/order-sync-runs',
+    params: undefined,
+    body: { runIds: ['sales-order-sync-1'] },
+  },
+]
+
+if (JSON.stringify(historyApiCalls) !== JSON.stringify(expectedHistoryApiCalls)) {
+  throw new Error(`unexpected sales order sync history API calls: ${JSON.stringify(historyApiCalls)}`)
 }
 
 const originalFetch = globalThis.fetch
@@ -623,6 +742,8 @@ for (const requiredMarkup of [
   'role="alert"',
   'recordCompletenessWarning(record.result)',
   ':maxlength="composerMaxLength"',
+  'name: \'ai-order-sync-history\'',
+  'query: { storeId: String(selectedStoreId.value) }',
 ]) {
   if (!productSalesAnalysisViewSource.includes(requiredMarkup)) {
     throw new Error(`expected accessible sales analysis markup: ${requiredMarkup}`)

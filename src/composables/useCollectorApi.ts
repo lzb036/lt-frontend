@@ -33,6 +33,9 @@ import type {
   SalesAnalysisSettingsPayload,
   SalesOrderSyncGlobalSettings,
   SalesOrderSyncGlobalSettingsPayload,
+  SalesOrderSyncRun,
+  SalesOrderSyncRunDeleteResult,
+  SalesOrderSyncRunListParams,
   SalesAnalysisStoreList,
   SalesAnalysisStreamEvent,
   SalesAnalysisStreamHandlers,
@@ -539,6 +542,42 @@ export function useCollectorApi() {
       payload,
     )
     return response.data.settings
+  }
+
+  async function listSalesOrderSyncRuns(
+    params: SalesOrderSyncRunListParams,
+  ): Promise<PageResult<SalesOrderSyncRun>> {
+    const response = await apiClient.get<{
+      runs: SalesOrderSyncRun[]
+      pagination: {
+        total: number
+        page: number
+        pageSize: number
+      }
+    }>('/crawler/sales-analysis/order-sync-runs', { params })
+    return {
+      total: response.data.pagination.total,
+      page: response.data.pagination.page,
+      pageSize: response.data.pagination.pageSize,
+      items: response.data.runs,
+    }
+  }
+
+  async function retrySalesOrderSyncRun(runId: string): Promise<SalesOrderSyncRun> {
+    const response = await apiClient.post<{ run: SalesOrderSyncRun }>(
+      `/crawler/sales-analysis/order-sync-runs/${encodeURIComponent(runId)}/retry`,
+    )
+    return response.data.run
+  }
+
+  async function deleteSalesOrderSyncRuns(
+    runIds: string[],
+  ): Promise<SalesOrderSyncRunDeleteResult> {
+    const response = await apiClient.delete<SalesOrderSyncRunDeleteResult>(
+      '/crawler/sales-analysis/order-sync-runs',
+      { data: { runIds } },
+    )
+    return response.data
   }
 
   async function listSalesAnalysisCapabilities(): Promise<SalesAnalysisCapability[]> {
@@ -1112,6 +1151,9 @@ export function useCollectorApi() {
     updateSalesAnalysisSettings,
     getSalesOrderSyncGlobalSettings,
     updateSalesOrderSyncGlobalSettings,
+    listSalesOrderSyncRuns,
+    retrySalesOrderSyncRun,
+    deleteSalesOrderSyncRuns,
     listSalesAnalysisCapabilities,
     listSalesAnalysisConstraints,
     listSalesAnalysisStores,

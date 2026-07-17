@@ -30,10 +30,15 @@ if (canAccessRouteMeta({ role: 'operator', permissionCodes: [] }, { permission: 
 
 for (const requiredPermissionContract of [
   "{ path: '/ai/product-analysis-settings', permission: 'ai.manage' }",
+  "{ path: '/ai/order-sync-history', permission: 'ai.manage' }",
   "path: 'ai/product-analysis-settings'",
+  "path: 'ai/order-sync-history'",
   "name: 'ai-product-analysis-settings'",
+  "name: 'ai-order-sync-history'",
   "meta: { title: '商品分析设置', permission: 'ai.manage' }",
+  "meta: { title: '订单获取记录', permission: 'ai.manage' }",
   "{ path: '/ai/product-analysis-settings', label: '商品分析设置'",
+  "{ path: '/ai/order-sync-history', label: '订单获取记录'",
 ]) {
   const sources = [permissionsSource, routerSource, appShellSource]
   if (!sources.some((source) => source.includes(requiredPermissionContract))) {
@@ -50,11 +55,15 @@ const productAnalysisMenuIndex = appShellSource.indexOf(
 const productAnalysisSettingsMenuIndex = appShellSource.indexOf(
   "{ path: '/ai/product-analysis-settings', label: '商品分析设置'",
 )
+const orderSyncHistoryMenuIndex = appShellSource.indexOf(
+  "{ path: '/ai/order-sync-history', label: '订单获取记录'",
+)
 
 if (
   titleOptimizationMenuIndex < 0
   || productAnalysisMenuIndex <= titleOptimizationMenuIndex
   || productAnalysisSettingsMenuIndex <= productAnalysisMenuIndex
+  || orderSyncHistoryMenuIndex <= productAnalysisSettingsMenuIndex
 ) {
-  throw new Error('expected AI menu order to be 标题优化→商品分析→商品分析设置')
+  throw new Error('expected AI menu order to include 订单获取记录 after 商品分析设置')
 }

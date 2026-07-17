@@ -9,6 +9,7 @@ import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
 import OperatorManualView from './components/crawler/OperatorManualView.vue'
 import ProductSalesAnalysisSettingsView from './components/crawler/ProductSalesAnalysisSettingsView.vue'
 import ProductSalesAnalysisView from './components/crawler/ProductSalesAnalysisView.vue'
+import SalesOrderSyncHistoryView from './components/crawler/SalesOrderSyncHistoryView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
 import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
@@ -44,6 +45,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'ai/product-analysis', name: 'ai-product-analysis', component: ProductSalesAnalysisView, meta: { title: '商品分析', permission: 'ai.manage' } },
       { path: 'ai/product-analysis-settings', name: 'ai-product-analysis-settings', component: ProductSalesAnalysisSettingsView, meta: { title: '商品分析设置', permission: 'ai.manage' } },
+      { path: 'ai/order-sync-history', name: 'ai-order-sync-history', component: SalesOrderSyncHistoryView, meta: { title: '订单获取记录', permission: 'ai.manage' } },
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },
