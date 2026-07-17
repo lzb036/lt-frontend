@@ -7,6 +7,7 @@ import CrawlTaskManager from './components/crawler/CrawlTaskManager.vue'
 import ListingTaskView from './components/crawler/ListingTaskView.vue'
 import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
 import OperatorManualView from './components/crawler/OperatorManualView.vue'
+import ProductSalesAnalysisSettingsView from './components/crawler/ProductSalesAnalysisSettingsView.vue'
 import ProductSalesAnalysisView from './components/crawler/ProductSalesAnalysisView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
@@ -42,6 +43,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltHj/collectionShops', name: 'collection-shops', component: CollectionShopView, meta: { title: '采集店铺', permission: 'crawler.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'ai/product-analysis', name: 'ai-product-analysis', component: ProductSalesAnalysisView, meta: { title: '商品分析', permission: 'ai.manage' } },
+      { path: 'ai/product-analysis-settings', name: 'ai-product-analysis-settings', component: ProductSalesAnalysisSettingsView, meta: { title: '商品分析设置', permission: 'ai.manage' } },
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },

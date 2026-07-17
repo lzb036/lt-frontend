@@ -40,6 +40,14 @@ const productSalesAnalysisViewSource = readFileSync(
   'utf8',
 )
 
+const productSalesAnalysisSettingsViewSource = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../components/crawler/ProductSalesAnalysisSettingsView.vue',
+  ),
+  'utf8',
+)
+
 const useCollectorApiSource = readFileSync(
   resolve(dirname(fileURLToPath(import.meta.url)), './useCollectorApi.ts'),
   'utf8',
@@ -137,6 +145,39 @@ for (const requiredApiContract of [
   if (!useCollectorApiSource.includes(requiredApiContract)) {
     throw new Error(`expected sales analysis settings API contract: ${requiredApiContract}`)
   }
+}
+
+for (const requiredSettingsViewContract of [
+  '<el-tab-pane label="能力说明" name="capability">',
+  '<el-tab-pane label="个人偏好" name="personal">',
+  '<el-tab-pane label="安全约束" name="security">',
+  '保存设置',
+  '恢复默认',
+  'const savedSnapshot = ref<SalesAnalysisSettingsPayload | null>(null)',
+  'const isDirty = computed(() =>',
+  'Object.assign(draft, DEFAULT_SETTINGS)',
+  'api.updateSalesAnalysisSettings({ ...draft })',
+  'onBeforeRouteLeave(async () =>',
+  "window.addEventListener('beforeunload', handleBeforeUnload)",
+  'if (!isDirty.value)',
+]) {
+  if (!productSalesAnalysisSettingsViewSource.includes(requiredSettingsViewContract)) {
+    throw new Error(`expected sales analysis settings view contract: ${requiredSettingsViewContract}`)
+  }
+}
+
+const restoreDefaultFunction = productSalesAnalysisSettingsViewSource.match(
+  /function restoreDefaults\(\) \{[\s\S]*?\n\}/,
+)?.[0] || ''
+if (restoreDefaultFunction.includes('updateSalesAnalysisSettings')) {
+  throw new Error('expected restore defaults to update the draft without persisting')
+}
+
+const saveFunction = productSalesAnalysisSettingsViewSource.match(
+  /async function saveSettings\(\) \{[\s\S]*?\n\}/,
+)?.[0] || ''
+if (!saveFunction.includes('updateSalesAnalysisSettings')) {
+  throw new Error('expected only the explicit save action to persist the settings draft')
 }
 
 const toolResult = normalizeSalesAnalysisEvent({

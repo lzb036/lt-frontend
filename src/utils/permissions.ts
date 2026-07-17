@@ -24,6 +24,7 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltShop/GoodsUp', permission: 'stores.manage' },
   { path: '/system/user', superadminOnly: true },
   { path: '/ai/product-analysis', permission: 'ai.manage' },
+  { path: '/ai/product-analysis-settings', permission: 'ai.manage' },
   { path: '/ai/title-optimization', permission: 'ai.manage' },
   { path: '/system/theme', permission: 'settings.manage' },
   { path: '/system/time', permission: 'settings.manage' },
