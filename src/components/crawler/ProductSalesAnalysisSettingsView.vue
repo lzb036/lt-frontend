@@ -13,11 +13,13 @@ import {
   saveSettingsDraftState,
   shouldConfirmSettingsLeave,
 } from '../../composables/salesAnalysisSettingsState'
+import { SALES_ANALYSIS_PREFERENCE_HELP } from '../../composables/salesAnalysisPreferenceHelp'
 import type {
   SalesAnalysisCapability,
   SalesAnalysisConstraintSection,
   SalesAnalysisSettingsPayload,
 } from '../../types/crawler'
+import PreferenceHelpTooltip from './PreferenceHelpTooltip.vue'
 
 const DEFAULT_SETTINGS: SalesAnalysisSettingsPayload = {
   defaultPeriodDays: 30,
@@ -210,7 +212,16 @@ async function confirmDiscardChanges() {
             label-position="top"
           >
             <div class="form-grid">
-              <el-form-item label="默认统计周期">
+              <el-form-item>
+                <template #label>
+                  <span class="preference-label">
+                    默认统计周期
+                    <PreferenceHelpTooltip
+                      label="默认统计周期"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.defaultPeriodDays"
+                    />
+                  </span>
+                </template>
                 <el-segmented
                   v-model="draft.defaultPeriodDays"
                   :options="[
@@ -221,10 +232,28 @@ async function confirmDiscardChanges() {
                   ]"
                 />
               </el-form-item>
-              <el-form-item label="默认排行数量">
+              <el-form-item>
+                <template #label>
+                  <span class="preference-label">
+                    默认排行数量
+                    <PreferenceHelpTooltip
+                      label="默认排行数量"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.defaultRankingLimit"
+                    />
+                  </span>
+                </template>
                 <el-input-number v-model="draft.defaultRankingLimit" :min="5" :max="100" :step="5" />
               </el-form-item>
-              <el-form-item label="默认分析指标">
+              <el-form-item>
+                <template #label>
+                  <span class="preference-label">
+                    默认分析指标
+                    <PreferenceHelpTooltip
+                      label="默认分析指标"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.defaultMetric"
+                    />
+                  </span>
+                </template>
                 <el-select v-model="draft.defaultMetric" class="full-control">
                   <el-option label="有效销量" value="effectiveUnits" />
                   <el-option label="已下单商品数量" value="orderedUnits" />
@@ -232,7 +261,16 @@ async function confirmDiscardChanges() {
                   <el-option label="订单数量" value="orderCount" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="默认趋势粒度">
+              <el-form-item>
+                <template #label>
+                  <span class="preference-label">
+                    默认趋势粒度
+                    <PreferenceHelpTooltip
+                      label="默认趋势粒度"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.defaultGrain"
+                    />
+                  </span>
+                </template>
                 <el-segmented
                   v-model="draft.defaultGrain"
                   :options="[
@@ -242,7 +280,16 @@ async function confirmDiscardChanges() {
                   ]"
                 />
               </el-form-item>
-              <el-form-item label="回答详细程度">
+              <el-form-item>
+                <template #label>
+                  <span class="preference-label">
+                    回答详细程度
+                    <PreferenceHelpTooltip
+                      label="回答详细程度"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.answerDetailLevel"
+                    />
+                  </span>
+                </template>
                 <el-segmented
                   v-model="draft.answerDetailLevel"
                   :options="[
@@ -256,20 +303,56 @@ async function confirmDiscardChanges() {
 
             <div class="switch-list">
               <label class="switch-row">
-                <span><strong>优先提示售后调整风险</strong><small>分析时优先关注取消、退款和退货对结果的影响。</small></span>
+                <span>
+                  <span class="preference-label">
+                    <strong>优先提示售后调整风险</strong>
+                    <PreferenceHelpTooltip
+                      label="优先提示售后调整风险"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.prioritizeAdjustmentRisk"
+                    />
+                  </span>
+                  <small>分析时优先关注取消、退款和退货对结果的影响。</small>
+                </span>
                 <el-switch v-model="draft.prioritizeAdjustmentRisk" />
               </label>
               <label class="switch-row">
-                <span><strong>显示数据更新时间</strong><small>在回答中标注分析数据的最近更新时间。</small></span>
+                <span>
+                  <span class="preference-label">
+                    <strong>显示数据更新时间</strong>
+                    <PreferenceHelpTooltip
+                      label="显示数据更新时间"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.showDataUpdatedAt"
+                    />
+                  </span>
+                  <small>在回答中标注分析数据的最近更新时间。</small>
+                </span>
                 <el-switch v-model="draft.showDataUpdatedAt" />
               </label>
               <label class="switch-row">
-                <span><strong>显示指标定义</strong><small>在需要时说明有效销量等业务指标的计算口径。</small></span>
+                <span>
+                  <span class="preference-label">
+                    <strong>显示指标定义</strong>
+                    <PreferenceHelpTooltip
+                      label="显示指标定义"
+                      :content="SALES_ANALYSIS_PREFERENCE_HELP.showMetricDefinition"
+                    />
+                  </span>
+                  <small>在需要时说明有效销量等业务指标的计算口径。</small>
+                </span>
                 <el-switch v-model="draft.showMetricDefinition" />
               </label>
             </div>
 
-            <el-form-item label="自定义业务要求">
+            <el-form-item>
+              <template #label>
+                <span class="preference-label">
+                  自定义业务要求
+                  <PreferenceHelpTooltip
+                    label="自定义业务要求"
+                    :content="SALES_ANALYSIS_PREFERENCE_HELP.customBusinessInstructions"
+                  />
+                </span>
+              </template>
               <el-input
                 v-model="draft.customBusinessInstructions"
                 type="textarea"
@@ -351,6 +434,13 @@ async function confirmDiscardChanges() {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.preference-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
 }
 
 .settings-workspace {
