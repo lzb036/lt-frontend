@@ -26,11 +26,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
   applySalesAnalysisStreamError,
+  attemptSalesAnalysisHistoryRefresh,
   createSalesAnalysisQuickQuestions,
   resolveSalesAnalysisCompletedMessage,
   restoreSalesAnalysisRetryQuestion,
   salesAnalysisMessageErrorText,
   salesAnalysisMessageIsError,
+  salesAnalysisLiveStatusText,
 } from '../../composables/salesAnalysisHelpers'
 import {
   composeSalesAnalysisScopedMessage,
@@ -353,14 +355,8 @@ const unresolvedAdjustmentCount = computed(() => {
   return Math.max(0, ...historyCounts, ...activeCounts)
 })
 const liveStatusText = computed(() => {
-  if (activeTurn.value?.error) {
-    return activeTurn.value.error
-  }
-  if (activeTurn.value?.status) {
-    return activeTurn.value.status
-  }
   const latest = messages.value[messages.value.length - 1]
-  return latest ? `分析完成：${displayQuestion(latest.question)}` : ''
+  return salesAnalysisLiveStatusText(activeTurn.value, latest)
 })
 
 onMounted(() => {
@@ -905,7 +901,13 @@ async function refreshAfterInterruptedStream(
   conversationId: number,
   scopedQuestion: string,
 ) {
-  const page = await refreshLatestMessages(conversationId)
+  const refresh = await attemptSalesAnalysisHistoryRefresh(
+    () => refreshLatestMessages(conversationId),
+  )
+  if (!refresh.ok) {
+    return
+  }
+  const page = refresh.value
   const persisted = page?.messages.some((message) => message.question === scopedQuestion)
   if (persisted) {
     activeTurn.value = null

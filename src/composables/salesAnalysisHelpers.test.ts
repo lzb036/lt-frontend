@@ -4,11 +4,13 @@ import type {
 } from '../types/crawler'
 import {
   applySalesAnalysisStreamError,
+  attemptSalesAnalysisHistoryRefresh,
   createSalesAnalysisQuickQuestions,
   resolveSalesAnalysisCompletedMessage,
   restoreSalesAnalysisRetryQuestion,
   salesAnalysisMessageErrorText,
   salesAnalysisMessageIsError,
+  salesAnalysisLiveStatusText,
   salesAnalysisRetryQuestion,
 } from './salesAnalysisHelpers.ts'
 
@@ -62,6 +64,13 @@ if (resolveSalesAnalysisCompletedMessage(completedMessage, false) !== completedM
   throw new Error('expected a successful stream to preserve its completed message')
 }
 
+const failedRefresh = await attemptSalesAnalysisHistoryRefresh(async () => {
+  throw new Error('history unavailable')
+})
+if (failedRefresh.ok) {
+  throw new Error('expected interrupted-stream history refresh failure to remain controlled')
+}
+
 const failedMessage: SalesAnalysisMessage = {
   ...completedMessage,
   status: 'error',
@@ -72,6 +81,12 @@ const failedMessage: SalesAnalysisMessage = {
 
 if (!salesAnalysisMessageIsError(failedMessage)) {
   throw new Error('expected persisted error status to identify failed history')
+}
+if (
+  salesAnalysisLiveStatusText(null, failedMessage)
+  !== '分析未完成：test'
+) {
+  throw new Error('expected failed latest history to announce analysis not completed')
 }
 if (salesAnalysisMessageErrorText(failedMessage) !== '回答未通过事实校验。') {
   throw new Error('expected persisted history to display the controlled error message')

@@ -437,6 +437,7 @@ export interface SalesAnalysisCapability {
   description: string
   example: string
   metrics: string[]
+  facts?: string[]
 }
 
 export interface SalesAnalysisConstraintSection {

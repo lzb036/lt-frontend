@@ -292,6 +292,16 @@ export function resolveSalesAnalysisCompletedMessage(
   return streamFailed ? null : message
 }
 
+export async function attemptSalesAnalysisHistoryRefresh<T>(
+  refresh: () => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false }> {
+  try {
+    return { ok: true, value: await refresh() }
+  } catch {
+    return { ok: false }
+  }
+}
+
 export function salesAnalysisMessageIsError(
   message: Pick<SalesAnalysisMessage, 'status'>,
 ) {
@@ -316,6 +326,25 @@ export function restoreSalesAnalysisRetryQuestion(
   question: string,
 ) {
   composer.value = salesAnalysisRetryQuestion(question)
+}
+
+export function salesAnalysisLiveStatusText(
+  active: { error: string; status: string } | null | undefined,
+  latest: SalesAnalysisMessage | null | undefined,
+) {
+  if (active?.error) {
+    return active.error
+  }
+  if (active?.status) {
+    return active.status
+  }
+  if (!latest) {
+    return ''
+  }
+  const question = salesAnalysisRetryQuestion(latest.question)
+  return salesAnalysisMessageIsError(latest)
+    ? `分析未完成：${question}`
+    : `分析完成：${question}`
 }
 
 export function createSalesAnalysisQuickQuestions(

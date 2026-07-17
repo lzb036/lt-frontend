@@ -117,6 +117,10 @@ const capability: SalesAnalysisCapability = {
   description: '查看指定店铺的销量汇总。',
   example: '最近 30 天店铺销量表现如何？',
   metrics: ['有效销量', '订单数'],
+  facts: [
+    '首次同步默认覆盖最近 90 天。',
+    '自动同步间隔约为 30 分钟。',
+  ],
 }
 
 const constraintSection: SalesAnalysisConstraintSection = {
@@ -206,6 +210,113 @@ const expectedApiCalls = [
 
 if (JSON.stringify(apiCalls) !== JSON.stringify(expectedApiCalls)) {
   throw new Error(`unexpected sales analysis settings API calls: ${JSON.stringify(apiCalls)}`)
+}
+
+const originalFetch = globalThis.fetch
+const encoder = new TextEncoder()
+
+function salesAnalysisStreamResponse(chunks: string[]) {
+  return new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk))
+      }
+      controller.close()
+    },
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
+}
+
+const terminalMessage: SalesAnalysisMessage = {
+  id: 99,
+  conversationId: 7,
+  question: 'terminal',
+  answer: 'done',
+  toolName: '',
+  toolArguments: [],
+  resultSummary: [],
+  modelName: '',
+  storeScope: [1],
+  statisticsWindow: {},
+  status: 'completed',
+  errorCode: '',
+  errorMessage: '',
+}
+
+try {
+  const completedEvents: number[] = []
+  globalThis.fetch = async () => salesAnalysisStreamResponse([
+    `data: ${JSON.stringify({ type: 'completed', message: terminalMessage })}\n\n`,
+  ])
+  await api.streamSalesAnalysisMessage(7, 'normal', {
+    onCompleted(message) {
+      completedEvents.push(message.id)
+    },
+  })
+  if (completedEvents.join(',') !== '99') {
+    throw new Error('expected normal SSE stream to require and emit completed terminal')
+  }
+
+  const chunkedDeltas: string[] = []
+  const chunkedTerminal = `data: ${JSON.stringify({ type: 'completed', message: terminalMessage })}\n\n`
+  globalThis.fetch = async () => salesAnalysisStreamResponse([
+    'data: {"type":"delta","content":"分',
+    '块"}\n\n',
+    chunkedTerminal.slice(0, 17),
+    chunkedTerminal.slice(17),
+  ])
+  await api.streamSalesAnalysisMessage(7, 'chunked', {
+    onDelta(content) {
+      chunkedDeltas.push(content)
+    },
+  })
+  if (chunkedDeltas.join('') !== '分块') {
+    throw new Error('expected SSE parser to preserve events split across chunks')
+  }
+
+  let trailingCompleted = false
+  let controlledStreamError = ''
+  globalThis.fetch = async () => salesAnalysisStreamResponse([
+    'data: {"type":"error","message":"受控失败"}\n\n',
+    `data: ${JSON.stringify({ type: 'completed', message: terminalMessage })}\n\n`,
+  ])
+  try {
+    await api.streamSalesAnalysisMessage(7, 'error', {
+      onCompleted() {
+        trailingCompleted = true
+      },
+      onError(message) {
+        controlledStreamError = message
+      },
+    })
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== '受控失败') {
+      throw error
+    }
+  }
+  if (controlledStreamError !== '受控失败' || trailingCompleted) {
+    throw new Error('expected error terminal to reject or ignore trailing completed events')
+  }
+
+  globalThis.fetch = async () => salesAnalysisStreamResponse([
+    'data: {"type":"delta","content":"partial"}\n\n',
+  ])
+  let eofWithoutTerminalRejected = false
+  try {
+    await api.streamSalesAnalysisMessage(7, 'interrupted', {})
+  } catch (error) {
+    eofWithoutTerminalRejected = (
+      error instanceof Error
+      && error.message.includes('未收到完成或错误事件')
+    )
+  }
+  if (!eofWithoutTerminalRejected) {
+    throw new Error('expected EOF without an explicit terminal SSE event to fail')
+  }
+} finally {
+  globalThis.fetch = originalFetch
 }
 
 const toolResult = normalizeSalesAnalysisEvent({

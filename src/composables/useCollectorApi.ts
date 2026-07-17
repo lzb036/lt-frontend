@@ -114,13 +114,11 @@ function parseSalesAnalysisSseBlock(
     .map((line) => line.slice(5).trimStart())
     .join('\n')
   if (!data) {
-    return
+    return null
   }
   const event = normalizeSalesAnalysisEvent(JSON.parse(data))
   emitSalesAnalysisEvent(handlers, event)
-  if (event.type === 'error') {
-    throw new Error(event.message)
-  }
+  return event
 }
 
 export function useCollectorApi() {
@@ -622,6 +620,7 @@ export function useCollectorApi() {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let terminalReceived = false
     while (true) {
       const { done, value } = await reader.read()
       buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
@@ -629,14 +628,31 @@ export function useCollectorApi() {
       const blocks = buffer.split('\n\n')
       buffer = blocks.pop() || ''
       for (const block of blocks) {
-        parseSalesAnalysisSseBlock(block, handlers)
+        const event = parseSalesAnalysisSseBlock(block, handlers)
+        if (event?.type === 'completed') {
+          terminalReceived = true
+          return
+        }
+        if (event?.type === 'error') {
+          terminalReceived = true
+          throw new Error(event.message)
+        }
       }
       if (done) {
         break
       }
     }
     if (buffer.trim()) {
-      parseSalesAnalysisSseBlock(buffer, handlers)
+      const event = parseSalesAnalysisSseBlock(buffer, handlers)
+      if (event?.type === 'completed') {
+        terminalReceived = true
+      } else if (event?.type === 'error') {
+        terminalReceived = true
+        throw new Error(event.message)
+      }
+    }
+    if (!terminalReceived) {
+      throw new Error('销量分析连接已中断，未收到完成或错误事件。')
     }
   }
 

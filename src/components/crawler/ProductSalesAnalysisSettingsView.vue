@@ -177,6 +177,14 @@ async function confirmDiscardChanges() {
                       </el-tag>
                     </dd>
                   </div>
+                  <div v-if="item.facts?.length">
+                    <dt>运行事实</dt>
+                    <dd>
+                      <ul class="fact-list">
+                        <li v-for="fact in item.facts" :key="fact">{{ fact }}</li>
+                      </ul>
+                    </dd>
+                  </div>
                 </dl>
               </article>
             </div>
@@ -418,6 +426,13 @@ async function confirmDiscardChanges() {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.fact-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
 }
 
 .catalog-note {

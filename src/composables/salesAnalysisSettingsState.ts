@@ -92,10 +92,16 @@ export async function saveSettingsDraftState(
 ): Promise<boolean> {
   state.saving = true
   state.error = ''
+  const requestSnapshot = copySettingsPayload(state.draft)
   try {
-    const settings = await save(copySettingsPayload(state.draft))
+    const settings = await save(requestSnapshot)
     const snapshot = copySettingsPayload(settings)
-    Object.assign(state.draft, snapshot)
+    const draftUnchanged = (
+      JSON.stringify(state.draft) === JSON.stringify(requestSnapshot)
+    )
+    if (draftUnchanged) {
+      Object.assign(state.draft, snapshot)
+    }
     state.savedSnapshot = snapshot
     return true
   } catch (error) {

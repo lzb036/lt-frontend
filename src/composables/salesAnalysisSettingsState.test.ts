@@ -114,3 +114,30 @@ const savedAfterPartialFailure = await saveSettingsDraftState(
 if (!savedAfterPartialFailure || settingsState.isDirty()) {
   throw new Error('expected personal settings to remain editable and saveable after catalog failure')
 }
+
+const concurrentState = createSettingsDraftState(defaults)
+await loadSettingsDraftState(concurrentState, loadedSettings)
+let resolvePendingSave!: (settings: SalesAnalysisSettings) => void
+const pendingSave = saveSettingsDraftState(
+  concurrentState,
+  (payload) => new Promise<SalesAnalysisSettings>((resolve) => {
+    putPayloads.push(payload)
+    resolvePendingSave = resolve
+  }),
+)
+concurrentState.draft.customBusinessInstructions = '保存请求期间新增的编辑'
+resolvePendingSave({
+  ...loadedSettings,
+  customBusinessInstructions: '',
+})
+const concurrentSaved = await pendingSave
+
+if (!concurrentSaved) {
+  throw new Error('expected pending settings save to complete successfully')
+}
+if (concurrentState.draft.customBusinessInstructions !== '保存请求期间新增的编辑') {
+  throw new Error('expected edits made during pending save not to be overwritten')
+}
+if (!concurrentState.isDirty()) {
+  throw new Error('expected edits made after the save snapshot to remain unsaved')
+}
