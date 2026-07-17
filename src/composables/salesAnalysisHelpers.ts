@@ -1,6 +1,7 @@
 import type {
   SalesAnalysisConversation,
   SalesAnalysisMessage,
+  SalesAnalysisSettingsPayload,
   SalesAnalysisStore,
   SalesAnalysisStreamEvent,
   SalesAnalysisSyncState,
@@ -265,4 +266,83 @@ export function salesAnalysisResultCompletenessWarning(result: SalesAnalysisTool
     return '该结果对应店铺尚未完成首次销量同步，分析可能不完整。'
   }
   return ''
+}
+
+export function applySalesAnalysisStreamError<
+  T extends {
+    status: string
+    answer: string
+    error: string
+    tools: unknown[]
+  },
+>(presentation: T, message: string): T {
+  return {
+    ...presentation,
+    status: '分析未完成。',
+    answer: '',
+    error: String(message || '销量分析失败，请稍后重试。'),
+    tools: [],
+  }
+}
+
+export function resolveSalesAnalysisCompletedMessage(
+  message: SalesAnalysisMessage | null,
+  streamFailed: boolean,
+) {
+  return streamFailed ? null : message
+}
+
+export function salesAnalysisMessageIsError(
+  message: Pick<SalesAnalysisMessage, 'status'>,
+) {
+  return message.status === 'error'
+}
+
+export function salesAnalysisMessageErrorText(
+  message: Pick<SalesAnalysisMessage, 'errorMessage'>,
+) {
+  return String(message.errorMessage || '').trim()
+    || '本次分析未完成，请重新提问。'
+}
+
+export function salesAnalysisRetryQuestion(question: string) {
+  return String(question || '')
+    .replace(/\n\n店铺ID:\s*\d+\s*$/u, '')
+    .trim()
+}
+
+export function restoreSalesAnalysisRetryQuestion(
+  composer: { value: string },
+  question: string,
+) {
+  composer.value = salesAnalysisRetryQuestion(question)
+}
+
+export function createSalesAnalysisQuickQuestions(
+  settings: Pick<
+    SalesAnalysisSettingsPayload,
+    'defaultPeriodDays' | 'defaultRankingLimit' | 'defaultMetric' | 'defaultGrain'
+  >,
+) {
+  const periodDays = settings.defaultPeriodDays
+  const rankingLimit = settings.defaultRankingLimit
+  const metric = {
+    effectiveUnits: '有效销量',
+    orderedUnits: '下单件数',
+    effectiveSalesAmount: '预估有效销售额',
+    orderCount: '订单数',
+  }[settings.defaultMetric]
+  const grain = {
+    day: '按天',
+    week: '按周',
+    month: '按月',
+  }[settings.defaultGrain]
+
+  return [
+    `最近 ${periodDays} 天${metric}最高的 ${rankingLimit} 个商品`,
+    `最近 ${periodDays} 天${metric}和上一个同期相比怎么样`,
+    `最近 ${periodDays} 天没有有效销量的上架商品`,
+    `最近 ${periodDays} 天哪些商品退款退货影响最大`,
+    `查看某个商品最近 ${periodDays} 天${grain}的${metric}趋势`,
+  ]
 }

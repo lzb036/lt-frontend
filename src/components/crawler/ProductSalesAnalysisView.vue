@@ -25,6 +25,14 @@ import {
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
+  applySalesAnalysisStreamError,
+  createSalesAnalysisQuickQuestions,
+  resolveSalesAnalysisCompletedMessage,
+  restoreSalesAnalysisRetryQuestion,
+  salesAnalysisMessageErrorText,
+  salesAnalysisMessageIsError,
+} from '../../composables/salesAnalysisHelpers'
+import {
   composeSalesAnalysisScopedMessage,
   formatSalesAnalysisDateTime,
   mergeSalesAnalysisMessages,
@@ -44,6 +52,7 @@ import type {
   SalesAnalysisConversation,
   SalesAnalysisMessage,
   SalesAnalysisMessagePage,
+  SalesAnalysisSettings,
   SalesAnalysisStore,
   SalesAnalysisSyncState,
   SalesAnalysisToolRecord,
@@ -191,13 +200,17 @@ const OVERVIEW_METRICS = [
   { key: 'returnedUnits', label: '退货件数', kind: 'number' as const },
 ]
 
-const QUICK_QUESTIONS = [
-  '最近 30 天销量最高的 10 个商品',
-  '本月销量和上月相比怎么样',
-  '最近 30 天没有销量的上架商品',
-  '哪些商品退款退货最多',
-  '查看某个商品最近 90 天趋势',
-]
+const DEFAULT_ANALYSIS_SETTINGS: SalesAnalysisSettings = {
+  defaultPeriodDays: 30,
+  defaultRankingLimit: 10,
+  defaultMetric: 'effectiveUnits',
+  defaultGrain: 'day',
+  answerDetailLevel: 'standard',
+  prioritizeAdjustmentRisk: true,
+  showDataUpdatedAt: true,
+  showMetricDefinition: true,
+  customBusinessInstructions: '',
+}
 
 const HISTORY_PAGE_SIZE = 50
 const EFFECTIVE_SALES_AMOUNT_FALLBACK_DEFINITION = (
@@ -226,6 +239,7 @@ const historyLoadingOlder = shallowRef(false)
 const historyLoadError = shallowRef('')
 
 const composer = shallowRef('')
+const analysisSettings = shallowRef<SalesAnalysisSettings>(DEFAULT_ANALYSIS_SETTINGS)
 const streaming = shallowRef(false)
 const activeTurn = shallowRef<ActiveTurn | null>(null)
 const streamController = shallowRef<AbortController | null>(null)
@@ -301,6 +315,9 @@ const canQueueSync = computed(() => Boolean(
   && !syncIsActive.value,
 ))
 const composerMaxLength = computed(() => salesAnalysisQuestionLimit(selectedStoreId.value))
+const quickQuestions = computed(() => (
+  createSalesAnalysisQuickQuestions(analysisSettings.value)
+))
 const displayedDataUpdatedAt = computed(() => (
   selectedStore.value
     ? (
@@ -326,7 +343,9 @@ const activeToolRecords = computed<SalesAnalysisToolRecord[]>(() => (
 ))
 const unresolvedAdjustmentCount = computed(() => {
   const historyCounts = messages.value.flatMap((message) => (
-    message.resultSummary.map((record) => Number(record.result.unresolvedAdjustmentCount || 0))
+    visibleMessageRecords(message).map(
+      (record) => Number(record.result.unresolvedAdjustmentCount || 0),
+    )
   ))
   const activeCounts = activeToolRecords.value.map(
     (record) => Number(record.result.unresolvedAdjustmentCount || 0),
@@ -366,8 +385,17 @@ onBeforeUnmount(() => {
 })
 
 async function initializePage() {
+  void loadAnalysisSettings()
   await loadStores()
   await loadInitialConversation()
+}
+
+async function loadAnalysisSettings() {
+  try {
+    analysisSettings.value = await api.getSalesAnalysisSettings()
+  } catch {
+    analysisSettings.value = DEFAULT_ANALYSIS_SETTINGS
+  }
 }
 
 function applySelectedConversationStoreScope(
@@ -756,6 +784,7 @@ async function sendQuestion(questionValue?: string) {
   const controller = new AbortController()
   streamController.value = controller
   let completedMessage: SalesAnalysisMessage | null = null
+  let streamFailed = false
   await scrollMessagesToBottom()
 
   try {
@@ -764,9 +793,11 @@ async function sendQuestion(questionValue?: string) {
       scopedQuestion,
       {
         onStatus(message) {
+          if (streamFailed) return
           updateActiveTurn({ status: message })
         },
         onToolCall(event) {
+          if (streamFailed) return
           const turn = activeTurn.value
           if (!turn) return
           updateActiveTurn({
@@ -783,6 +814,7 @@ async function sendQuestion(questionValue?: string) {
           })
         },
         onToolResult(event) {
+          if (streamFailed) return
           const turn = activeTurn.value
           if (!turn) return
           let matched = false
@@ -813,23 +845,33 @@ async function sendQuestion(questionValue?: string) {
           })
         },
         onDelta(content) {
+          if (streamFailed) return
           const turn = activeTurn.value
           if (!turn) return
           updateActiveTurn({ answer: turn.answer + content })
         },
         onCompleted(message) {
+          if (streamFailed) return
+          if (salesAnalysisMessageIsError(message)) {
+            streamFailed = true
+            completedMessage = null
+            failActiveTurn(salesAnalysisMessageErrorText(message))
+            return
+          }
           completedMessage = message
           updateActiveTurn({ status: '分析完成。' })
         },
         onError(message) {
-          updateActiveTurn({ status: '分析未完成。', error: message })
+          streamFailed = true
+          completedMessage = null
+          failActiveTurn(message)
         },
       },
       controller.signal,
     )
 
-    if (completedMessage) {
-      const completed = completedMessage as SalesAnalysisMessage
+    const completed = resolveSalesAnalysisCompletedMessage(completedMessage, streamFailed)
+    if (completed) {
       const alreadyLoaded = messages.value.some((message) => message.id === completed.id)
       messages.value = mergeSalesAnalysisMessages(messages.value, [completed])
       historyTotal.value = Math.max(
@@ -845,7 +887,9 @@ async function sendQuestion(questionValue?: string) {
   } catch (error) {
     if (!isAbortError(error)) {
       const message = toApiErrorMessage(error, '销量分析失败，请稍后重试')
-      updateActiveTurn({ status: '分析未完成。', error: message })
+      streamFailed = true
+      completedMessage = null
+      failActiveTurn(message)
       await refreshAfterInterruptedStream(conversationId, scopedQuestion)
       ElMessage.error(message)
     }
@@ -877,6 +921,22 @@ function updateActiveTurn(patch: Partial<ActiveTurn>) {
     ...patch,
   }
   void scrollMessagesToBottom()
+}
+
+function failActiveTurn(message: string) {
+  if (!activeTurn.value) {
+    return
+  }
+  activeTurn.value = applySalesAnalysisStreamError(activeTurn.value, message)
+  void scrollMessagesToBottom()
+}
+
+function retryFailedMessage(message: SalesAnalysisMessage) {
+  restoreSalesAnalysisRetryQuestion(composer, message.question)
+}
+
+function visibleMessageRecords(message: SalesAnalysisMessage) {
+  return salesAnalysisMessageIsError(message) ? [] : message.resultSummary
 }
 
 function cancelCurrentAnalysis() {
@@ -1316,22 +1376,37 @@ function adjustmentStatusLabel(value: unknown) {
                 <span>{{ formatDateTime(message.updatedAt || message.createdAt) }}</span>
               </div>
               <p
+                v-if="!salesAnalysisMessageIsError(message)"
                 class="assistant-answer"
                 role="status"
                 aria-live="polite"
               >
                 {{ displayAnswer(message.answer) }}
               </p>
-              <el-alert
-                v-if="message.fallback"
-                class="fallback-alert"
-                title="模型解释未通过校验，以下展示受控工具结果。"
-                type="info"
-                :closable="false"
-                show-icon
-              />
               <div
-                v-for="(record, recordIndex) in message.resultSummary"
+                v-else
+                class="history-failure"
+                role="alert"
+              >
+                <el-alert
+                  :title="salesAnalysisMessageErrorText(message)"
+                  type="error"
+                  :closable="false"
+                  show-icon
+                />
+                <span v-if="message.errorCode" class="failure-code">
+                  错误代码：{{ message.errorCode }}
+                </span>
+                <el-button
+                  type="primary"
+                  plain
+                  @click="retryFailedMessage(message)"
+                >
+                  重新提问
+                </el-button>
+              </div>
+              <div
+                v-for="(record, recordIndex) in visibleMessageRecords(message)"
                 :key="`${message.id}-${record.toolName}-${recordIndex}`"
                 class="tool-result"
               >
@@ -1490,12 +1565,12 @@ function adjustmentStatusLabel(value: unknown) {
                 class="fallback-alert"
                 role="alert"
                 :title="activeTurn.error"
-                type="warning"
+                type="error"
                 :closable="false"
                 show-icon
               />
               <div
-                v-if="activeTurn.tools.length > 0"
+                v-if="!activeTurn.error && activeTurn.tools.length > 0"
                 class="tool-progress-list"
                 role="status"
                 aria-live="polite"
@@ -1520,7 +1595,7 @@ function adjustmentStatusLabel(value: unknown) {
                 </div>
               </div>
               <div
-                v-for="(record, recordIndex) in activeToolRecords"
+                v-for="(record, recordIndex) in activeTurn.error ? [] : activeToolRecords"
                 :key="`active-${record.toolName}-${recordIndex}`"
                 class="tool-result"
               >
@@ -1761,7 +1836,7 @@ function adjustmentStatusLabel(value: unknown) {
             <span>快捷问题</span>
           </div>
           <button
-            v-for="item in QUICK_QUESTIONS"
+            v-for="item in quickQuestions"
             :key="item"
             type="button"
             class="quick-question"
@@ -2110,6 +2185,23 @@ function adjustmentStatusLabel(value: unknown) {
   color: var(--text-main);
   line-height: 1.75;
   white-space: pre-wrap;
+}
+
+.history-failure {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.history-failure :deep(.el-alert) {
+  flex: 1 1 100%;
+}
+
+.failure-code {
+  color: var(--text-faint);
+  font-size: 12px;
 }
 
 .fallback-alert,

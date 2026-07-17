@@ -319,6 +319,9 @@ function message(id: number): SalesAnalysisMessage {
     modelName: '',
     storeScope: [],
     statisticsWindow: {},
+    status: 'completed',
+    errorCode: '',
+    errorMessage: '',
   }
 }
 
@@ -442,18 +445,6 @@ for (const requiredMarkup of [
 ]) {
   if (!productSalesAnalysisViewSource.includes(requiredMarkup)) {
     throw new Error(`expected accessible sales analysis markup: ${requiredMarkup}`)
-  }
-}
-
-for (const quickQuestion of [
-  '最近 30 天销量最高的 10 个商品',
-  '本月销量和上月相比怎么样',
-  '最近 30 天没有销量的上架商品',
-  '哪些商品退款退货最多',
-  '查看某个商品最近 90 天趋势',
-]) {
-  if (!productSalesAnalysisViewSource.includes(quickQuestion)) {
-    throw new Error(`expected exact quick question: ${quickQuestion}`)
   }
 }
 

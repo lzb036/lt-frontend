@@ -374,6 +374,8 @@ export interface SalesAnalysisToolRecord {
   result: SalesAnalysisToolResult
 }
 
+export type SalesAnalysisMessageStatus = 'completed' | 'error'
+
 export interface SalesAnalysisMessage {
   id: number
   conversationId: number
@@ -385,6 +387,9 @@ export interface SalesAnalysisMessage {
   modelName: string
   storeScope: number[]
   statisticsWindow: Partial<SalesAnalysisDateRange>
+  status: SalesAnalysisMessageStatus
+  errorCode: string
+  errorMessage: string
   fallback?: boolean
   historyTruncated?: boolean
   createdAt?: string | null
