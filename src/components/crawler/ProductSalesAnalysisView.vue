@@ -988,7 +988,7 @@ function displayQuestion(question: string) {
 
 function displayAnswer(answer: string) {
   const prose = answer.split('【分析依据】', 1)[0]?.trim() || ''
-  return prose || '结构化分析结果如下。'
+  return prose || '本次分析未生成回答。'
 }
 
 function conversationTime(conversation: SalesAnalysisConversation) {
