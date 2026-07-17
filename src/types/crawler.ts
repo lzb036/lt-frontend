@@ -270,6 +270,24 @@ export interface AiTitleSettingsPayload {
   subtitlePrompt: string
 }
 
+export interface SalesAnalysisModelSettings {
+  provider: string
+  apiBaseUrl: string
+  apiKeyConfigured: boolean
+  apiKeyMasked: string
+  modelName: string
+  verified: boolean
+  verifiedAt?: string | null
+  lastError?: string | null
+}
+
+export interface SalesAnalysisModelSettingsPayload {
+  provider: string
+  apiBaseUrl: string
+  apiKey: string
+  modelName: string
+}
+
 export interface AiProviderOption {
   value: string
   label: string

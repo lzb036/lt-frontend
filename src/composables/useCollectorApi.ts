@@ -29,6 +29,8 @@ import type {
   SalesAnalysisConversation,
   SalesAnalysisConstraintSection,
   SalesAnalysisMessagePage,
+  SalesAnalysisModelSettings,
+  SalesAnalysisModelSettingsPayload,
   SalesAnalysisSettings,
   SalesAnalysisSettingsPayload,
   SalesOrderSyncGlobalSettings,
@@ -525,6 +527,37 @@ export function useCollectorApi() {
   ): Promise<SalesAnalysisSettings> {
     const response = await apiClient.put<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis', payload)
     return response.data.settings
+  }
+
+  async function getSalesAnalysisModelSettings(): Promise<SalesAnalysisModelSettings> {
+    const response = await apiClient.get<{ settings: SalesAnalysisModelSettings }>(
+      '/crawler/settings/sales-analysis/model',
+    )
+    return response.data.settings
+  }
+
+  async function getSalesAnalysisModelProviders(): Promise<AiProviderOption[]> {
+    const response = await apiClient.get<{ providers: AiProviderOption[] }>(
+      '/crawler/settings/sales-analysis/model/providers',
+    )
+    return response.data.providers
+  }
+
+  async function updateSalesAnalysisModelSettings(
+    payload: SalesAnalysisModelSettingsPayload,
+  ): Promise<SalesAnalysisModelSettings> {
+    const response = await apiClient.put<{ settings: SalesAnalysisModelSettings }>(
+      '/crawler/settings/sales-analysis/model',
+      payload,
+    )
+    return response.data.settings
+  }
+
+  async function testSalesAnalysisModelSettings() {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      '/crawler/settings/sales-analysis/model/test',
+    )
+    return response.data
   }
 
   async function getSalesOrderSyncGlobalSettings(): Promise<SalesOrderSyncGlobalSettings> {
@@ -1149,6 +1182,10 @@ export function useCollectorApi() {
     deleteProductTitleVersion,
     getSalesAnalysisSettings,
     updateSalesAnalysisSettings,
+    getSalesAnalysisModelSettings,
+    getSalesAnalysisModelProviders,
+    updateSalesAnalysisModelSettings,
+    testSalesAnalysisModelSettings,
     getSalesOrderSyncGlobalSettings,
     updateSalesOrderSyncGlobalSettings,
     listSalesOrderSyncRuns,

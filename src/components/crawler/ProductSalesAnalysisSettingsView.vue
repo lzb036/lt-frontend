@@ -26,6 +26,7 @@ import type {
   SalesOrderSyncGlobalSettingsPayload,
 } from '../../types/crawler'
 import PreferenceHelpTooltip from './PreferenceHelpTooltip.vue'
+import SalesAnalysisModelSettingsPanel from './SalesAnalysisModelSettingsPanel.vue'
 
 const DEFAULT_SETTINGS: SalesAnalysisSettingsPayload = {
   defaultPeriodDays: 30,
@@ -61,6 +62,7 @@ const draft = settingsState.draft
 const salesOrderSyncDraft = salesOrderSyncSettingsState.draft
 const isDirty = computed(() => settingsState.isDirty())
 const salesOrderSyncIsDirty = computed(() => salesOrderSyncSettingsState.isDirty())
+const modelSettingsDirty = shallowRef(false)
 const canManageSalesOrderSync = computed(() => (
   canManageSalesOrderSyncSettings(props.session)
 ))
@@ -80,7 +82,13 @@ onBeforeUnmount(() => {
 })
 
 onBeforeRouteLeave(async () => {
-  if (!shouldConfirmAnySettingsLeave(settingsState, salesOrderSyncSettingsState)) {
+  if (
+    !modelSettingsDirty.value
+    && !shouldConfirmAnySettingsLeave(
+      settingsState,
+      salesOrderSyncSettingsState,
+    )
+  ) {
     return true
   }
   return confirmDiscardChanges()
@@ -147,7 +155,13 @@ async function loadConstraints() {
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (!shouldConfirmAnySettingsLeave(settingsState, salesOrderSyncSettingsState)) {
+  if (
+    !modelSettingsDirty.value
+    && !shouldConfirmAnySettingsLeave(
+      settingsState,
+      salesOrderSyncSettingsState,
+    )
+  ) {
     return
   }
   event.preventDefault()
@@ -438,6 +452,12 @@ async function confirmDiscardChanges() {
               />
             </el-form-item>
           </el-form>
+        </el-tab-pane>
+
+        <el-tab-pane label="模型配置" name="model">
+          <SalesAnalysisModelSettingsPanel
+            @dirty-change="modelSettingsDirty = $event"
+          />
         </el-tab-pane>
 
         <el-tab-pane
