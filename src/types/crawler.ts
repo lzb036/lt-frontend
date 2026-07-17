@@ -399,6 +399,45 @@ export interface SalesAnalysisMessagePage {
   truncated: boolean
 }
 
+export type SalesAnalysisMetric =
+  | 'effective_units'
+  | 'ordered_units'
+  | 'estimated_effective_sales_amount'
+  | 'order_count'
+
+export type SalesAnalysisGrain = 'day' | 'week' | 'month'
+
+export type SalesAnalysisAnswerDetailLevel = 'concise' | 'standard' | 'detailed'
+
+export interface SalesAnalysisSettingsPayload {
+  defaultPeriodDays: 7 | 30 | 60 | 90
+  defaultRankingLimit: number
+  defaultMetric: SalesAnalysisMetric
+  defaultGrain: SalesAnalysisGrain
+  answerDetailLevel: SalesAnalysisAnswerDetailLevel
+  prioritizeAdjustmentRisk: boolean
+  showDataUpdatedAt: boolean
+  showMetricDefinition: boolean
+  customBusinessInstructions: string
+}
+
+export interface SalesAnalysisSettings extends SalesAnalysisSettingsPayload {
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface SalesAnalysisCapability {
+  key: string
+  title: string
+  description: string
+}
+
+export interface SalesAnalysisConstraintSection {
+  key: string
+  title: string
+  items: string[]
+}
+
 export type SalesAnalysisStreamEvent =
   | { type: 'status'; message: string }
   | {

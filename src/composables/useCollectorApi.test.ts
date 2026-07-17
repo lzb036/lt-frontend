@@ -1,7 +1,11 @@
 import type {
+  SalesAnalysisCapability,
   SalesAnalysisConversation,
+  SalesAnalysisConstraintSection,
   SalesAnalysisMessage,
   SalesAnalysisMessagePage,
+  SalesAnalysisSettings,
+  SalesAnalysisSettingsPayload,
   SalesAnalysisStore,
   SalesAnalysisStoreList,
   SalesAnalysisStreamHandlers,
@@ -36,8 +40,19 @@ const productSalesAnalysisViewSource = readFileSync(
   'utf8',
 )
 
+const useCollectorApiSource = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), './useCollectorApi.ts'),
+  'utf8',
+)
+
 const api = {} as ReturnType<typeof useCollectorApi>
 
+const getSettings: () => Promise<SalesAnalysisSettings> = api.getSalesAnalysisSettings
+const updateSettings: (
+  payload: SalesAnalysisSettingsPayload,
+) => Promise<SalesAnalysisSettings> = api.updateSalesAnalysisSettings
+const listCapabilities: () => Promise<SalesAnalysisCapability[]> = api.listSalesAnalysisCapabilities
+const listConstraints: () => Promise<SalesAnalysisConstraintSection[]> = api.listSalesAnalysisConstraints
 const listStores: () => Promise<SalesAnalysisStoreList> = api.listSalesAnalysisStores
 const getSyncState: (storeId: number) => Promise<SalesAnalysisSyncState> = api.getSalesAnalysisSyncState
 const queueSync: (storeId: number) => Promise<SalesAnalysisSyncState> = api.queueSalesAnalysisSync
@@ -58,6 +73,10 @@ const streamMessage: (
 ) => Promise<void> = api.streamSalesAnalysisMessage
 
 void [
+  getSettings,
+  updateSettings,
+  listCapabilities,
+  listConstraints,
   listStores,
   getSyncState,
   queueSync,
@@ -68,6 +87,57 @@ void [
   listMessages,
   streamMessage,
 ]
+
+const settings: SalesAnalysisSettings = {
+  defaultPeriodDays: 30,
+  defaultRankingLimit: 10,
+  defaultMetric: 'effective_units',
+  defaultGrain: 'day',
+  answerDetailLevel: 'standard',
+  prioritizeAdjustmentRisk: true,
+  showDataUpdatedAt: true,
+  showMetricDefinition: true,
+  customBusinessInstructions: '',
+  createdAt: null,
+  updatedAt: null,
+}
+
+const settingsPayload: SalesAnalysisSettingsPayload = {
+  defaultPeriodDays: settings.defaultPeriodDays,
+  defaultRankingLimit: settings.defaultRankingLimit,
+  defaultMetric: settings.defaultMetric,
+  defaultGrain: settings.defaultGrain,
+  answerDetailLevel: settings.answerDetailLevel,
+  prioritizeAdjustmentRisk: settings.prioritizeAdjustmentRisk,
+  showDataUpdatedAt: settings.showDataUpdatedAt,
+  showMetricDefinition: settings.showMetricDefinition,
+  customBusinessInstructions: settings.customBusinessInstructions,
+}
+
+const capability: SalesAnalysisCapability = {
+  key: 'sales_overview',
+  title: '店铺销量概览',
+  description: '查看指定店铺的销量汇总。',
+}
+
+const constraintSection: SalesAnalysisConstraintSection = {
+  key: 'data_permissions',
+  title: '数据权限',
+  items: ['只能分析当前用户拥有的店铺。'],
+}
+
+void [settingsPayload, capability, constraintSection]
+
+for (const requiredApiContract of [
+  "apiClient.get<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis')",
+  "apiClient.put<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis', payload)",
+  "apiClient.get<{ capabilities: SalesAnalysisCapability[] }>('/crawler/settings/sales-analysis/capabilities')",
+  "apiClient.get<{ constraints: SalesAnalysisConstraintSection[] }>('/crawler/settings/sales-analysis/constraints')",
+]) {
+  if (!useCollectorApiSource.includes(requiredApiContract)) {
+    throw new Error(`expected sales analysis settings API contract: ${requiredApiContract}`)
+  }
+}
 
 const toolResult = normalizeSalesAnalysisEvent({
   type: 'tool_result',

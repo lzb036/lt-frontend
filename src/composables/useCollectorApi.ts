@@ -25,8 +25,12 @@ import type {
   ReviewStatus,
   RoleDefinition,
   RolePayload,
+  SalesAnalysisCapability,
   SalesAnalysisConversation,
+  SalesAnalysisConstraintSection,
   SalesAnalysisMessagePage,
+  SalesAnalysisSettings,
+  SalesAnalysisSettingsPayload,
   SalesAnalysisStoreList,
   SalesAnalysisStreamEvent,
   SalesAnalysisStreamHandlers,
@@ -506,6 +510,28 @@ export function useCollectorApi() {
 
   async function deleteProductTitleVersion(productId: number, versionId: number) {
     await apiClient.delete(`/crawler/products/${productId}/title-versions/${versionId}`)
+  }
+
+  async function getSalesAnalysisSettings(): Promise<SalesAnalysisSettings> {
+    const response = await apiClient.get<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis')
+    return response.data.settings
+  }
+
+  async function updateSalesAnalysisSettings(
+    payload: SalesAnalysisSettingsPayload,
+  ): Promise<SalesAnalysisSettings> {
+    const response = await apiClient.put<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis', payload)
+    return response.data.settings
+  }
+
+  async function listSalesAnalysisCapabilities(): Promise<SalesAnalysisCapability[]> {
+    const response = await apiClient.get<{ capabilities: SalesAnalysisCapability[] }>('/crawler/settings/sales-analysis/capabilities')
+    return response.data.capabilities
+  }
+
+  async function listSalesAnalysisConstraints(): Promise<SalesAnalysisConstraintSection[]> {
+    const response = await apiClient.get<{ constraints: SalesAnalysisConstraintSection[] }>('/crawler/settings/sales-analysis/constraints')
+    return response.data.constraints
   }
 
   async function listSalesAnalysisStores(): Promise<SalesAnalysisStoreList> {
@@ -1047,6 +1073,10 @@ export function useCollectorApi() {
     listProductTitleVersions,
     saveProductTitleVersion,
     deleteProductTitleVersion,
+    getSalesAnalysisSettings,
+    updateSalesAnalysisSettings,
+    listSalesAnalysisCapabilities,
+    listSalesAnalysisConstraints,
     listSalesAnalysisStores,
     getSalesAnalysisSyncState,
     queueSalesAnalysisSync,
