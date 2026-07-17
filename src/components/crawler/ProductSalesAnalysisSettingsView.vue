@@ -1,16 +1,23 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { Check, RefreshLeft } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import {
+  createCatalogState,
+  createSettingsDraftState,
+  loadCatalogState,
+  loadSettingsDraftState,
+  saveSettingsDraftState,
+  shouldConfirmSettingsLeave,
+} from '../../composables/salesAnalysisSettingsState'
 import type {
   SalesAnalysisCapability,
   SalesAnalysisConstraintSection,
   SalesAnalysisSettingsPayload,
 } from '../../types/crawler'
-import { toApiErrorMessage } from '../../utils/api'
 
 const DEFAULT_SETTINGS: SalesAnalysisSettingsPayload = {
   defaultPeriodDays: 30,
@@ -26,20 +33,17 @@ const DEFAULT_SETTINGS: SalesAnalysisSettingsPayload = {
 
 const api = useCollectorApi()
 const activeTab = shallowRef('personal')
-const loading = shallowRef(false)
-const saving = shallowRef(false)
-const capabilities = ref<SalesAnalysisCapability[]>([])
-const constraints = ref<SalesAnalysisConstraintSection[]>([])
-const draft = reactive<SalesAnalysisSettingsPayload>({ ...DEFAULT_SETTINGS })
-const savedSnapshot = ref<SalesAnalysisSettingsPayload | null>(null)
-const isDirty = computed(() =>
-  savedSnapshot.value !== null
-  && JSON.stringify(draft) !== JSON.stringify(savedSnapshot.value),
-)
+const settingsState = reactive(createSettingsDraftState(DEFAULT_SETTINGS))
+const capabilityState = reactive(createCatalogState<SalesAnalysisCapability>())
+const constraintState = reactive(createCatalogState<SalesAnalysisConstraintSection>())
+const draft = settingsState.draft
+const isDirty = computed(() => settingsState.isDirty())
 
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload)
-  void loadSettingsWorkspace()
+  void loadPersonalSettings()
+  void loadCapabilities()
+  void loadConstraints()
 })
 
 onBeforeUnmount(() => {
@@ -47,67 +51,48 @@ onBeforeUnmount(() => {
 })
 
 onBeforeRouteLeave(async () => {
-  if (!isDirty.value) {
+  if (!shouldConfirmSettingsLeave(settingsState)) {
     return true
   }
   return confirmDiscardChanges()
 })
 
-async function loadSettingsWorkspace() {
-  loading.value = true
-  try {
-    const [settings, capabilityValues, constraintValues] = await Promise.all([
-      api.getSalesAnalysisSettings(),
-      api.listSalesAnalysisCapabilities(),
-      api.listSalesAnalysisConstraints(),
-    ])
-    const snapshot = toPayload(settings)
-    Object.assign(draft, snapshot)
-    savedSnapshot.value = snapshot
-    capabilities.value = capabilityValues
-    constraints.value = constraintValues
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载商品分析设置失败'))
-  } finally {
-    loading.value = false
+async function loadPersonalSettings() {
+  const loaded = await loadSettingsDraftState(
+    settingsState,
+    api.getSalesAnalysisSettings(),
+  )
+  if (!loaded) {
+    ElMessage.error(settingsState.error || '加载个人偏好失败')
   }
 }
 
 async function saveSettings() {
-  saving.value = true
-  try {
-    const settings = await api.updateSalesAnalysisSettings({ ...draft })
-    const snapshot = toPayload(settings)
-    Object.assign(draft, snapshot)
-    savedSnapshot.value = snapshot
+  const saved = await saveSettingsDraftState(
+    settingsState,
+    api.updateSalesAnalysisSettings,
+  )
+  if (saved) {
     ElMessage.success('商品分析设置已保存')
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '保存商品分析设置失败'))
-  } finally {
-    saving.value = false
+  } else {
+    ElMessage.error(settingsState.error || '保存商品分析设置失败')
   }
 }
 
 function restoreDefaults() {
-  Object.assign(draft, DEFAULT_SETTINGS)
+  settingsState.restoreDefaults()
 }
 
-function toPayload(settings: SalesAnalysisSettingsPayload): SalesAnalysisSettingsPayload {
-  return {
-    defaultPeriodDays: settings.defaultPeriodDays,
-    defaultRankingLimit: settings.defaultRankingLimit,
-    defaultMetric: settings.defaultMetric,
-    defaultGrain: settings.defaultGrain,
-    answerDetailLevel: settings.answerDetailLevel,
-    prioritizeAdjustmentRisk: settings.prioritizeAdjustmentRisk,
-    showDataUpdatedAt: settings.showDataUpdatedAt,
-    showMetricDefinition: settings.showMetricDefinition,
-    customBusinessInstructions: settings.customBusinessInstructions,
-  }
+async function loadCapabilities() {
+  await loadCatalogState(capabilityState, api.listSalesAnalysisCapabilities)
+}
+
+async function loadConstraints() {
+  await loadCatalogState(constraintState, api.listSalesAnalysisConstraints)
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (!isDirty.value) {
+  if (!shouldConfirmSettingsLeave(settingsState)) {
     return
   }
   event.preventDefault()
@@ -133,19 +118,29 @@ async function confirmDiscardChanges() {
 </script>
 
 <template>
-  <section class="settings-page" v-loading="loading">
+  <section class="settings-page">
     <header class="page-head">
       <div>
         <p class="eyebrow">AI Management</p>
         <h1>商品分析设置</h1>
         <p class="page-summary">查看分析能力与安全边界，并配置当前账号的默认分析偏好。</p>
       </div>
-      <div class="head-actions">
+      <div v-if="activeTab === 'personal'" class="head-actions">
         <el-tag v-if="isDirty" type="warning" effect="plain">有未保存修改</el-tag>
-        <el-button :icon="RefreshLeft" :disabled="loading || saving" @click="restoreDefaults">
+        <el-button
+          :icon="RefreshLeft"
+          :disabled="settingsState.loading || settingsState.saving || !settingsState.savedSnapshot"
+          @click="restoreDefaults"
+        >
           恢复默认
         </el-button>
-        <el-button type="primary" :icon="Check" :loading="saving" :disabled="loading || !isDirty" @click="saveSettings">
+        <el-button
+          type="primary"
+          :icon="Check"
+          :loading="settingsState.saving"
+          :disabled="settingsState.loading || !isDirty"
+          @click="saveSettings"
+        >
           保存设置
         </el-button>
       </div>
@@ -154,17 +149,58 @@ async function confirmDiscardChanges() {
     <section class="settings-workspace">
       <el-tabs v-model="activeTab" class="settings-tabs">
         <el-tab-pane label="能力说明" name="capability">
-          <div v-if="capabilities.length" class="catalog-grid">
-            <article v-for="item in capabilities" :key="item.key" class="catalog-item">
+          <div v-loading="capabilityState.loading" class="tab-content">
+            <el-result
+              v-if="capabilityState.error"
+              icon="error"
+              title="能力说明加载失败"
+              :sub-title="capabilityState.error"
+            >
+              <template #extra>
+                <el-button type="primary" :icon="RefreshLeft" @click="loadCapabilities">重试</el-button>
+              </template>
+            </el-result>
+            <div v-else-if="capabilityState.items.length" class="catalog-grid">
+              <article v-for="item in capabilityState.items" :key="item.key" class="catalog-item">
               <h2>{{ item.title }}</h2>
               <p>{{ item.description }}</p>
-            </article>
+                <dl class="capability-details">
+                  <div>
+                    <dt>示例问题</dt>
+                    <dd>{{ item.example }}</dd>
+                  </div>
+                  <div>
+                    <dt>支持指标</dt>
+                    <dd class="metric-list">
+                      <el-tag v-for="metric in item.metrics" :key="metric" effect="plain">
+                        {{ metric }}
+                      </el-tag>
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            </div>
+            <el-empty v-else-if="!capabilityState.loading" description="暂无能力说明" />
           </div>
-          <el-empty v-else description="暂无能力说明" />
         </el-tab-pane>
 
         <el-tab-pane label="个人偏好" name="personal">
-          <el-form class="preference-form" label-position="top">
+          <el-result
+            v-if="settingsState.error && !settingsState.savedSnapshot"
+            icon="error"
+            title="个人偏好加载失败"
+            :sub-title="settingsState.error"
+          >
+            <template #extra>
+              <el-button type="primary" :icon="RefreshLeft" @click="loadPersonalSettings">重试</el-button>
+            </template>
+          </el-result>
+          <el-form
+            v-else
+            v-loading="settingsState.loading"
+            class="preference-form"
+            label-position="top"
+          >
             <div class="form-grid">
               <el-form-item label="默认统计周期">
                 <el-segmented
@@ -239,15 +275,30 @@ async function confirmDiscardChanges() {
         </el-tab-pane>
 
         <el-tab-pane label="安全约束" name="security">
-          <div v-if="constraints.length" class="constraint-list">
-            <section v-for="section in constraints" :key="section.key" class="constraint-section">
-              <h2>{{ section.title }}</h2>
-              <ul>
-                <li v-for="item in section.items" :key="item">{{ item }}</li>
-              </ul>
-            </section>
+          <div v-loading="constraintState.loading" class="tab-content">
+            <el-result
+              v-if="constraintState.error"
+              icon="error"
+              title="安全约束加载失败"
+              :sub-title="constraintState.error"
+            >
+              <template #extra>
+                <el-button type="primary" :icon="RefreshLeft" @click="loadConstraints">重试</el-button>
+              </template>
+            </el-result>
+            <template v-else-if="constraintState.items.length">
+              <p class="catalog-note">以下运行事实和安全边界由后端返回，个人偏好不能覆盖。</p>
+              <div class="constraint-list">
+                <section v-for="section in constraintState.items" :key="section.key" class="constraint-section">
+                  <h2>{{ section.title }}</h2>
+                  <ul>
+                    <li v-for="item in section.items" :key="item">{{ item }}</li>
+                  </ul>
+                </section>
+              </div>
+            </template>
+            <el-empty v-else-if="!constraintState.loading" description="暂无安全约束说明" />
           </div>
-          <el-empty v-else description="暂无安全约束说明" />
         </el-tab-pane>
       </el-tabs>
     </section>
@@ -307,6 +358,10 @@ async function confirmDiscardChanges() {
   margin-bottom: 22px;
 }
 
+.tab-content {
+  min-height: 320px;
+}
+
 .catalog-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -333,6 +388,43 @@ async function confirmDiscardChanges() {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.7;
+}
+
+.capability-details {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.capability-details div {
+  display: grid;
+  gap: 6px;
+}
+
+.capability-details dt {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.capability-details dd {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.metric-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.catalog-note {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .preference-form {

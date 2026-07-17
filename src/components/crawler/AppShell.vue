@@ -128,9 +128,9 @@ const menuGroups = computed(() => {
       label: 'AI 管理',
       icon: Cpu,
       children: [
+        { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
         { path: '/ai/product-analysis', label: '商品分析', icon: DataAnalysis },
         { path: '/ai/product-analysis-settings', label: '商品分析设置', icon: Setting },
-        { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
       ],
     })
   }

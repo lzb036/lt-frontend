@@ -40,3 +40,21 @@ for (const requiredPermissionContract of [
     throw new Error(`expected sales analysis settings permission contract: ${requiredPermissionContract}`)
   }
 }
+
+const titleOptimizationMenuIndex = appShellSource.indexOf(
+  "{ path: '/ai/title-optimization', label: '标题优化'",
+)
+const productAnalysisMenuIndex = appShellSource.indexOf(
+  "{ path: '/ai/product-analysis', label: '商品分析'",
+)
+const productAnalysisSettingsMenuIndex = appShellSource.indexOf(
+  "{ path: '/ai/product-analysis-settings', label: '商品分析设置'",
+)
+
+if (
+  titleOptimizationMenuIndex < 0
+  || productAnalysisMenuIndex <= titleOptimizationMenuIndex
+  || productAnalysisSettingsMenuIndex <= productAnalysisMenuIndex
+) {
+  throw new Error('expected AI menu order to be 标题优化→商品分析→商品分析设置')
+}
