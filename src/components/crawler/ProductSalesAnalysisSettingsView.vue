@@ -178,7 +178,6 @@ async function confirmDiscardChanges() {
       <div>
         <p class="eyebrow">AI Management</p>
         <h1>商品分析设置</h1>
-        <p class="page-summary">查看分析能力与安全边界，并配置当前账号的默认分析偏好。</p>
       </div>
       <div v-if="activeTab === 'personal'" class="head-actions">
         <el-tag v-if="isDirty" type="warning" effect="plain">有未保存修改</el-tag>
@@ -558,12 +557,6 @@ async function confirmDiscardChanges() {
   color: var(--text-main);
   font-size: 26px;
   font-weight: 800;
-}
-
-.page-summary {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 14px;
 }
 
 .head-actions {

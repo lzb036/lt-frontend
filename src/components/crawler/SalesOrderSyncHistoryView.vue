@@ -256,7 +256,6 @@ function progressText(run: SalesOrderSyncRun) {
       <div>
         <p class="eyebrow">AI Management</p>
         <h1>订单获取记录</h1>
-        <p class="page-summary">查看当前账号店铺的自动、手动和重试订单同步记录。</p>
       </div>
       <div class="head-actions">
         <el-button
@@ -464,12 +463,6 @@ function progressText(run: SalesOrderSyncRun) {
   margin: 0;
   color: var(--text-main);
   font-size: 26px;
-}
-
-.page-summary {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 14px;
 }
 
 .head-actions {
