@@ -18,3 +18,15 @@ const adminResults = searchOperatorManualSections('敏感词管理')
 if (adminResults.length > 0) {
   throw new Error('expected the operator manual to exclude superadmin-only settings')
 }
+
+for (const [keyword, sectionId] of [
+  ['近一年订单数', 'store-order-data'],
+  ['销量从高到低', 'store-product-sales'],
+  ['订单获取记录', 'order-sync-history'],
+  ['成功记录保留', 'order-sync-settings'],
+] as const) {
+  const results = searchOperatorManualSections(keyword)
+  if (!results.some((section) => section.id === sectionId)) {
+    throw new Error(`expected ${keyword} search to find ${sectionId}`)
+  }
+}

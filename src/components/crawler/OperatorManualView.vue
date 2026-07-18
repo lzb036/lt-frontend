@@ -52,7 +52,7 @@ function clearSearch() {
         <p class="operator-manual-eyebrow">Operator Guide</p>
         <h1>使用手册</h1>
         <p class="operator-manual-intro">
-          面向普通商品操作员，覆盖采集、审核、上架、店铺商品、商品替换和任务处理。
+          覆盖采集、审核、上架、店铺商品、订单同步、销量筛选和任务处理，并标明操作影响与所需权限。
         </p>
       </div>
       <div class="operator-manual-search">
@@ -60,7 +60,7 @@ function clearSearch() {
           v-model="keyword"
           :prefix-icon="Search"
           clearable
-          placeholder="搜索功能、操作或错误，例如：品类、替换、上架失败"
+          placeholder="搜索功能、操作或错误，例如：销量、订单同步、品类、替换"
         />
         <span>{{ filteredSections.length }} 个相关章节</span>
       </div>
@@ -82,7 +82,7 @@ function clearSearch() {
         <div v-if="filteredSections.length < 1" class="operator-manual-empty">
           <Search />
           <strong>没有找到相关内容</strong>
-          <span>尝试搜索“采集”“品类”“替换”或“失败”。</span>
+          <span>尝试搜索“采集”“销量”“订单同步”“替换”或“失败”。</span>
           <el-button type="primary" plain @click="clearSearch">清除搜索</el-button>
         </div>
       </nav>
