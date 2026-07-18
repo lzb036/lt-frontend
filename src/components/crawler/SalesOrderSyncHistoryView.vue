@@ -7,7 +7,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   canDeleteSalesOrderSyncRun,
   canRetrySalesOrderSyncRun,
-  formatSalesOrderSyncDuration,
   salesOrderSyncRunNeedsPolling,
   salesOrderSyncStatusLabel,
   salesOrderSyncTaskName,
@@ -245,9 +244,6 @@ function formatDateTime(value?: string | null) {
   return value ? formatSalesAnalysisDateTime(value) : '-'
 }
 
-function progressText(run: SalesOrderSyncRun) {
-  return `${run.progressCurrent} / ${run.progressTotal || '待确认'}`
-}
 </script>
 
 <template>
@@ -366,7 +362,11 @@ function progressText(run: SalesOrderSyncRun) {
             {{ salesOrderSyncTaskName(row) }}
           </template>
         </el-table-column>
-        <el-table-column prop="storeName" label="店铺" min-width="150" />
+        <el-table-column label="店铺别称" min-width="150">
+          <template #default="{ row }">
+            {{ row.storeAliasName || row.storeName || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="触发方式" width="90">
           <template #default="{ row }">
             {{ salesOrderSyncTriggerLabel(row.triggerType) }}
@@ -379,31 +379,13 @@ function progressText(run: SalesOrderSyncRun) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="首次同步" width="90">
-          <template #default="{ row }">{{ row.initialSync ? '是' : '否' }}</template>
-        </el-table-column>
         <el-table-column prop="totalOrderCount" label="订单总数" width="95" />
         <el-table-column prop="newOrderCount" label="新增" width="80" />
-        <el-table-column prop="updatedOrderCount" label="更新" width="80" />
-        <el-table-column prop="unchangedOrderCount" label="无变化" width="85" />
-        <el-table-column prop="failedOrderCount" label="失败" width="80" />
-        <el-table-column label="进度" width="110">
-          <template #default="{ row }">{{ progressText(row) }}</template>
-        </el-table-column>
         <el-table-column label="错误信息" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ row.errorDetail || '-' }}</template>
         </el-table-column>
         <el-table-column label="创建时间" width="155">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
-        </el-table-column>
-        <el-table-column label="开始时间" width="155">
-          <template #default="{ row }">{{ formatDateTime(row.startedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="完成时间" width="155">
-          <template #default="{ row }">{{ formatDateTime(row.finishedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="耗时" width="90">
-          <template #default="{ row }">{{ formatSalesOrderSyncDuration(row) }}</template>
         </el-table-column>
         <el-table-column label="操作" fixed="right" width="80">
           <template #default="{ row }">

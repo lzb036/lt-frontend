@@ -474,6 +474,7 @@ export interface SalesOrderSyncRun {
   ownerUsername: string
   storeId?: number | null
   storeName: string
+  storeAliasName?: string
   triggerType: SalesOrderSyncTriggerType
   parentRunId?: string | null
   status: SalesOrderSyncRunStatus
