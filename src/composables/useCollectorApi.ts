@@ -334,6 +334,9 @@ export function useCollectorApi() {
     collectedAtFrom?: string
     collectedAtTo?: string
     salesPeriodDays?: number | null
+    salesSort?: 'asc' | 'desc' | ''
+    salesMin?: number | null
+    salesMax?: number | null
     page?: number
     pageSize?: number
   }) {
@@ -360,6 +363,9 @@ export function useCollectorApi() {
     collectedAtFrom?: string
     collectedAtTo?: string
     salesPeriodDays?: number | null
+    salesSort?: 'asc' | 'desc' | ''
+    salesMin?: number | null
+    salesMax?: number | null
     page: number
     pageSize: number
   }) {

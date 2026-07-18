@@ -90,6 +90,9 @@ const filters = reactive({
   listedStoreId: '' as ListedStoreFilterValue,
   listingStatus: '' as '' | 'listed' | 'unlisted',
   salesPeriodDays: 365,
+  salesSort: '' as '' | 'asc' | 'desc',
+  salesMin: null as number | null,
+  salesMax: null as number | null,
   listedAtRange: [] as string[] | null,
 })
 const salesPeriodOptions = [
@@ -274,6 +277,9 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       listedStoreId: props.status === 'listed_master' ? filters.listedStoreId : '',
       listingStatus: props.status === 'listed' ? filters.listingStatus : '',
       salesPeriodDays: props.status === 'listed' ? filters.salesPeriodDays : null,
+      salesSort: props.status === 'listed' ? filters.salesSort : '',
+      salesMin: props.status === 'listed' ? filters.salesMin : null,
+      salesMax: props.status === 'listed' ? filters.salesMax : null,
       listedAtFrom: props.status === 'listed' ? listedAtFromValue() : '',
       listedAtTo: props.status === 'listed' ? listedAtToValue() : '',
       priceMin: props.status !== 'listed' ? filters.priceMin : null,
@@ -461,6 +467,9 @@ function resetFilters() {
   filters.listedStoreId = ''
   filters.listingStatus = ''
   filters.salesPeriodDays = 365
+  filters.salesSort = ''
+  filters.salesMin = null
+  filters.salesMax = null
   filters.listedAtRange = []
   resetPage()
   void refreshAll()
@@ -2326,6 +2335,39 @@ function sanitizedDescriptionHtml(value: string) {
             />
           </el-select>
         </div>
+        <div v-if="status === 'listed'" class="filter-field filter-sales-sort-field">
+          <el-select
+            v-model="filters.salesSort"
+            class="full-control"
+            clearable
+            placeholder="销量排序"
+            @change="searchProducts"
+          >
+            <el-option label="销量从高到低" value="desc" />
+            <el-option label="销量从低到高" value="asc" />
+          </el-select>
+        </div>
+        <div v-if="status === 'listed'" class="filter-field filter-sales-range-field">
+          <el-input-number
+            v-model="filters.salesMin"
+            class="sales-range-input"
+            :min="0"
+            :precision="0"
+            :controls="false"
+            placeholder="最小销量"
+            @change="searchProducts"
+          />
+          <span class="range-separator">至</span>
+          <el-input-number
+            v-model="filters.salesMax"
+            class="sales-range-input"
+            :min="0"
+            :precision="0"
+            :controls="false"
+            placeholder="最大销量"
+            @change="searchProducts"
+          />
+        </div>
         <div v-if="status === 'listed'" class="filter-field filter-range-field">
           <el-date-picker
             v-model="filters.listedAtRange"
@@ -3017,6 +3059,23 @@ function sanitizedDescriptionHtml(value: string) {
   flex: 0 1 150px;
 }
 
+.filter-sales-sort-field {
+  flex: 0 1 150px;
+}
+
+.filter-sales-range-field {
+  display: inline-flex;
+  flex: 0 1 260px;
+  min-width: 240px;
+  align-items: center;
+  gap: 8px;
+}
+
+.sales-range-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .filter-listed-store-field {
   flex: 0 1 232px;
 }
@@ -3077,6 +3136,14 @@ function sanitizedDescriptionHtml(value: string) {
 
 .filter-row-with-store .filter-sales-period-field {
   flex: 0 0 168px;
+}
+
+.filter-row-with-store .filter-sales-sort-field {
+  flex: 0 0 168px;
+}
+
+.filter-row-with-store .filter-sales-range-field {
+  flex: 0 0 260px;
 }
 
 .filter-row-with-store .filter-range-field {
