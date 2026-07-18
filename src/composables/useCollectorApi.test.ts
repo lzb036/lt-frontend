@@ -754,7 +754,7 @@ for (const requiredMarkup of [
   'role="alert"',
   'recordCompletenessWarning(record.result)',
   ':maxlength="composerMaxLength"',
-  'name: \'ai-order-sync-history\'',
+  'name: \'order-sync-history\'',
   'query: { storeId: String(selectedStoreId.value) }',
 ]) {
   if (!productSalesAnalysisViewSource.includes(requiredMarkup)) {

@@ -23,12 +23,11 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltHj/collectionShops', permission: 'crawler.manage' },
   { path: '/ltShop/GoodsUp', permission: 'stores.manage' },
   { path: '/system/user', superadminOnly: true },
-  { path: '/ai/product-analysis', permission: 'ai.manage' },
-  { path: '/ai/product-analysis-settings', permission: 'ai.manage' },
-  { path: '/ai/order-sync-history', permission: 'ai.manage' },
   { path: '/ai/title-optimization', permission: 'ai.manage' },
+  { path: '/ltJobs/orderSyncHistory', permission: 'stores.manage' },
   { path: '/system/theme', permission: 'settings.manage' },
   { path: '/system/time', permission: 'settings.manage' },
+  { path: '/system/order-sync', permission: 'settings.manage' },
 ]
 
 export function isSuperadmin(session: PermissionSession) {

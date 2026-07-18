@@ -6,7 +6,6 @@ import {
   Aim,
   AlarmClock,
   Cpu,
-  DataAnalysis,
   Document,
   Expand,
   Finished,
@@ -76,6 +75,9 @@ const menuGroups = computed(() => {
   if (hasAnyPermission(props.session, ['products.manage', 'stores.manage'])) {
     jobChildren.push({ path: '/ltJobs/syncJob', label: '同步任务', icon: Refresh })
   }
+  if (hasPermission(props.session, 'stores.manage')) {
+    jobChildren.push({ path: '/ltJobs/orderSyncHistory', label: '订单获取记录', icon: Tickets })
+  }
   if (jobChildren.length > 0) {
     groups.push({
       key: 'jobs',
@@ -129,9 +131,6 @@ const menuGroups = computed(() => {
       icon: Cpu,
       children: [
         { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
-        { path: '/ai/product-analysis', label: '商品分析', icon: DataAnalysis },
-        { path: '/ai/product-analysis-settings', label: '商品分析设置', icon: Setting },
-        { path: '/ai/order-sync-history', label: '订单获取记录', icon: Tickets },
       ],
     })
   }
@@ -141,6 +140,7 @@ const menuGroups = computed(() => {
       { path: '/system/time', label: '资源管理', icon: AlarmClock },
     ]
     if (isSuperadmin.value) {
+      settingsChildren.push({ path: '/system/order-sync', label: '订单同步设置', icon: Refresh })
       settingsChildren.push({ path: '/system/sensitive-words', label: '敏感词管理', icon: Warning })
     }
     groups.push({

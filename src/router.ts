@@ -7,8 +7,7 @@ import CrawlTaskManager from './components/crawler/CrawlTaskManager.vue'
 import ListingTaskView from './components/crawler/ListingTaskView.vue'
 import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
 import OperatorManualView from './components/crawler/OperatorManualView.vue'
-import ProductSalesAnalysisSettingsView from './components/crawler/ProductSalesAnalysisSettingsView.vue'
-import ProductSalesAnalysisView from './components/crawler/ProductSalesAnalysisView.vue'
+import SalesOrderSyncSettingsView from './components/crawler/SalesOrderSyncSettingsView.vue'
 import SalesOrderSyncHistoryView from './components/crawler/SalesOrderSyncHistoryView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
@@ -35,6 +34,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltJobs/wjProductJob', name: 'scheduled-crawl', component: ScheduledCrawlView, meta: { title: '定时采集', permission: 'crawler.manage' } },
       { path: 'ltJobs/upGoodsJob', name: 'listing-jobs', component: ListingTaskView, meta: { title: '上架任务', permission: 'products.manage' } },
       { path: 'ltJobs/syncJob', name: 'sync-jobs', component: SyncTaskView, meta: { title: '同步任务', anyPermission: ['products.manage', 'stores.manage'] } },
+      { path: 'ltJobs/orderSyncHistory', name: 'order-sync-history', component: SalesOrderSyncHistoryView, meta: { title: '订单获取记录', permission: 'stores.manage' } },
       { path: 'ltShop/wjMerchantGoods', name: 'pending-products', component: ProductWorkflowView, props: { status: 'pending', title: '待审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '待审核商品', permission: 'products.manage' } },
       { path: 'ltShop/wjMerchantGoodsTrue', name: 'approved-products', component: ProductWorkflowView, props: { status: 'approved', title: '已审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '已审核商品', permission: 'products.manage' } },
       { path: 'ltShop/wjListedGoods', name: 'listed-master-products', component: ProductWorkflowView, props: { status: 'listed_master', title: '已上架商品', eyebrow: 'Rakuten Shop' }, meta: { title: '已上架商品', permission: 'products.manage' } },
@@ -43,12 +43,13 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltHj/wjMerchant', name: 'store-manager', component: StoreManagerView, meta: { title: '店铺信息', permission: 'stores.manage' } },
       { path: 'ltHj/collectionShops', name: 'collection-shops', component: CollectionShopView, meta: { title: '采集店铺', permission: 'crawler.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
-      { path: 'ai/product-analysis', name: 'ai-product-analysis', component: ProductSalesAnalysisView, meta: { title: '商品分析', permission: 'ai.manage' } },
-      { path: 'ai/product-analysis-settings', name: 'ai-product-analysis-settings', component: ProductSalesAnalysisSettingsView, meta: { title: '商品分析设置', permission: 'ai.manage' } },
-      { path: 'ai/order-sync-history', name: 'ai-order-sync-history', component: SalesOrderSyncHistoryView, meta: { title: '订单获取记录', permission: 'ai.manage' } },
+      { path: 'ai/product-analysis', redirect: '/ltShop/GoodsUp' },
+      { path: 'ai/product-analysis-settings', redirect: '/system/order-sync' },
+      { path: 'ai/order-sync-history', redirect: '/ltJobs/orderSyncHistory' },
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },
+      { path: 'system/order-sync', name: 'system-order-sync', component: SalesOrderSyncSettingsView, meta: { title: '订单同步设置', permission: 'settings.manage' } },
       { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
       { path: 'help/operator-manual', name: 'operator-manual', component: OperatorManualView, meta: { title: '使用手册' } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },

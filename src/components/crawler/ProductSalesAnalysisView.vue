@@ -256,7 +256,7 @@ function openOrderSyncHistory() {
     return
   }
   void router.push({
-    name: 'ai-order-sync-history',
+    name: 'order-sync-history',
     query: { storeId: String(selectedStoreId.value) },
   })
 }

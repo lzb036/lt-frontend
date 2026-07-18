@@ -254,7 +254,7 @@ function progressText(run: SalesOrderSyncRun) {
   <section class="history-page">
     <header class="page-head">
       <div>
-        <p class="eyebrow">AI Management</p>
+        <p class="eyebrow">Task Management</p>
         <h1>订单获取记录</h1>
       </div>
       <div class="head-actions">
