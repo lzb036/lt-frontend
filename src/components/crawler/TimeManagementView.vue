@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Refresh, VideoPlay } from '@element-plus/icons-vue'
+import { Check, Refresh, RefreshLeft, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import type { AuthSession, ProxyResourceUsage, TimeSettings, TimeSettingsPayload } from '../../types/crawler'
+import type {
+  AuthSession,
+  ProxyResourceUsage,
+  SalesOrderSyncGlobalSettings,
+  SalesOrderSyncGlobalSettingsPayload,
+  TimeSettings,
+  TimeSettingsPayload,
+} from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
 const props = defineProps<{
@@ -29,10 +37,27 @@ const isSuperadmin = computed(() => props.session?.role === 'superadmin')
 const form = reactive<TimeSettingsPayload>({
   cleanupWeekday: 6,
   cleanupTime: '09:00',
+  cleanupEnabled: true,
   productSyncEnabled: true,
   productSyncWeekday: 6,
   productSyncTime: '21:00',
+  unlistedCleanupEnabled: true,
 })
+const DEFAULT_ORDER_SETTINGS: SalesOrderSyncGlobalSettingsPayload = {
+  enabled: true,
+  intervalMinutes: 30,
+  successRetentionDays: 30,
+}
+const orderState = reactive({
+  loading: false,
+  saving: false,
+  error: '',
+  savedSnapshot: null as SalesOrderSyncGlobalSettings | null,
+})
+const orderDraft = reactive<SalesOrderSyncGlobalSettingsPayload>({ ...DEFAULT_ORDER_SETTINGS })
+const orderSettingsDirty = computed(() => (
+  JSON.stringify(orderDraft) !== JSON.stringify(orderState.savedSnapshot)
+))
 
 const weekdayOptions = [
   { label: '周一', value: 0 },
@@ -81,6 +106,9 @@ const queueHealthStatusText = computed(() => {
   return '连接失败'
 })
 const cleanupCountdownText = computed(() => {
+  if (!settings.value?.cleanupEnabled) {
+    return '已关闭'
+  }
   const nextAt = parseDateTimeMs(settings.value?.nextCleanupAt)
   if (nextAt === null) {
     return '未获取'
@@ -106,6 +134,9 @@ const productSyncCountdownText = computed(() => {
   return formatCountdown(remainingMs)
 })
 const unlistedCleanupCountdownText = computed(() => {
+  if (!settings.value?.unlistedCleanupEnabled) {
+    return '已关闭'
+  }
   const nextAt = parseDateTimeMs(settings.value?.unlistedNextCleanupAt)
   if (nextAt === null) {
     return '未获取'
@@ -128,12 +159,36 @@ onMounted(() => {
   startCountdown()
   void loadSettings()
   if (isSuperadmin.value) {
+    void loadOrderSettings()
+  }
+  if (isSuperadmin.value) {
     void loadProxyUsage()
   }
 })
 
 onBeforeUnmount(() => {
   stopCountdown()
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeRouteLeave(async () => {
+  if (!orderSettingsDirty.value) {
+    return true
+  }
+  try {
+    await ElMessageBox.confirm(
+      '当前订单同步设置尚未保存，离开后修改将丢失。',
+      '确认离开',
+      {
+        confirmButtonText: '放弃修改',
+        cancelButtonText: '继续编辑',
+        type: 'warning',
+      },
+    )
+    return true
+  } catch {
+    return false
+  }
 })
 
 function startCountdown() {
@@ -146,6 +201,14 @@ function startCountdown() {
     nowTick.value = currentNow
     refreshProxyUsageAfterReset(currentNow)
   }, 1000)
+}
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!orderSettingsDirty.value) {
+    return
+  }
+  event.preventDefault()
+  event.returnValue = ''
 }
 
 function stopCountdown() {
@@ -165,6 +228,22 @@ async function loadSettings() {
     ElMessage.error(toApiErrorMessage(error, '加载时间设置失败'))
   } finally {
     loading.value = false
+  }
+}
+
+async function loadOrderSettings() {
+  orderState.loading = true
+  orderState.error = ''
+  try {
+    const result = await api.getSalesOrderSyncGlobalSettings()
+    Object.assign(orderDraft, result)
+    orderState.savedSnapshot = { ...result }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+  } catch (error) {
+    orderState.error = toApiErrorMessage(error, '加载订单同步设置失败')
+    ElMessage.error(orderState.error)
+  } finally {
+    orderState.loading = false
   }
 }
 
@@ -203,9 +282,11 @@ function applySettings(result: TimeSettings) {
   applyServerTime(result.serverNow)
   form.cleanupWeekday = result.cleanupWeekday
   form.cleanupTime = result.cleanupTime || '09:00'
+  form.cleanupEnabled = result.cleanupEnabled
   form.productSyncEnabled = result.productSyncEnabled
   form.productSyncWeekday = result.productSyncWeekday ?? 6
   form.productSyncTime = result.productSyncTime || '21:00'
+  form.unlistedCleanupEnabled = result.unlistedCleanupEnabled
 }
 
 function applyServerTime(serverNowValue?: string | null) {
@@ -241,9 +322,11 @@ async function saveSettings() {
     const result = await api.updateTimeSettings({
       cleanupWeekday: form.cleanupWeekday,
       cleanupTime: form.cleanupTime,
+      cleanupEnabled: form.cleanupEnabled,
       productSyncEnabled: form.productSyncEnabled,
       productSyncWeekday: form.productSyncWeekday,
       productSyncTime: form.productSyncTime,
+      unlistedCleanupEnabled: form.unlistedCleanupEnabled,
     })
     applySettings(result)
     ElMessage.success('资源管理设置已保存')
@@ -252,6 +335,26 @@ async function saveSettings() {
   } finally {
     saving.value = false
   }
+}
+
+async function saveOrderSettings() {
+  orderState.saving = true
+  orderState.error = ''
+  try {
+    const result = await api.updateSalesOrderSyncGlobalSettings({ ...orderDraft })
+    Object.assign(orderDraft, result)
+    orderState.savedSnapshot = { ...result }
+    ElMessage.success('订单同步设置已保存')
+  } catch (error) {
+    orderState.error = toApiErrorMessage(error, '保存订单同步设置失败')
+    ElMessage.error(orderState.error)
+  } finally {
+    orderState.saving = false
+  }
+}
+
+function restoreOrderDefaults() {
+  Object.assign(orderDraft, DEFAULT_ORDER_SETTINGS)
 }
 
 async function runScheduledTaskCleanupNow() {
@@ -353,10 +456,13 @@ function formatBytes(value?: number | null) {
           <p>每周自动清理超过 {{ settings?.retentionDays ?? 7 }} 天的已完成记录</p>
         </div>
         <div class="head-actions">
-          <el-button :icon="Refresh" :loading="loading" @click="loadSettings">
-            刷新
-          </el-button>
-          <el-button :icon="VideoPlay" :loading="runningTaskCleanup" @click="runScheduledTaskCleanupNow">
+          <el-switch
+            v-model="form.cleanupEnabled"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+          />
+          <el-button type="danger" :icon="VideoPlay" :loading="runningTaskCleanup" @click="runScheduledTaskCleanupNow">
             立即执行
           </el-button>
           <el-button type="primary" :icon="Check" :loading="saving" @click="saveSettings">
@@ -369,7 +475,7 @@ function formatBytes(value?: number | null) {
         <el-form label-position="top" class="compact-form">
           <el-form-item label="每周执行">
             <div class="schedule-controls">
-              <el-select v-model="form.cleanupWeekday" placeholder="选择星期">
+              <el-select v-model="form.cleanupWeekday" :disabled="!form.cleanupEnabled" placeholder="选择星期">
                 <el-option
                   v-for="item in weekdayOptions"
                   :key="item.value"
@@ -379,6 +485,7 @@ function formatBytes(value?: number | null) {
               </el-select>
               <el-time-picker
                 v-model="form.cleanupTime"
+                :disabled="!form.cleanupEnabled"
                 format="HH:mm"
                 value-format="HH:mm"
                 placeholder="选择时间"
@@ -483,14 +590,25 @@ function formatBytes(value?: number | null) {
           <h2>未上架商品月度删除</h2>
           <p>为启用店铺创建商品删除同步任务</p>
         </div>
-        <el-button
-          type="danger"
-          :icon="VideoPlay"
-          :loading="runningUnlistedCleanup"
-          @click="runUnlistedProductCleanupNow"
-        >
-          立即执行
-        </el-button>
+        <div class="panel-head-actions">
+          <el-switch
+            v-model="form.unlistedCleanupEnabled"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+          />
+          <el-button
+            type="danger"
+            :icon="VideoPlay"
+            :loading="runningUnlistedCleanup"
+            @click="runUnlistedProductCleanupNow"
+          >
+            立即执行
+          </el-button>
+          <el-button type="primary" :icon="Check" :loading="saving" @click="saveSettings">
+            保存
+          </el-button>
+        </div>
       </div>
 
       <div class="status-grid status-grid-wide">
@@ -512,6 +630,89 @@ function formatBytes(value?: number | null) {
           <strong>{{ settings?.unlistedLastTaskCount ?? 0 }} 个</strong>
         </div>
       </div>
+    </section>
+
+    <section v-if="isSuperadmin" v-loading="orderState.loading" class="time-panel">
+      <div class="time-panel-head">
+        <div>
+          <h2>订单自动同步</h2>
+        </div>
+        <div class="head-actions">
+          <el-tag v-if="orderSettingsDirty" type="warning" effect="plain">
+            有未保存修改
+          </el-tag>
+          <el-button
+            :icon="RefreshLeft"
+            :disabled="orderState.loading || orderState.saving || !orderState.savedSnapshot"
+            @click="restoreOrderDefaults"
+          >
+            恢复默认
+          </el-button>
+          <el-button
+            type="primary"
+            :icon="Check"
+            :loading="orderState.saving"
+            :disabled="orderState.loading || !orderSettingsDirty"
+            @click="saveOrderSettings"
+          >
+            保存
+          </el-button>
+        </div>
+      </div>
+
+      <el-result
+        v-if="orderState.error && !orderState.savedSnapshot"
+        icon="error"
+        title="订单同步设置加载失败"
+        :sub-title="orderState.error"
+      >
+        <template #extra>
+          <el-button type="primary" :icon="RefreshLeft" @click="loadOrderSettings">
+            重试
+          </el-button>
+        </template>
+      </el-result>
+      <el-form v-else label-position="top" class="settings-form">
+        <div class="setting-grid">
+          <section class="setting-card setting-card-primary">
+            <div class="setting-card-copy">
+              <span>自动同步</span>
+              <strong>{{ orderDraft.enabled ? '已启用' : '已停用' }}</strong>
+              <small>关闭后停止自动获取订单，手动立即更新仍可使用。</small>
+            </div>
+            <el-switch v-model="orderDraft.enabled" />
+          </section>
+
+          <section class="setting-card">
+            <div class="setting-card-copy">
+              <span>同步间隔</span>
+              <strong>{{ orderDraft.intervalMinutes }} 分钟</strong>
+              <small>系统按照该间隔检查并获取各店铺新增或变更订单。</small>
+            </div>
+            <el-input-number
+              v-model="orderDraft.intervalMinutes"
+              class="setting-control"
+              :min="5"
+              :max="1440"
+              :step="5"
+            />
+          </section>
+
+          <section class="setting-card">
+            <div class="setting-card-copy">
+              <span>成功记录保留</span>
+              <strong>{{ orderDraft.successRetentionDays }} 天</strong>
+              <small>只清理订单获取任务记录，不会删除订单和销量数据。</small>
+            </div>
+            <el-input-number
+              v-model="orderDraft.successRetentionDays"
+              class="setting-control"
+              :min="1"
+              :max="365"
+            />
+          </section>
+        </div>
+      </el-form>
     </section>
 
     <section v-if="isSuperadmin" v-loading="proxyLoading" class="time-panel proxy-usage-panel">

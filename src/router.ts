@@ -7,7 +7,6 @@ import CrawlTaskManager from './components/crawler/CrawlTaskManager.vue'
 import ListingTaskView from './components/crawler/ListingTaskView.vue'
 import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
 import OperatorManualView from './components/crawler/OperatorManualView.vue'
-import SalesOrderSyncSettingsView from './components/crawler/SalesOrderSyncSettingsView.vue'
 import SalesOrderSyncHistoryView from './components/crawler/SalesOrderSyncHistoryView.vue'
 import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
 import ProductResultTable from './components/crawler/ProductResultTable.vue'
@@ -46,7 +45,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },
-      { path: 'system/order-sync', name: 'system-order-sync', component: SalesOrderSyncSettingsView, meta: { title: '订单同步设置', superadminOnly: true } },
+      { path: 'system/order-sync', name: 'system-order-sync', redirect: '/system/time', meta: { title: '订单同步设置', superadminOnly: true } },
       { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
       { path: 'help/operator-manual', name: 'operator-manual', component: OperatorManualView, meta: { title: '使用手册' } },
       { path: 'user/profile', redirect: '/ltHj/wjMerchant' },

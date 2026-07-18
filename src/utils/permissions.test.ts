@@ -32,6 +32,7 @@ if (!canAccessRouteMeta(aiSession, { permission: 'ai.manage' })) {
 
 for (const removedMenuEntry of [
   "{ path: '/ai/order-sync-history', label: '订单获取记录'",
+  "{ path: '/system/order-sync', label: '订单同步设置'",
 ]) {
   if (appShellSource.includes(removedMenuEntry)) {
     throw new Error(`expected removed AI menu entry: ${removedMenuEntry}`)
@@ -40,13 +41,13 @@ for (const removedMenuEntry of [
 
 for (const requiredContract of [
   "{ path: '/ltJobs/orderSyncHistory', label: '订单获取记录'",
-  "{ path: '/system/order-sync', label: '订单同步设置'",
   "path: 'ltJobs/orderSyncHistory'",
   "name: 'order-sync-history'",
   "meta: { title: '订单获取记录', superadminOnly: true }",
   "path: 'system/order-sync'",
   "name: 'system-order-sync'",
   "meta: { title: '订单同步设置', superadminOnly: true }",
+  "redirect: '/system/time'",
   "{ path: '/ltJobs/orderSyncHistory', superadminOnly: true }",
   "{ path: '/system/order-sync', superadminOnly: true }",
 ]) {

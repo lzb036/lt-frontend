@@ -105,7 +105,7 @@ const salesPeriodOptions = [
   { label: '近1个月销量', value: 30 },
   { label: '近2周销量', value: 14 },
   { label: '近1周销量', value: 7 },
-  { label: '自定义销量时间', value: 'custom' },
+  { label: '销量', value: 'custom' },
 ] as const
 const salesPeriodLabel = computed(
   () => salesPeriodOptions.find(
@@ -901,22 +901,28 @@ async function removeProduct(product: ProductItem) {
   await removeProducts([product.id], product)
 }
 
-async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted') {
-  if (selectedIds.value.length < 1) {
-    ElMessage.warning('请先选择商品')
+async function updateListingStatus(
+  productIds: number[],
+  listingStatus: 'listed' | 'unlisted',
+  product?: ProductItem,
+) {
+  if (productIds.length < 1) {
+    ElMessage.warning(product ? '商品不存在' : '请先选择商品')
     return
   }
-  const productIds = [...selectedIds.value]
   if (hasBusyProductIds(productIds)) {
-    ElMessage.warning('选中的店铺商品正在同步，请稍后')
+    ElMessage.warning(product ? '该店铺商品正在同步，请稍后' : '选中的店铺商品正在同步，请稍后')
     return
   }
   const actionText = listingStatus === 'listed' ? '上架' : '下架'
+  const targetText = product
+    ? `商品「${productDisplayName(product)}」`
+    : `选中的 ${productIds.length} 个商品`
   let keepListedSyncBusy = false
   try {
     await ElMessageBox.confirm(
-      `确认将选中的 ${productIds.length} 个商品批量${actionText}？该操作会写入乐天 RMS。`,
-      `批量${actionText}`,
+      `确认将${targetText}${product ? '' : '批量'}${actionText}？该操作会写入乐天 RMS。`,
+      `${product ? '' : '批量'}${actionText}`,
       {
         confirmButtonText: actionText,
         cancelButtonText: '取消',
@@ -924,14 +930,16 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
       },
     )
     setListedSyncProductsBusy(productIds, true)
-    clearSelection()
+    if (!product) {
+      clearSelection()
+    }
     operating.value = true
     const result = await api.updateProductsListingStatus({
       productIds,
       listingStatus,
     })
     const syncTasks = syncTasksFromResult(result)
-    ElMessage.success(syncTasksCreatedMessage(syncTasks, result.summary.message || `批量${actionText}任务已创建`))
+    ElMessage.success(syncTasksCreatedMessage(syncTasks, result.summary.message || `${product ? '' : '批量'}${actionText}任务已创建`))
     keepListedSyncBusy = true
     watchListingStatusSyncTasksCompletion(taskIds(syncTasks), productIds, listingStatus)
   } catch (error) {
@@ -945,6 +953,14 @@ async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted')
     }
     operating.value = false
   }
+}
+
+async function updateSelectedListingStatus(listingStatus: 'listed' | 'unlisted') {
+  await updateListingStatus([...selectedIds.value], listingStatus)
+}
+
+async function updateProductListingStatus(product: ProductItem, listingStatus: 'listed' | 'unlisted') {
+  await updateListingStatus([product.id], listingStatus, product)
 }
 
 async function createListingTask() {
@@ -2347,7 +2363,7 @@ function sanitizedDescriptionHtml(value: string) {
           :loading="operating"
           @click="removeSelected"
         >
-          批量删除商品
+          批量删除
         </el-button>
         <div v-if="status === 'approved' || status === 'listed_master'" class="approved-head-actions">
           <el-button
@@ -2443,6 +2459,7 @@ function sanitizedDescriptionHtml(value: string) {
             <el-option label="销量从低到高" value="asc" />
           </el-select>
         </div>
+        <div v-if="status === 'listed'" class="filter-row-break" aria-hidden="true" />
         <div v-if="status === 'listed'" class="filter-field filter-sales-range-field">
           <el-input-number
             v-model="filters.salesMin"
@@ -2771,9 +2788,16 @@ function sanitizedDescriptionHtml(value: string) {
             {{ countText(row.periodSalesCount) }}
           </template>
         </el-table-column>
+        <el-table-column v-if="status === 'listed'" label="优化次数" width="110" align="left">
+          <template #default="{ row }">
+            <span class="title-optimization-count">
+              {{ countText(row.titleOptimizationCount) }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <div class="row-action-stack">
               <el-button :icon="View" link type="primary" :disabled="isProductBusy(row)" @click="openProductDetail(row)">
@@ -2805,9 +2829,6 @@ function sanitizedDescriptionHtml(value: string) {
                 </el-button>
               </template>
               <template v-if="status === 'pending'">
-                <el-button :icon="MagicStick" link type="primary" @click="openTitleOptimization(row)">
-                  优化标题
-                </el-button>
                 <el-button
                   :icon="Delete"
                   link
@@ -2838,6 +2859,46 @@ function sanitizedDescriptionHtml(value: string) {
                   删除商品
                 </el-button>
               </template>
+              <el-button
+                v-if="status === 'listed'"
+                :icon="Upload"
+                link
+                type="success"
+                :disabled="isProductBusy(row) || row.rakutenListingStatus === 'listed'"
+                @click="updateProductListingStatus(row, 'listed')"
+              >
+                上架
+              </el-button>
+              <el-button
+                v-if="status === 'listed'"
+                :icon="Top"
+                link
+                type="warning"
+                :disabled="isProductBusy(row) || row.rakutenListingStatus !== 'listed'"
+                @click="updateProductListingStatus(row, 'unlisted')"
+              >
+                下架
+              </el-button>
+              <el-button
+                v-if="status === 'listed'"
+                :icon="Delete"
+                link
+                type="danger"
+                :disabled="isProductBusy(row)"
+                @click="removeProduct(row)"
+              >
+                删除
+              </el-button>
+              <el-button
+                v-if="status === 'listed'"
+                :icon="MagicStick"
+                link
+                type="primary"
+                :disabled="isProductBusy(row)"
+                @click="openTitleOptimization(row)"
+              >
+                优化标题
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -3153,6 +3214,10 @@ function sanitizedDescriptionHtml(value: string) {
   min-width: 0;
 }
 
+.filter-row-break {
+  display: none;
+}
+
 .filter-store-field {
   flex: 0 1 170px;
 }
@@ -3243,6 +3308,11 @@ function sanitizedDescriptionHtml(value: string) {
   font-weight: 700;
 }
 
+.title-optimization-count {
+  color: #d93025;
+  font-weight: 700;
+}
+
 .filter-row-with-store .filter-store-field {
   flex: 0 0 232px;
 }
@@ -3265,22 +3335,35 @@ function sanitizedDescriptionHtml(value: string) {
 }
 
 .filter-row-with-store .filter-sales-range-field {
-  flex: 0 0 260px;
+  flex: 0 1 260px;
+  min-width: 240px;
 }
 
 .filter-row-with-store .filter-sales-zero-field {
-  flex: 0 0 auto;
+  flex: 0 0 150px;
 }
 
 .filter-row-with-store .filter-range-field {
-  flex: 0 1 478px;
-  max-width: 478px;
+  flex: 1 1 400px;
+  max-width: 420px;
+  min-width: 340px;
 }
 
 .filter-row-with-store .filter-keyword-field {
-  flex: 0 1 420px;
-  max-width: 420px;
+  flex: 1 1 360px;
+  max-width: 400px;
+  min-width: 280px;
   margin-left: 0;
+}
+
+.filter-row-with-store .filter-row-break {
+  display: block;
+  flex: 0 0 100%;
+  height: 0;
+}
+
+.filter-row-with-store .filter-buttons {
+  margin-left: auto;
 }
 
 .filter-row:not(.filter-row-with-store) .filter-keyword-field {

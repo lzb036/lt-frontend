@@ -145,6 +145,7 @@ export interface ProductItem {
   currency: string
   salesCount?: number | null
   periodSalesCount?: number | null
+  titleOptimizationCount?: number | null
   genreId: string
   genrePath: string
   genrePathZh: string
@@ -678,6 +679,7 @@ export interface SensitiveWordImportResult {
 export interface TimeSettings {
   cleanupWeekday: number
   cleanupTime: string
+  cleanupEnabled: boolean
   retentionDays: number
   nextCleanupAt?: string | null
   lastCleanupAt?: string | null
@@ -688,6 +690,7 @@ export interface TimeSettings {
   productSyncNextAt?: string | null
   productSyncLastAt?: string | null
   productSyncLastTaskCount: number
+  unlistedCleanupEnabled: boolean
   unlistedCleanupMonthDay: number
   unlistedCleanupTime: string
   unlistedNextCleanupAt?: string | null
@@ -702,9 +705,11 @@ export interface TimeSettings {
 export interface TimeSettingsPayload {
   cleanupWeekday: number
   cleanupTime: string
+  cleanupEnabled: boolean
   productSyncEnabled: boolean
   productSyncWeekday: number
   productSyncTime: string
+  unlistedCleanupEnabled: boolean
 }
 
 export interface ProxyResourceUsage {

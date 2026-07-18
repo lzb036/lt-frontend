@@ -140,7 +140,6 @@ const menuGroups = computed(() => {
       { path: '/system/time', label: '资源管理', icon: AlarmClock },
     ]
     if (isSuperadmin.value) {
-      settingsChildren.push({ path: '/system/order-sync', label: '订单同步设置', icon: Refresh })
       settingsChildren.push({ path: '/system/sensitive-words', label: '敏感词管理', icon: Warning })
     }
     groups.push({
