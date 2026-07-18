@@ -224,7 +224,7 @@ async function createTitleOptimizationTask() {
   const productIds = [...selectedIds.value]
   try {
     await ElMessageBox.confirm(
-      `确认对选中的 ${productIds.length} 个商品执行批量标题优化？确认后将创建任务，并在同步任务中执行。`,
+      `确认对选中的 ${productIds.length} 个商品执行批量标题优化？每个商品生成成功后会自动选择并应用新版本。确认后将在同步任务中执行。`,
       '批量优化标题',
       {
         confirmButtonText: '确认优化',
