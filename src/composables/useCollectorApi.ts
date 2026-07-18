@@ -333,6 +333,7 @@ export function useCollectorApi() {
     priceMax?: number | null
     collectedAtFrom?: string
     collectedAtTo?: string
+    salesPeriodDays?: number | null
     page?: number
     pageSize?: number
   }) {
@@ -358,6 +359,7 @@ export function useCollectorApi() {
     priceMax?: number | null
     collectedAtFrom?: string
     collectedAtTo?: string
+    salesPeriodDays?: number | null
     page: number
     pageSize: number
   }) {

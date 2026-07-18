@@ -144,6 +144,7 @@ export interface ProductItem {
   priceMax?: number | null
   currency: string
   salesCount?: number | null
+  periodSalesCount?: number | null
   genreId: string
   genrePath: string
   genrePathZh: string

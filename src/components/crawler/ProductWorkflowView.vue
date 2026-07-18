@@ -89,8 +89,21 @@ const filters = reactive({
   storeId: null as number | null,
   listedStoreId: '' as ListedStoreFilterValue,
   listingStatus: '' as '' | 'listed' | 'unlisted',
+  salesPeriodDays: 365,
   listedAtRange: [] as string[] | null,
 })
+const salesPeriodOptions = [
+  { label: '近一年销量', value: 365 },
+  { label: '近半年销量', value: 180 },
+  { label: '近3个月销量', value: 90 },
+  { label: '近1个月销量', value: 30 },
+  { label: '近1周销量', value: 7 },
+] as const
+const salesPeriodLabel = computed(
+  () => salesPeriodOptions.find(
+    (option) => option.value === filters.salesPeriodDays,
+  )?.label || '销量',
+)
 
 const listingForm = reactive({
   storeIds: [] as number[],
@@ -260,6 +273,7 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       storeId: props.status === 'listed' ? filters.storeId : null,
       listedStoreId: props.status === 'listed_master' ? filters.listedStoreId : '',
       listingStatus: props.status === 'listed' ? filters.listingStatus : '',
+      salesPeriodDays: props.status === 'listed' ? filters.salesPeriodDays : null,
       listedAtFrom: props.status === 'listed' ? listedAtFromValue() : '',
       listedAtTo: props.status === 'listed' ? listedAtToValue() : '',
       priceMin: props.status !== 'listed' ? filters.priceMin : null,
@@ -446,6 +460,7 @@ function resetFilters() {
   filters.storeId = props.status === 'listed' ? (stores.value[0]?.id ?? null) : null
   filters.listedStoreId = ''
   filters.listingStatus = ''
+  filters.salesPeriodDays = 365
   filters.listedAtRange = []
   resetPage()
   void refreshAll()
@@ -454,6 +469,10 @@ function resetFilters() {
 function searchProducts() {
   resetPage()
   void refreshAll()
+}
+
+function countText(value?: number | null) {
+  return value == null ? '-' : value.toLocaleString()
 }
 
 function listedAtFromValue() {
@@ -2292,6 +2311,21 @@ function sanitizedDescriptionHtml(value: string) {
             <el-option label="未上架" value="unlisted" />
           </el-select>
         </div>
+        <div v-if="status === 'listed'" class="filter-field filter-sales-period-field">
+          <el-select
+            v-model="filters.salesPeriodDays"
+            class="full-control"
+            placeholder="销量周期"
+            @change="searchProducts"
+          >
+            <el-option
+              v-for="option in salesPeriodOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </div>
         <div v-if="status === 'listed'" class="filter-field filter-range-field">
           <el-date-picker
             v-model="filters.listedAtRange"
@@ -2577,6 +2611,16 @@ function sanitizedDescriptionHtml(value: string) {
             <el-tag :type="listingStatusCopy(row).type">
               {{ listingStatusCopy(row).label }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="status === 'listed'"
+          :label="salesPeriodLabel"
+          width="130"
+          align="left"
+        >
+          <template #default="{ row }">
+            {{ countText(row.periodSalesCount) }}
           </template>
         </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
@@ -2969,6 +3013,10 @@ function sanitizedDescriptionHtml(value: string) {
   flex: 0 1 140px;
 }
 
+.filter-sales-period-field {
+  flex: 0 1 150px;
+}
+
 .filter-listed-store-field {
   flex: 0 1 232px;
 }
@@ -3025,6 +3073,10 @@ function sanitizedDescriptionHtml(value: string) {
 
 .filter-row-with-store .filter-status-field {
   flex: 0 0 192px;
+}
+
+.filter-row-with-store .filter-sales-period-field {
+  flex: 0 0 168px;
 }
 
 .filter-row-with-store .filter-range-field {
