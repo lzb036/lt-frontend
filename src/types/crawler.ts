@@ -146,6 +146,7 @@ export interface ProductItem {
   salesCount?: number | null
   periodSalesCount?: number | null
   titleOptimizationCount?: number | null
+  titleOptimizationTaskId?: string | null
   genreId: string
   genrePath: string
   genrePathZh: string

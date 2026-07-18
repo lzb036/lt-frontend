@@ -62,6 +62,7 @@ const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
 const listingProductIds = shallowRef<Set<number>>(new Set())
 const listedSyncProductIds = shallowRef<Set<number>>(new Set())
+const titleOptimizationProductIds = shallowRef<Set<number>>(new Set())
 const detailImageDraft = shallowRef<ImageDraftItem[]>([])
 const draftPreviewUrls = shallowRef<Set<string>>(new Set())
 const pendingImageOperations = shallowRef<PendingImageOperation[]>([])
@@ -201,7 +202,50 @@ async function pollPendingReplacement(taskId: string) {
 }
 
 async function handleTitleOptimizationSaved() {
+  const productId = titleOptimizationProduct.value?.id
+  if (productId) {
+    products.value = products.value.map((product) => {
+      if (product.id !== productId) {
+        return product
+      }
+      return {
+        ...product,
+        titleOptimizationCount: (product.titleOptimizationCount ?? 0) + 1,
+      }
+    })
+  }
   await refreshAll({ loadStores: false })
+}
+
+async function createTitleOptimizationTask() {
+  if (props.status !== 'listed' || selectedIds.value.length < 1 || hasSelectedProductBusy()) {
+    return
+  }
+  const productIds = [...selectedIds.value]
+  try {
+    await ElMessageBox.confirm(
+      `确认对选中的 ${productIds.length} 个商品执行批量标题优化？确认后将创建任务，并在同步任务中执行。`,
+      '批量优化标题',
+      {
+        confirmButtonText: '确认优化',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    operating.value = true
+    const result = await api.createProductTitleOptimizationTask(productIds)
+    const tasks = syncTasksFromResult(result)
+    setTitleOptimizationProductsBusy(productIds, true)
+    clearSelection()
+    ElMessage.success(syncTasksCreatedMessage(tasks, result.summary.message || '批量标题优化任务已创建'))
+    watchTitleOptimizationTaskCompletion(taskIds(tasks), productIds)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '创建批量标题优化任务失败'))
+    }
+  } finally {
+    operating.value = false
+  }
 }
 
 const statusCopy = computed(() => {
@@ -1094,8 +1138,12 @@ function isListedSyncProductBusy(product: ProductItem) {
   return listedSyncProductIds.value.has(product.id)
 }
 
+function isTitleOptimizationProductBusy(product: ProductItem) {
+  return titleOptimizationProductIds.value.has(product.id) || Boolean(product.titleOptimizationTaskId)
+}
+
 function isProductBusy(product: ProductItem) {
-  return isListingProductBusy(product) || isListedSyncProductBusy(product)
+  return isListingProductBusy(product) || isListedSyncProductBusy(product) || isTitleOptimizationProductBusy(product)
 }
 
 function hasBusyProductIds(productIds: number[]) {
@@ -1103,10 +1151,16 @@ function hasBusyProductIds(productIds: number[]) {
     return false
   }
   const ids = new Set(productIds)
-  if (productIds.some((productId) => listingProductIds.value.has(productId) || listedSyncProductIds.value.has(productId))) {
+  if (productIds.some((productId) => (
+    listingProductIds.value.has(productId)
+    || listedSyncProductIds.value.has(productId)
+    || titleOptimizationProductIds.value.has(productId)
+  ))) {
     return true
   }
-  return visibleProducts.value.some((product) => ids.has(product.id) && Boolean(product.listingTaskId))
+  return visibleProducts.value.some((product) => ids.has(product.id) && (
+    Boolean(product.listingTaskId) || Boolean(product.titleOptimizationTaskId)
+  ))
 }
 
 function hasSelectedProductBusy() {
@@ -1348,6 +1402,25 @@ function clearListedSyncTaskBusy(productIds: number[]) {
   setListedSyncProductsBusy(productIds, false)
 }
 
+function setTitleOptimizationProductsBusy(productIds: number[], busy: boolean) {
+  if (productIds.length < 1) {
+    return
+  }
+  const next = new Set(titleOptimizationProductIds.value)
+  for (const productId of productIds) {
+    if (busy) {
+      next.add(productId)
+    } else {
+      next.delete(productId)
+    }
+  }
+  titleOptimizationProductIds.value = next
+}
+
+function clearTitleOptimizationProductsBusy(productIds: number[]) {
+  setTitleOptimizationProductsBusy(productIds, false)
+}
+
 function syncTaskCreatedMessage(task: SyncTask | undefined, fallback: string) {
   if (!task) {
     return fallback
@@ -1411,6 +1484,41 @@ function watchListingStatusSyncTasksCompletion(taskIdsToWatch: string[], product
       if (pollFailures >= 3) {
         window.clearInterval(timer)
         clearListedSyncTaskBusy(productIds)
+      }
+    }
+  }, 2000)
+}
+
+function watchTitleOptimizationTaskCompletion(taskIdsToWatch: string[], productIds: number[]) {
+  if (taskIdsToWatch.length < 1 || props.status !== 'listed') {
+    clearTitleOptimizationProductsBusy(productIds)
+    return
+  }
+  const idSet = new Set(taskIdsToWatch)
+  let pollFailures = 0
+  const timer = window.setInterval(async () => {
+    try {
+      const tasks = await api.listSyncTasks()
+      pollFailures = 0
+      const matchedTasks = tasks.filter((item) => idSet.has(item.id))
+      if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
+        return
+      }
+      window.clearInterval(timer)
+      clearTitleOptimizationProductsBusy(productIds)
+      void refreshAll({ loadStores: false })
+      if (matchedTasks.every((task) => task.status === 'success')) {
+        ElMessage.success('批量标题优化已完成')
+      } else if (matchedTasks.some((task) => task.status === 'partial')) {
+        ElMessage.warning('批量标题优化部分完成，请到同步任务中查看异常信息')
+      } else {
+        ElMessage.error(matchedTasks[0]?.errorDetail || '批量标题优化失败，请到同步任务中查看错误信息')
+      }
+    } catch {
+      pollFailures += 1
+      if (pollFailures >= 3) {
+        window.clearInterval(timer)
+        clearTitleOptimizationProductsBusy(productIds)
       }
     }
   }, 2000)
@@ -2333,6 +2441,16 @@ function sanitizedDescriptionHtml(value: string) {
           </el-button>
         </div>
         <div v-if="status === 'listed'" class="batch-action-group">
+          <el-button
+            type="primary"
+            plain
+            :icon="MagicStick"
+            :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
+            :loading="operating"
+            @click="createTitleOptimizationTask"
+          >
+            批量优化标题
+          </el-button>
           <el-button
             type="success"
             plain

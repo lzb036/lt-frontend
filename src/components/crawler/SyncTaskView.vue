@@ -218,6 +218,9 @@ function taskRetryable(row: SyncTask) {
 }
 
 function taskTypeLabel(task: SyncTask) {
+  if (task.taskType === 'title_optimization') {
+    return '批量标题优化'
+  }
   if (task.taskType === 'listing_status') {
     if (task.taskName.includes('全部上架')) {
       return '全部上架'

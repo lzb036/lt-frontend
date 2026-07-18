@@ -613,6 +613,21 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function createProductTitleOptimizationTask(productIds: number[]) {
+    const response = await apiClient.post<{
+      syncTask: SyncTask
+      syncTasks?: SyncTask[]
+      summary: {
+        total: number
+        successCount: number
+        failedCount: number
+        message: string
+        errors: string[]
+      }
+    }>('/crawler/products/title-optimization', { productIds })
+    return response.data
+  }
+
   async function updateStoreListingStatus(payload: {
     storeId: number
     listingStatus: 'listed' | 'unlisted'
@@ -972,6 +987,7 @@ export function useCollectorApi() {
     uploadProductImageDraftBase64,
     productImageDownloadUrl,
     updateProductsListingStatus,
+    createProductTitleOptimizationTask,
     updateStoreListingStatus,
     listStores,
     listStoresPage,
