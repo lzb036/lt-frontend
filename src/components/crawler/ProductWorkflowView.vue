@@ -89,23 +89,28 @@ const filters = reactive({
   storeId: null as number | null,
   listedStoreId: '' as ListedStoreFilterValue,
   listingStatus: '' as '' | 'listed' | 'unlisted',
-  salesPeriodDays: 365,
+  salesPeriodDays: 365 as number | 'custom',
+  salesPeriodRange: [] as string[] | null,
   salesSort: '' as '' | 'asc' | 'desc',
   salesMin: null as number | null,
   salesMax: null as number | null,
+  salesZeroOnly: false,
   listedAtRange: [] as string[] | null,
 })
 const salesPeriodOptions = [
   { label: '近一年销量', value: 365 },
   { label: '近半年销量', value: 180 },
   { label: '近3个月销量', value: 90 },
+  { label: '近2个月销量', value: 60 },
   { label: '近1个月销量', value: 30 },
+  { label: '近2周销量', value: 14 },
   { label: '近1周销量', value: 7 },
+  { label: '自定义销量时间', value: 'custom' },
 ] as const
 const salesPeriodLabel = computed(
   () => salesPeriodOptions.find(
     (option) => option.value === filters.salesPeriodDays,
-  )?.label || '销量',
+  )?.label || '自定义销量',
 )
 
 const listingForm = reactive({
@@ -276,10 +281,22 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       storeId: props.status === 'listed' ? filters.storeId : null,
       listedStoreId: props.status === 'listed_master' ? filters.listedStoreId : '',
       listingStatus: props.status === 'listed' ? filters.listingStatus : '',
-      salesPeriodDays: props.status === 'listed' ? filters.salesPeriodDays : null,
+      salesPeriodDays: props.status === 'listed' && typeof filters.salesPeriodDays === 'number'
+        ? filters.salesPeriodDays
+        : null,
+      salesPeriodFrom: props.status === 'listed' && filters.salesPeriodDays === 'custom'
+        ? filters.salesPeriodRange?.[0] || ''
+        : '',
+      salesPeriodTo: props.status === 'listed' && filters.salesPeriodDays === 'custom'
+        ? filters.salesPeriodRange?.[1] || ''
+        : '',
       salesSort: props.status === 'listed' ? filters.salesSort : '',
-      salesMin: props.status === 'listed' ? filters.salesMin : null,
-      salesMax: props.status === 'listed' ? filters.salesMax : null,
+      salesMin: props.status === 'listed'
+        ? (filters.salesZeroOnly ? 0 : filters.salesMin)
+        : null,
+      salesMax: props.status === 'listed'
+        ? (filters.salesZeroOnly ? 0 : filters.salesMax)
+        : null,
       listedAtFrom: props.status === 'listed' ? listedAtFromValue() : '',
       listedAtTo: props.status === 'listed' ? listedAtToValue() : '',
       priceMin: props.status !== 'listed' ? filters.priceMin : null,
@@ -467,9 +484,11 @@ function resetFilters() {
   filters.listedStoreId = ''
   filters.listingStatus = ''
   filters.salesPeriodDays = 365
+  filters.salesPeriodRange = []
   filters.salesSort = ''
   filters.salesMin = null
   filters.salesMax = null
+  filters.salesZeroOnly = false
   filters.listedAtRange = []
   resetPage()
   void refreshAll()
@@ -478,6 +497,66 @@ function resetFilters() {
 function searchProducts() {
   resetPage()
   void refreshAll()
+}
+
+function formatDateValue(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function dateDaysAgo(days: number) {
+  const value = new Date()
+  value.setHours(0, 0, 0, 0)
+  value.setDate(value.getDate() - days)
+  return formatDateValue(value)
+}
+
+function handleSalesPeriodChange(value: number | 'custom') {
+  if (value !== 'custom') {
+    filters.salesPeriodRange = []
+    searchProducts()
+    return
+  }
+  if (!filters.salesPeriodRange?.length) {
+    filters.salesPeriodRange = [dateDaysAgo(29), formatDateValue(new Date())]
+  }
+  searchProducts()
+}
+
+function isSalesDateDisabled(value: Date) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const earliest = new Date(today)
+  earliest.setDate(earliest.getDate() - 364)
+  return value < earliest || value > today
+}
+
+function handleSalesPeriodRangeChange(value: string[] | null) {
+  if (!value || value.length !== 2) {
+    return
+  }
+  const start = Date.parse(`${value[0]}T00:00:00Z`)
+  const end = Date.parse(`${value[1]}T00:00:00Z`)
+  const inclusiveDays = Math.floor((end - start) / 86400000) + 1
+  if (inclusiveDays > 365) {
+    ElMessage.warning('自定义销量时间范围不能超过365天')
+    filters.salesPeriodRange = []
+    return
+  }
+  searchProducts()
+}
+
+function handleSalesZeroOnlyChange(value: boolean) {
+  if (value) {
+    filters.salesMin = 0
+    filters.salesMax = 0
+  } else {
+    filters.salesMin = null
+    filters.salesMax = null
+  }
+  searchProducts()
 }
 
 function countText(value?: number | null) {
@@ -2325,7 +2404,7 @@ function sanitizedDescriptionHtml(value: string) {
             v-model="filters.salesPeriodDays"
             class="full-control"
             placeholder="销量周期"
-            @change="searchProducts"
+            @change="handleSalesPeriodChange"
           >
             <el-option
               v-for="option in salesPeriodOptions"
@@ -2334,6 +2413,23 @@ function sanitizedDescriptionHtml(value: string) {
               :value="option.value"
             />
           </el-select>
+        </div>
+        <div
+          v-if="status === 'listed' && filters.salesPeriodDays === 'custom'"
+          class="filter-field filter-sales-custom-field"
+        >
+          <el-date-picker
+            v-model="filters.salesPeriodRange"
+            class="full-control"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="销量开始日期"
+            end-placeholder="销量结束日期"
+            :disabled-date="isSalesDateDisabled"
+            @change="handleSalesPeriodRangeChange"
+          />
         </div>
         <div v-if="status === 'listed'" class="filter-field filter-sales-sort-field">
           <el-select
@@ -2355,6 +2451,7 @@ function sanitizedDescriptionHtml(value: string) {
             :precision="0"
             :controls="false"
             placeholder="最小销量"
+            :disabled="filters.salesZeroOnly"
             @change="searchProducts"
           />
           <span class="range-separator">至</span>
@@ -2365,8 +2462,17 @@ function sanitizedDescriptionHtml(value: string) {
             :precision="0"
             :controls="false"
             placeholder="最大销量"
+            :disabled="filters.salesZeroOnly"
             @change="searchProducts"
           />
+        </div>
+        <div v-if="status === 'listed'" class="filter-field filter-sales-zero-field">
+          <el-checkbox
+            v-model="filters.salesZeroOnly"
+            @change="handleSalesZeroOnlyChange"
+          >
+            仅显示销量为0
+          </el-checkbox>
         </div>
         <div v-if="status === 'listed'" class="filter-field filter-range-field">
           <el-date-picker
@@ -3059,6 +3165,12 @@ function sanitizedDescriptionHtml(value: string) {
   flex: 0 1 150px;
 }
 
+.filter-sales-custom-field {
+  flex: 1 1 300px;
+  min-width: 280px;
+  max-width: 360px;
+}
+
 .filter-sales-sort-field {
   flex: 0 1 150px;
 }
@@ -3069,6 +3181,11 @@ function sanitizedDescriptionHtml(value: string) {
   min-width: 240px;
   align-items: center;
   gap: 8px;
+}
+
+.filter-sales-zero-field {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .sales-range-input {
@@ -3138,12 +3255,21 @@ function sanitizedDescriptionHtml(value: string) {
   flex: 0 0 168px;
 }
 
+.filter-row-with-store .filter-sales-custom-field {
+  flex: 0 1 320px;
+  max-width: 360px;
+}
+
 .filter-row-with-store .filter-sales-sort-field {
   flex: 0 0 168px;
 }
 
 .filter-row-with-store .filter-sales-range-field {
   flex: 0 0 260px;
+}
+
+.filter-row-with-store .filter-sales-zero-field {
+  flex: 0 0 auto;
 }
 
 .filter-row-with-store .filter-range-field {

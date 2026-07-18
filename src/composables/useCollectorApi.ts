@@ -273,6 +273,8 @@ export function useCollectorApi() {
     collectedAtFrom?: string
     collectedAtTo?: string
     salesPeriodDays?: number | null
+    salesPeriodFrom?: string
+    salesPeriodTo?: string
     salesSort?: 'asc' | 'desc' | ''
     salesMin?: number | null
     salesMax?: number | null
@@ -302,6 +304,8 @@ export function useCollectorApi() {
     collectedAtFrom?: string
     collectedAtTo?: string
     salesPeriodDays?: number | null
+    salesPeriodFrom?: string
+    salesPeriodTo?: string
     salesSort?: 'asc' | 'desc' | ''
     salesMin?: number | null
     salesMax?: number | null
