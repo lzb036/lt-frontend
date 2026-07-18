@@ -85,7 +85,7 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
       <div class="time-panel-head">
         <div>
           <h2>订单自动同步</h2>
-          <p>定时获取店铺订单，并维护近365天订单和商品销量数据</p>
+          <p>所有用户和店铺共用此全局配置，仅超级管理员可以修改</p>
         </div>
         <div class="head-actions">
           <el-tag v-if="isDirty" type="warning" effect="plain">

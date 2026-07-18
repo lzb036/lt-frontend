@@ -45,17 +45,25 @@ for (const requiredContract of [
   "{ path: '/system/order-sync', label: '订单同步设置'",
   "path: 'ltJobs/orderSyncHistory'",
   "name: 'order-sync-history'",
-  "meta: { title: '订单获取记录', permission: 'stores.manage' }",
+  "meta: { title: '订单获取记录', superadminOnly: true }",
   "path: 'system/order-sync'",
   "name: 'system-order-sync'",
-  "meta: { title: '订单同步设置', permission: 'settings.manage' }",
-  "{ path: '/ltJobs/orderSyncHistory', permission: 'stores.manage' }",
-  "{ path: '/system/order-sync', permission: 'settings.manage' }",
+  "meta: { title: '订单同步设置', superadminOnly: true }",
+  "{ path: '/ltJobs/orderSyncHistory', superadminOnly: true }",
+  "{ path: '/system/order-sync', superadminOnly: true }",
 ]) {
   const sources = [permissionsSource, routerSource, appShellSource]
   if (!sources.some((source) => source.includes(requiredContract))) {
     throw new Error(`missing relocated order feature contract: ${requiredContract}`)
   }
+}
+
+const ordinaryStoreSession = {
+  role: 'operator',
+  permissionCodes: ['stores.manage', 'settings.manage'],
+}
+if (canAccessRouteMeta(ordinaryStoreSession, { superadminOnly: true })) {
+  throw new Error('expected ordinary users to be denied order administration pages')
 }
 
 for (const legacyRedirect of [

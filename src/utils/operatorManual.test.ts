@@ -30,3 +30,10 @@ for (const [keyword, sectionId] of [
     throw new Error(`expected ${keyword} search to find ${sectionId}`)
   }
 }
+
+for (const sectionId of ['order-sync-history', 'order-sync-settings']) {
+  const section = operatorManualSections.find((item) => item.id === sectionId)
+  if (section?.permission !== '超级管理员') {
+    throw new Error(`expected ${sectionId} to be superadmin-only`)
+  }
+}

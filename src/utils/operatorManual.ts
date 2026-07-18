@@ -181,7 +181,7 @@ export const operatorManualSections: OperatorManualSection[] = [
     title: '店铺商品与商品替换',
     summary: '查看和同步乐天店铺中的实际商品，并执行商品替换。',
     route: '店铺管理 > 店铺商品',
-    permission: '店铺管理',
+    permission: '超级管理员',
     impact: 'rakuten',
     keywords: ['店铺商品', '同步修改', '上下架', '替换', '商品管理编号', '删除', '销量'],
     steps: [
@@ -281,7 +281,7 @@ export const operatorManualSections: OperatorManualSection[] = [
     title: '订单获取记录',
     summary: '查看每次自动、手动或重试订单同步的结果。',
     route: '任务管理 > 订单获取记录',
-    permission: '店铺管理',
+    permission: '超级管理员',
     impact: 'local',
     keywords: ['订单获取记录', '订单同步记录', '订单总数', '新增', '自动', '手动', '重试', '店铺别称'],
     steps: [
@@ -305,11 +305,12 @@ export const operatorManualSections: OperatorManualSection[] = [
     title: '订单同步设置',
     summary: '配置自动订单同步开关、执行间隔和成功记录保留天数。',
     route: '系统设置 > 订单同步设置',
-    permission: '系统设置；保存全局设置需要超级管理员',
+    permission: '超级管理员',
     impact: 'local',
     keywords: ['订单同步设置', '自动同步', '同步间隔', '成功记录保留', '资源管理', '365天'],
     steps: [
       '查看自动同步卡片，确认当前为已启用或已停用。',
+      '该页面保存的是全局统一配置，所有用户和所有店铺共用。',
       '设置同步间隔，允许范围为5到1440分钟。',
       '设置成功记录保留天数，允许范围为1到365天。',
       '修改后点击“保存”；离开页面或关闭浏览器不会自动保存。',
@@ -320,7 +321,7 @@ export const operatorManualSections: OperatorManualSection[] = [
       '成功记录保留只影响订单获取任务记录，不会删除订单和销量数据。',
     ],
     warnings: [
-      '这是全局设置，会影响所有符合条件的店铺。',
+      '这是全局设置，会影响所有用户下符合条件的店铺。',
       '只有点击“保存”按钮才会应用修改。',
     ],
   },
