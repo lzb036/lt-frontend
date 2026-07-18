@@ -80,34 +80,36 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 </script>
 
 <template>
-  <section class="settings-page">
-    <header class="page-head">
-      <div>
-        <p class="eyebrow">Resource Management</p>
-        <h1>订单同步设置</h1>
+  <section class="page-stack">
+    <section v-loading="state.loading" class="time-panel">
+      <div class="time-panel-head">
+        <div>
+          <h2>订单自动同步</h2>
+          <p>定时获取店铺订单，并维护近365天订单和商品销量数据</p>
+        </div>
+        <div class="head-actions">
+          <el-tag v-if="isDirty" type="warning" effect="plain">
+            有未保存修改
+          </el-tag>
+          <el-button
+            :icon="RefreshLeft"
+            :disabled="state.loading || state.saving || !state.savedSnapshot"
+            @click="state.restoreDefaults()"
+          >
+            恢复默认
+          </el-button>
+          <el-button
+            type="primary"
+            :icon="Check"
+            :loading="state.saving"
+            :disabled="state.loading || !isDirty"
+            @click="saveSettings"
+          >
+            保存
+          </el-button>
+        </div>
       </div>
-      <div class="head-actions">
-        <el-tag v-if="isDirty" type="warning" effect="plain">有未保存修改</el-tag>
-        <el-button
-          :icon="RefreshLeft"
-          :disabled="state.loading || state.saving || !state.savedSnapshot"
-          @click="state.restoreDefaults()"
-        >
-          恢复默认
-        </el-button>
-        <el-button
-          type="primary"
-          :icon="Check"
-          :loading="state.saving"
-          :disabled="state.loading || !isDirty"
-          @click="saveSettings"
-        >
-          保存设置
-        </el-button>
-      </div>
-    </header>
 
-    <section class="work-panel">
       <el-result
         v-if="state.error && !state.savedSnapshot"
         icon="error"
@@ -122,35 +124,47 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
       </el-result>
       <el-form
         v-else
-        v-loading="state.loading"
         class="settings-form"
         label-position="top"
       >
-        <label class="switch-row">
-          <span>
-            <strong>启用自动同步</strong>
-            <small>关闭后停止自动获取订单，手动立即更新仍可使用。</small>
-          </span>
-          <el-switch v-model="draft.enabled" />
-        </label>
-        <div class="form-grid">
-          <el-form-item label="自动同步间隔">
+        <div class="setting-grid">
+          <section class="setting-card setting-card-primary">
+            <div class="setting-card-copy">
+              <span>自动同步</span>
+              <strong>{{ draft.enabled ? '已启用' : '已停用' }}</strong>
+              <small>关闭后停止自动获取订单，手动立即更新仍可使用。</small>
+            </div>
+            <el-switch v-model="draft.enabled" />
+          </section>
+
+          <section class="setting-card">
+            <div class="setting-card-copy">
+              <span>同步间隔</span>
+              <strong>{{ draft.intervalMinutes }} 分钟</strong>
+              <small>系统按照该间隔检查并获取各店铺新增或变更订单。</small>
+            </div>
             <el-input-number
               v-model="draft.intervalMinutes"
+              class="setting-control"
               :min="5"
               :max="1440"
               :step="5"
             />
-            <span class="field-suffix">分钟</span>
-          </el-form-item>
-          <el-form-item label="成功记录保留天数">
+          </section>
+
+          <section class="setting-card">
+            <div class="setting-card-copy">
+              <span>成功记录保留</span>
+              <strong>{{ draft.successRetentionDays }} 天</strong>
+              <small>只清理订单获取任务记录，不会删除订单和销量数据。</small>
+            </div>
             <el-input-number
               v-model="draft.successRetentionDays"
+              class="setting-control"
               :min="1"
               :max="365"
             />
-            <span class="field-suffix">天</span>
-          </el-form-item>
+          </section>
         </div>
       </el-form>
     </section>
@@ -158,48 +172,125 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 </template>
 
 <style scoped>
-.settings-page {
+.page-stack {
   display: grid;
   gap: 18px;
 }
 
-.settings-form {
-  max-width: 760px;
+.time-panel {
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
 }
 
-.switch-row {
+.time-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--border-soft);
+  gap: 12px;
 }
 
-.switch-row span {
-  display: grid;
-  gap: 5px;
+.time-panel-head h2 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 15px;
+  font-weight: 800;
 }
 
-.switch-row small {
+.time-panel-head p {
+  margin: 4px 0 0;
   color: var(--text-muted);
+  font-size: 12px;
 }
 
-.form-grid {
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-form {
+  width: 100%;
+}
+
+.setting-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  padding-top: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--panel-border);
 }
 
-.field-suffix {
-  margin-left: 8px;
+.setting-card {
+  display: flex;
+  min-height: 138px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px;
+  border-right: 1px solid var(--panel-border);
+}
+
+.setting-card:last-child {
+  border-right: 0;
+}
+
+.setting-card-copy {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.setting-card-copy span,
+.setting-card-copy small {
   color: var(--text-muted);
+  font-size: 12px;
 }
 
-@media (max-width: 760px) {
-  .form-grid {
+.setting-card-copy strong {
+  color: var(--text-main);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.setting-card-primary .setting-card-copy strong {
+  color: var(--accent);
+}
+
+.setting-card-copy small {
+  line-height: 1.55;
+}
+
+.setting-control {
+  flex: 0 0 118px;
+  width: 118px;
+}
+
+@media (max-width: 960px) {
+  .setting-grid {
     grid-template-columns: 1fr;
+  }
+
+  .setting-card {
+    border-right: 0;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .setting-card:last-child {
+    border-bottom: 0;
+  }
+
+  .time-panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .head-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
 </style>
