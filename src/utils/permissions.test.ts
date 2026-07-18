@@ -31,8 +31,6 @@ if (!canAccessRouteMeta(aiSession, { permission: 'ai.manage' })) {
 }
 
 for (const removedMenuEntry of [
-  "{ path: '/ai/product-analysis', label: '商品分析'",
-  "{ path: '/ai/product-analysis-settings', label: '商品分析设置'",
   "{ path: '/ai/order-sync-history', label: '订单获取记录'",
 ]) {
   if (appShellSource.includes(removedMenuEntry)) {
@@ -66,12 +64,3 @@ if (canAccessRouteMeta(ordinaryStoreSession, { superadminOnly: true })) {
   throw new Error('expected ordinary users to be denied order administration pages')
 }
 
-for (const legacyRedirect of [
-  "{ path: 'ai/product-analysis', redirect: '/ltShop/GoodsUp' }",
-  "{ path: 'ai/product-analysis-settings', redirect: '/system/order-sync' }",
-  "{ path: 'ai/order-sync-history', redirect: '/ltJobs/orderSyncHistory' }",
-]) {
-  if (!routerSource.includes(legacyRedirect)) {
-    throw new Error(`missing legacy redirect: ${legacyRedirect}`)
-  }
-}

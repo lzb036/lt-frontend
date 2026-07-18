@@ -5,12 +5,8 @@ import { Check, RefreshLeft } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import {
-  createSalesOrderSyncSettingsDraftState,
-  loadSalesOrderSyncSettingsDraftState,
-  saveSalesOrderSyncSettingsDraftState,
-} from '../../composables/salesAnalysisSettingsState'
 import type { SalesOrderSyncGlobalSettingsPayload } from '../../types/crawler'
+import { toApiErrorMessage } from '../../utils/api'
 
 const DEFAULT_SETTINGS: SalesOrderSyncGlobalSettingsPayload = {
   enabled: true,
@@ -19,9 +15,16 @@ const DEFAULT_SETTINGS: SalesOrderSyncGlobalSettingsPayload = {
 }
 
 const api = useCollectorApi()
-const state = reactive(createSalesOrderSyncSettingsDraftState(DEFAULT_SETTINGS))
-const draft = state.draft
-const isDirty = computed(() => state.isDirty())
+const state = reactive({
+  loading: false,
+  saving: false,
+  error: '',
+  savedSnapshot: null as SalesOrderSyncGlobalSettingsPayload | null,
+})
+const draft = reactive<SalesOrderSyncGlobalSettingsPayload>({ ...DEFAULT_SETTINGS })
+const isDirty = computed(() => (
+  JSON.stringify(draft) !== JSON.stringify(state.savedSnapshot)
+))
 
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload)
@@ -51,25 +54,38 @@ onBeforeRouteLeave(async () => {
 })
 
 async function loadSettings() {
-  const loaded = await loadSalesOrderSyncSettingsDraftState(
-    state,
-    api.getSalesOrderSyncGlobalSettings(),
-  )
-  if (!loaded) {
-    ElMessage.error(state.error || '加载订单同步设置失败')
+  state.loading = true
+  state.error = ''
+  try {
+    const settings = await api.getSalesOrderSyncGlobalSettings()
+    Object.assign(draft, settings)
+    state.savedSnapshot = { ...settings }
+  } catch (error) {
+    state.error = toApiErrorMessage(error, '加载订单同步设置失败')
+    ElMessage.error(state.error)
+  } finally {
+    state.loading = false
   }
 }
 
 async function saveSettings() {
-  const saved = await saveSalesOrderSyncSettingsDraftState(
-    state,
-    api.updateSalesOrderSyncGlobalSettings,
-  )
-  if (saved) {
+  state.saving = true
+  state.error = ''
+  try {
+    const settings = await api.updateSalesOrderSyncGlobalSettings({ ...draft })
+    Object.assign(draft, settings)
+    state.savedSnapshot = { ...settings }
     ElMessage.success('订单同步设置已保存')
-  } else {
-    ElMessage.error(state.error || '保存订单同步设置失败')
+  } catch (error) {
+    state.error = toApiErrorMessage(error, '保存订单同步设置失败')
+    ElMessage.error(state.error)
+  } finally {
+    state.saving = false
   }
+}
+
+function restoreDefaults() {
+  Object.assign(draft, DEFAULT_SETTINGS)
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -94,7 +110,7 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
           <el-button
             :icon="RefreshLeft"
             :disabled="state.loading || state.saving || !state.savedSnapshot"
-            @click="state.restoreDefaults()"
+            @click="restoreDefaults"
           >
             恢复默认
           </el-button>

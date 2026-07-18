@@ -271,24 +271,6 @@ export interface AiTitleSettingsPayload {
   subtitlePrompt: string
 }
 
-export interface SalesAnalysisModelSettings {
-  provider: string
-  apiBaseUrl: string
-  apiKeyConfigured: boolean
-  apiKeyMasked: string
-  modelName: string
-  verified: boolean
-  verifiedAt?: string | null
-  lastError?: string | null
-}
-
-export interface SalesAnalysisModelSettingsPayload {
-  provider: string
-  apiBaseUrl: string
-  apiKey: string
-  modelName: string
-}
-
 export interface AiProviderOption {
   value: string
   label: string
@@ -312,36 +294,19 @@ export interface ProductTitleVersionList {
   versions: ProductTitleVersion[]
 }
 
-export type SalesAnalysisSyncStatus = 'idle' | 'queued' | 'running' | 'completed' | 'error'
+export type SalesOrderSyncStatus = 'idle' | 'queued' | 'running' | 'completed' | 'error'
 
-export type SalesAnalysisToolName =
-  | 'list_owned_stores'
-  | 'get_store_sales_overview'
-  | 'get_product_sales_ranking'
-  | 'get_product_sales_trend'
-  | 'compare_product_sales'
-  | 'get_sku_sales_breakdown'
-  | 'get_slow_moving_products'
-  | 'get_sales_adjustment_summary'
-
-export interface SalesAnalysisStore {
+export interface SalesOrderSyncStore {
   id: number
   name: string
   code: string
   enabled: boolean
-  initialSyncCompleted?: boolean
-  dataIncomplete?: boolean
 }
 
-export interface SalesAnalysisStoreList {
-  stores: SalesAnalysisStore[]
-  dataUpdatedAt?: string | null
-}
-
-export interface SalesAnalysisSyncState {
+export interface SalesOrderSyncState {
   id: string
   storeId: number
-  status: SalesAnalysisSyncStatus
+  status: SalesOrderSyncStatus
   alreadyRunning: boolean
   initialSyncCompleted: boolean
   progressCurrent: number
@@ -349,105 +314,6 @@ export interface SalesAnalysisSyncState {
   lastSuccessfulSyncAt?: string | null
   lastRemoteUpdatedAt?: string | null
   lastError: string
-}
-
-export interface SalesAnalysisConversation {
-  id: number
-  title: string
-  storeScope: number[]
-  lastMessageAt?: string | null
-  createdAt?: string | null
-  updatedAt?: string | null
-}
-
-export interface SalesAnalysisDateRange {
-  start: string
-  end: string
-}
-
-export interface SalesAnalysisToolResult {
-  store?: {
-    id: number
-    name: string
-  }
-  range?: SalesAnalysisDateRange
-  metric?: string
-  dataUpdatedAt?: string | null
-  unresolvedAdjustmentCount?: number
-  initialSyncCompleted?: boolean
-  dataIncomplete?: boolean
-  effectiveSalesAmountDefinition?: string
-  rows?: Array<Record<string, unknown>>
-  series?: Array<Record<string, unknown>>
-  comparison?: Record<string, unknown>
-  manageNumber?: string
-  grain?: 'day' | 'week' | 'month' | string
-  threshold?: Record<string, unknown>
-  [key: string]: unknown
-}
-
-export interface SalesAnalysisToolRecord {
-  toolName: SalesAnalysisToolName | string
-  label?: string
-  arguments: Record<string, unknown>
-  result: SalesAnalysisToolResult
-}
-
-export type SalesAnalysisMessageStatus = 'completed' | 'error'
-
-export interface SalesAnalysisMessage {
-  id: number
-  conversationId: number
-  question: string
-  answer: string
-  toolName: string
-  toolArguments: Array<Record<string, unknown>>
-  resultSummary: SalesAnalysisToolRecord[]
-  modelName: string
-  storeScope: number[]
-  statisticsWindow: Partial<SalesAnalysisDateRange>
-  status: SalesAnalysisMessageStatus
-  errorCode: string
-  errorMessage: string
-  fallback?: boolean
-  historyTruncated?: boolean
-  createdAt?: string | null
-  updatedAt?: string | null
-}
-
-export interface SalesAnalysisMessagePage {
-  messages: SalesAnalysisMessage[]
-  total: number
-  page: number
-  pageSize: number
-  truncated: boolean
-}
-
-export type SalesAnalysisMetric =
-  | 'effectiveUnits'
-  | 'orderedUnits'
-  | 'effectiveSalesAmount'
-  | 'orderCount'
-
-export type SalesAnalysisGrain = 'day' | 'week' | 'month'
-
-export type SalesAnalysisAnswerDetailLevel = 'concise' | 'standard' | 'detailed'
-
-export interface SalesAnalysisSettingsPayload {
-  defaultPeriodDays: 7 | 30 | 60 | 90
-  defaultRankingLimit: number
-  defaultMetric: SalesAnalysisMetric
-  defaultGrain: SalesAnalysisGrain
-  answerDetailLevel: SalesAnalysisAnswerDetailLevel
-  prioritizeAdjustmentRisk: boolean
-  showDataUpdatedAt: boolean
-  showMetricDefinition: boolean
-  customBusinessInstructions: string
-}
-
-export interface SalesAnalysisSettings extends SalesAnalysisSettingsPayload {
-  createdAt?: string | null
-  updatedAt?: string | null
 }
 
 export interface SalesOrderSyncGlobalSettingsPayload {
@@ -504,49 +370,6 @@ export interface SalesOrderSyncRunListParams extends PageParams {
 
 export interface SalesOrderSyncRunDeleteResult {
   deletedCount: number
-}
-
-export interface SalesAnalysisCapability {
-  key: string
-  title: string
-  description: string
-  example: string
-  metrics: string[]
-  facts?: string[]
-}
-
-export interface SalesAnalysisConstraintSection {
-  key: string
-  title: string
-  items: string[]
-}
-
-export type SalesAnalysisStreamEvent =
-  | { type: 'status'; message: string }
-  | {
-    type: 'tool_call'
-    toolName: SalesAnalysisToolName | string
-    label: string
-    arguments: Record<string, unknown>
-  }
-  | {
-    type: 'tool_result'
-    toolName: SalesAnalysisToolName | string
-    label: string
-    result: SalesAnalysisToolResult
-  }
-  | { type: 'delta'; content: string }
-  | { type: 'completed'; message: SalesAnalysisMessage }
-  | { type: 'error'; message: string }
-
-export interface SalesAnalysisStreamHandlers {
-  onEvent?: (event: SalesAnalysisStreamEvent) => void
-  onStatus?: (message: string) => void
-  onToolCall?: (event: Extract<SalesAnalysisStreamEvent, { type: 'tool_call' }>) => void
-  onToolResult?: (event: Extract<SalesAnalysisStreamEvent, { type: 'tool_result' }>) => void
-  onDelta?: (content: string) => void
-  onCompleted?: (message: SalesAnalysisMessage) => void
-  onError?: (message: string) => void
 }
 
 export interface StoreAccount {

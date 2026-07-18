@@ -13,11 +13,10 @@ import {
   salesOrderSyncTriggerLabel,
 } from '../../composables/salesOrderSyncHistoryState'
 import {
-  formatSalesAnalysisDateTime,
   useCollectorApi,
 } from '../../composables/useCollectorApi'
 import type {
-  SalesAnalysisStore,
+  SalesOrderSyncStore,
   SalesOrderSyncGlobalSettings,
   SalesOrderSyncRun,
   SalesOrderSyncRunListParams,
@@ -36,7 +35,7 @@ const DEFAULT_SETTINGS: SalesOrderSyncGlobalSettings = {
 const api = useCollectorApi()
 const route = useRoute()
 const runs = shallowRef<SalesOrderSyncRun[]>([])
-const stores = shallowRef<SalesAnalysisStore[]>([])
+const stores = shallowRef<SalesOrderSyncStore[]>([])
 const settings = shallowRef<SalesOrderSyncGlobalSettings>(DEFAULT_SETTINGS)
 const loading = shallowRef(false)
 const settingsLoading = shallowRef(false)
@@ -114,8 +113,7 @@ async function loadSettings() {
 
 async function loadStores() {
   try {
-    const result = await api.listSalesAnalysisStores()
-    stores.value = result.stores
+    stores.value = await api.listSalesOrderSyncStores()
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载店铺列表失败'))
   }
@@ -241,7 +239,17 @@ function statusType(status: SalesOrderSyncRunStatus) {
 }
 
 function formatDateTime(value?: string | null) {
-  return value ? formatSalesAnalysisDateTime(value) : '-'
+  if (!value) return '-'
+  const parsed = new Date(value.replace(' ', 'T'))
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 </script>

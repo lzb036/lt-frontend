@@ -25,23 +25,13 @@ import type {
   ReviewStatus,
   RoleDefinition,
   RolePayload,
-  SalesAnalysisCapability,
-  SalesAnalysisConversation,
-  SalesAnalysisConstraintSection,
-  SalesAnalysisMessagePage,
-  SalesAnalysisModelSettings,
-  SalesAnalysisModelSettingsPayload,
-  SalesAnalysisSettings,
-  SalesAnalysisSettingsPayload,
   SalesOrderSyncGlobalSettings,
   SalesOrderSyncGlobalSettingsPayload,
   SalesOrderSyncRun,
   SalesOrderSyncRunDeleteResult,
   SalesOrderSyncRunListParams,
-  SalesAnalysisStoreList,
-  SalesAnalysisStreamEvent,
-  SalesAnalysisStreamHandlers,
-  SalesAnalysisSyncState,
+  SalesOrderSyncState,
+  SalesOrderSyncStore,
   ScheduleImportResult,
   ScheduledCrawl,
   ScheduledCrawlPayload,
@@ -61,27 +51,6 @@ import type {
   UserAccount,
 } from '../types/crawler'
 import { apiClient, resolveApiBaseUrl } from '../utils/api'
-import { normalizeSalesAnalysisEvent } from './salesAnalysisHelpers'
-
-export {
-  SALES_ANALYSIS_MESSAGE_MAX_LENGTH,
-  composeSalesAnalysisScopedMessage,
-  formatSalesAnalysisDateTime,
-  mergeSalesAnalysisMessages,
-  normalizeSalesAnalysisEvent,
-  recoverSalesAnalysisSyncStateAfterPollFailure,
-  resolveSalesAnalysisConversationStoreId,
-  resolveSalesAnalysisDefaultStoreId,
-  salesAnalysisConversationHasStoreScope,
-  salesAnalysisConversationScopedStoreId,
-  salesAnalysisConversationStoreScopeUnavailable,
-  salesAnalysisConversationStoreConflict,
-  salesAnalysisQuestionLimit,
-  salesAnalysisResultCompletenessWarning,
-  salesAnalysisSyncStateIsActive,
-  salesAnalysisSyncStateStaleMessage,
-  salesAnalysisStoreRoutingSuffix,
-} from './salesAnalysisHelpers'
 
 type ApiPageResponse<K extends string, T> = Record<K, T[]> & {
   total: number
@@ -96,36 +65,6 @@ function toPageResult<K extends string, T>(data: ApiPageResponse<K, T>, key: K):
     page: data.page,
     pageSize: data.pageSize,
   }
-}
-
-function emitSalesAnalysisEvent(
-  handlers: SalesAnalysisStreamHandlers,
-  event: SalesAnalysisStreamEvent,
-) {
-  handlers.onEvent?.(event)
-  if (event.type === 'status') handlers.onStatus?.(event.message)
-  if (event.type === 'tool_call') handlers.onToolCall?.(event)
-  if (event.type === 'tool_result') handlers.onToolResult?.(event)
-  if (event.type === 'delta') handlers.onDelta?.(event.content)
-  if (event.type === 'completed') handlers.onCompleted?.(event.message)
-  if (event.type === 'error') handlers.onError?.(event.message)
-}
-
-function parseSalesAnalysisSseBlock(
-  block: string,
-  handlers: SalesAnalysisStreamHandlers,
-) {
-  const data = block
-    .split('\n')
-    .filter((line) => line.startsWith('data:'))
-    .map((line) => line.slice(5).trimStart())
-    .join('\n')
-  if (!data) {
-    return null
-  }
-  const event = normalizeSalesAnalysisEvent(JSON.parse(data))
-  emitSalesAnalysisEvent(handlers, event)
-  return event
 }
 
 export function useCollectorApi() {
@@ -525,49 +464,6 @@ export function useCollectorApi() {
     await apiClient.delete(`/crawler/products/${productId}/title-versions/${versionId}`)
   }
 
-  async function getSalesAnalysisSettings(): Promise<SalesAnalysisSettings> {
-    const response = await apiClient.get<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis')
-    return response.data.settings
-  }
-
-  async function updateSalesAnalysisSettings(
-    payload: SalesAnalysisSettingsPayload,
-  ): Promise<SalesAnalysisSettings> {
-    const response = await apiClient.put<{ settings: SalesAnalysisSettings }>('/crawler/settings/sales-analysis', payload)
-    return response.data.settings
-  }
-
-  async function getSalesAnalysisModelSettings(): Promise<SalesAnalysisModelSettings> {
-    const response = await apiClient.get<{ settings: SalesAnalysisModelSettings }>(
-      '/crawler/settings/sales-analysis/model',
-    )
-    return response.data.settings
-  }
-
-  async function getSalesAnalysisModelProviders(): Promise<AiProviderOption[]> {
-    const response = await apiClient.get<{ providers: AiProviderOption[] }>(
-      '/crawler/settings/sales-analysis/model/providers',
-    )
-    return response.data.providers
-  }
-
-  async function updateSalesAnalysisModelSettings(
-    payload: SalesAnalysisModelSettingsPayload,
-  ): Promise<SalesAnalysisModelSettings> {
-    const response = await apiClient.put<{ settings: SalesAnalysisModelSettings }>(
-      '/crawler/settings/sales-analysis/model',
-      payload,
-    )
-    return response.data.settings
-  }
-
-  async function testSalesAnalysisModelSettings() {
-    const response = await apiClient.post<{ success: boolean; message: string }>(
-      '/crawler/settings/sales-analysis/model/test',
-    )
-    return response.data
-  }
-
   async function getSalesOrderSyncGlobalSettings(): Promise<SalesOrderSyncGlobalSettings> {
     const response = await apiClient.get<{ settings: SalesOrderSyncGlobalSettings }>(
       '/crawler/settings/sales-order-sync',
@@ -595,7 +491,7 @@ export function useCollectorApi() {
         page: number
         pageSize: number
       }
-    }>('/crawler/sales-analysis/order-sync-runs', { params })
+    }>('/crawler/order-sync/runs', { params })
     return {
       total: response.data.pagination.total,
       page: response.data.pagination.page,
@@ -604,9 +500,9 @@ export function useCollectorApi() {
     }
   }
 
-  async function retrySalesOrderSyncRun(runId: string): Promise<SalesAnalysisSyncState> {
-    const response = await apiClient.post<{ syncTask: SalesAnalysisSyncState }>(
-      `/crawler/sales-analysis/order-sync-runs/${encodeURIComponent(runId)}/retry`,
+  async function retrySalesOrderSyncRun(runId: string): Promise<SalesOrderSyncState> {
+    const response = await apiClient.post<{ syncTask: SalesOrderSyncState }>(
+      `/crawler/order-sync/runs/${encodeURIComponent(runId)}/retry`,
     )
     return response.data.syncTask
   }
@@ -615,144 +511,17 @@ export function useCollectorApi() {
     runIds: string[],
   ): Promise<SalesOrderSyncRunDeleteResult> {
     const response = await apiClient.delete<SalesOrderSyncRunDeleteResult>(
-      '/crawler/sales-analysis/order-sync-runs',
+      '/crawler/order-sync/runs',
       { data: { runIds } },
     )
     return response.data
   }
 
-  async function listSalesAnalysisCapabilities(): Promise<SalesAnalysisCapability[]> {
-    const response = await apiClient.get<{ capabilities: SalesAnalysisCapability[] }>('/crawler/settings/sales-analysis/capabilities')
-    return response.data.capabilities
-  }
-
-  async function listSalesAnalysisConstraints(): Promise<SalesAnalysisConstraintSection[]> {
-    const response = await apiClient.get<{ constraints: SalesAnalysisConstraintSection[] }>('/crawler/settings/sales-analysis/constraints')
-    return response.data.constraints
-  }
-
-  async function listSalesAnalysisStores(): Promise<SalesAnalysisStoreList> {
-    const response = await apiClient.get<SalesAnalysisStoreList>('/crawler/sales-analysis/stores')
-    return response.data
-  }
-
-  async function getSalesAnalysisSyncState(storeId: number): Promise<SalesAnalysisSyncState> {
-    const response = await apiClient.get<{ syncState: SalesAnalysisSyncState }>(
-      '/crawler/sales-analysis/sync-state',
-      { params: { storeId } },
+  async function listSalesOrderSyncStores(): Promise<SalesOrderSyncStore[]> {
+    const response = await apiClient.get<{ stores: SalesOrderSyncStore[] }>(
+      '/crawler/order-sync/stores',
     )
-    return response.data.syncState
-  }
-
-  async function queueSalesAnalysisSync(storeId: number): Promise<SalesAnalysisSyncState> {
-    const response = await apiClient.post<{ syncTask: SalesAnalysisSyncState }>(
-      '/crawler/sales-analysis/sync',
-      { storeId },
-    )
-    return response.data.syncTask
-  }
-
-  async function getSalesAnalysisSyncTask(taskId: string): Promise<SalesAnalysisSyncState> {
-    const response = await apiClient.get<{ syncTask: SalesAnalysisSyncState }>(
-      `/crawler/sales-analysis/sync/${encodeURIComponent(taskId)}`,
-    )
-    return response.data.syncTask
-  }
-
-  async function listSalesAnalysisConversations(): Promise<SalesAnalysisConversation[]> {
-    const response = await apiClient.get<{ conversations: SalesAnalysisConversation[] }>(
-      '/crawler/sales-analysis/conversations',
-    )
-    return response.data.conversations
-  }
-
-  async function createSalesAnalysisConversation(title = '新分析'): Promise<SalesAnalysisConversation> {
-    const response = await apiClient.post<{ conversation: SalesAnalysisConversation }>(
-      '/crawler/sales-analysis/conversations',
-      { title },
-    )
-    return response.data.conversation
-  }
-
-  async function deleteSalesAnalysisConversation(conversationId: number): Promise<void> {
-    await apiClient.delete<{ deleted: boolean }>(
-      `/crawler/sales-analysis/conversations/${conversationId}`,
-    )
-  }
-
-  async function listSalesAnalysisMessages(
-    conversationId: number,
-    page = 1,
-    limit = 50,
-  ): Promise<SalesAnalysisMessagePage> {
-    const response = await apiClient.get<SalesAnalysisMessagePage>(
-      `/crawler/sales-analysis/conversations/${conversationId}/messages`,
-      { params: { page, limit } },
-    )
-    return response.data
-  }
-
-  async function streamSalesAnalysisMessage(
-    conversationId: number,
-    message: string,
-    handlers: SalesAnalysisStreamHandlers,
-    signal?: AbortSignal,
-  ): Promise<void> {
-    const response = await fetch(
-      `${resolveApiBaseUrl()}/crawler/sales-analysis/conversations/${conversationId}/messages`,
-      {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          Accept: 'text/event-stream',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
-        signal,
-      },
-    )
-    if (!response.ok || !response.body) {
-      const payload = await response.json().catch(() => null)
-      throw new Error(payload?.detail || `销量分析请求失败（HTTP ${response.status}）`)
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    let terminalReceived = false
-    while (true) {
-      const { done, value } = await reader.read()
-      buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
-      buffer = buffer.replace(/\r\n/g, '\n')
-      const blocks = buffer.split('\n\n')
-      buffer = blocks.pop() || ''
-      for (const block of blocks) {
-        const event = parseSalesAnalysisSseBlock(block, handlers)
-        if (event?.type === 'completed') {
-          terminalReceived = true
-          return
-        }
-        if (event?.type === 'error') {
-          terminalReceived = true
-          throw new Error(event.message)
-        }
-      }
-      if (done) {
-        break
-      }
-    }
-    if (buffer.trim()) {
-      const event = parseSalesAnalysisSseBlock(buffer, handlers)
-      if (event?.type === 'completed') {
-        terminalReceived = true
-      } else if (event?.type === 'error') {
-        terminalReceived = true
-        throw new Error(event.message)
-      }
-    }
-    if (!terminalReceived) {
-      throw new Error('销量分析连接已中断，未收到完成或错误事件。')
-    }
+    return response.data.stores
   }
 
   async function streamProductTitleVersion(
@@ -1188,28 +957,12 @@ export function useCollectorApi() {
     listProductTitleVersions,
     saveProductTitleVersion,
     deleteProductTitleVersion,
-    getSalesAnalysisSettings,
-    updateSalesAnalysisSettings,
-    getSalesAnalysisModelSettings,
-    getSalesAnalysisModelProviders,
-    updateSalesAnalysisModelSettings,
-    testSalesAnalysisModelSettings,
     getSalesOrderSyncGlobalSettings,
     updateSalesOrderSyncGlobalSettings,
     listSalesOrderSyncRuns,
     retrySalesOrderSyncRun,
     deleteSalesOrderSyncRuns,
-    listSalesAnalysisCapabilities,
-    listSalesAnalysisConstraints,
-    listSalesAnalysisStores,
-    getSalesAnalysisSyncState,
-    queueSalesAnalysisSync,
-    getSalesAnalysisSyncTask,
-    listSalesAnalysisConversations,
-    createSalesAnalysisConversation,
-    deleteSalesAnalysisConversation,
-    listSalesAnalysisMessages,
-    streamSalesAnalysisMessage,
+    listSalesOrderSyncStores,
     streamProductTitleVersion,
     uploadProductImageDraft,
     uploadProductImageDraftBase64,
