@@ -207,7 +207,11 @@ async function checkSingleStoreKeys(row: StoreAccount) {
   verifyingId.value = row.id
   try {
     const result = await api.verifyStore(row.id)
-    stores.value = stores.value.map((store) => (store.id === result.id ? result : store))
+    stores.value = stores.value.map((store) => (
+      store.id === result.id
+        ? { ...result, recentYearOrderCount: store.recentYearOrderCount }
+        : store
+    ))
     if (result.lastError) {
       ElMessage.warning(`店铺「${result.aliasName || result.storeName || result.storeCode}」密钥检测异常`)
     } else {
@@ -224,7 +228,11 @@ async function refreshSingleStoreCounts(row: StoreAccount) {
   countFetchingId.value = row.id
   try {
     const result = await api.refreshStoreCount(row.id)
-    stores.value = stores.value.map((store) => (store.id === result.id ? result : store))
+    stores.value = stores.value.map((store) => (
+      store.id === result.id
+        ? { ...result, recentYearOrderCount: store.recentYearOrderCount }
+        : store
+    ))
     if (result.lastError) {
       ElMessage.warning(`店铺「${result.aliasName || result.storeName || result.storeCode}」数量获取异常`)
     } else {
@@ -335,6 +343,11 @@ async function removeStore(row: StoreAccount) {
         <el-table-column label="剩余文件夹数" width="130" align="left">
           <template #default="{ row }">
             {{ countText(row.cabinetRemainingFolderCount) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="近一年订单数" width="130" align="left">
+          <template #default="{ row }">
+            {{ countText(row.recentYearOrderCount) }}
           </template>
         </el-table-column>
         <el-table-column label="乐天商品数" min-width="170">

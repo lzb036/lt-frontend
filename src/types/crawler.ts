@@ -565,6 +565,7 @@ export interface StoreAccount {
   }
   cabinetUsedFolderCount?: number | null
   cabinetRemainingFolderCount?: number | null
+  recentYearOrderCount?: number | null
   cabinetUsageCheckedAt?: string | null
   rakutenProductTotalCount?: number | null
   rakutenProductListedCount?: number | null
