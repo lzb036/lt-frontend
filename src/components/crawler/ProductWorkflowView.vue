@@ -106,7 +106,7 @@ const salesPeriodOptions = [
   { label: '近1个月销量', value: 30 },
   { label: '近2周销量', value: 14 },
   { label: '近1周销量', value: 7 },
-  { label: '销量', value: 'custom' },
+  { label: '自定义时间', value: 'custom' },
 ] as const
 const salesPeriodLabel = computed(
   () => salesPeriodOptions.find(

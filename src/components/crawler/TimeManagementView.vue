@@ -636,11 +636,15 @@ function formatBytes(value?: number | null) {
       <div class="time-panel-head">
         <div>
           <h2>订单自动同步</h2>
+          <p>定时获取各店铺订单</p>
         </div>
-        <div class="head-actions">
-          <el-tag v-if="orderSettingsDirty" type="warning" effect="plain">
-            有未保存修改
-          </el-tag>
+        <div class="panel-head-actions">
+          <el-switch
+            v-model="orderDraft.enabled"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+          />
           <el-button
             :icon="RefreshLeft"
             :disabled="orderState.loading || orderState.saving || !orderState.savedSnapshot"
@@ -672,47 +676,47 @@ function formatBytes(value?: number | null) {
           </el-button>
         </template>
       </el-result>
-      <el-form v-else label-position="top" class="settings-form">
-        <div class="setting-grid">
-          <section class="setting-card setting-card-primary">
-            <div class="setting-card-copy">
-              <span>自动同步</span>
-              <strong>{{ orderDraft.enabled ? '已启用' : '已停用' }}</strong>
-              <small>关闭后停止自动获取订单，手动立即更新仍可使用。</small>
-            </div>
-            <el-switch v-model="orderDraft.enabled" />
-          </section>
+      <div v-else class="compact-layout">
+        <el-form label-position="top" class="compact-form order-settings-form">
+          <div class="order-setting-fields">
+            <el-form-item label="同步间隔（分钟）">
+              <el-input-number
+                v-model="orderDraft.intervalMinutes"
+                :disabled="!orderDraft.enabled"
+                :min="5"
+                :max="1440"
+                :step="5"
+              />
+            </el-form-item>
+            <el-form-item label="记录保留（天）">
+              <el-input-number
+                v-model="orderDraft.successRetentionDays"
+                :min="1"
+                :max="365"
+              />
+            </el-form-item>
+          </div>
+        </el-form>
 
-          <section class="setting-card">
-            <div class="setting-card-copy">
-              <span>同步间隔</span>
-              <strong>{{ orderDraft.intervalMinutes }} 分钟</strong>
-              <small>系统按照该间隔检查并获取各店铺新增或变更订单。</small>
-            </div>
-            <el-input-number
-              v-model="orderDraft.intervalMinutes"
-              class="setting-control"
-              :min="5"
-              :max="1440"
-              :step="5"
-            />
-          </section>
-
-          <section class="setting-card">
-            <div class="setting-card-copy">
-              <span>成功记录保留</span>
-              <strong>{{ orderDraft.successRetentionDays }} 天</strong>
-              <small>只清理订单获取任务记录，不会删除订单和销量数据。</small>
-            </div>
-            <el-input-number
-              v-model="orderDraft.successRetentionDays"
-              class="setting-control"
-              :min="1"
-              :max="365"
-            />
-          </section>
+        <div class="status-grid">
+          <div class="status-item status-item-primary">
+            <span>当前状态</span>
+            <strong>{{ orderDraft.enabled ? '已开启' : '已关闭' }}</strong>
+          </div>
+          <div class="status-item">
+            <span>同步频率</span>
+            <strong>{{ orderDraft.intervalMinutes }} 分钟</strong>
+          </div>
+          <div class="status-item">
+            <span>记录保留</span>
+            <strong>{{ orderDraft.successRetentionDays }} 天</strong>
+          </div>
+          <div class="status-item">
+            <span>设置更新</span>
+            <strong>{{ formatValue(orderState.savedSnapshot?.updatedAt) }}</strong>
+          </div>
         </div>
-      </el-form>
+      </div>
     </section>
 
     <section v-if="isSuperadmin" v-loading="proxyLoading" class="time-panel proxy-usage-panel">
@@ -886,6 +890,16 @@ function formatBytes(value?: number | null) {
   width: 100%;
 }
 
+.order-setting-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.order-setting-fields :deep(.el-input-number) {
+  width: 100%;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -972,7 +986,8 @@ function formatBytes(value?: number | null) {
 
 @media (max-width: 960px) {
   .compact-layout,
-  .status-grid {
+  .status-grid,
+  .order-setting-fields {
     grid-template-columns: 1fr;
   }
 
