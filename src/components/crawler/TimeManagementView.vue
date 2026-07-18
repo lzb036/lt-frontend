@@ -29,6 +29,9 @@ const isSuperadmin = computed(() => props.session?.role === 'superadmin')
 const form = reactive<TimeSettingsPayload>({
   cleanupWeekday: 6,
   cleanupTime: '09:00',
+  productSyncEnabled: true,
+  productSyncWeekday: 6,
+  productSyncTime: '21:00',
 })
 
 const weekdayOptions = [
@@ -42,6 +45,7 @@ const weekdayOptions = [
 ]
 
 const nextCleanupAtText = computed(() => settings.value?.nextCleanupAt || '-')
+const productSyncNextAtText = computed(() => settings.value?.productSyncNextAt || '-')
 const unlistedCleanupTimeText = computed(() => {
   const day = settings.value?.unlistedCleanupMonthDay ?? 1
   const time = settings.value?.unlistedCleanupTime || '01:00'
@@ -78,6 +82,20 @@ const queueHealthStatusText = computed(() => {
 })
 const cleanupCountdownText = computed(() => {
   const nextAt = parseDateTimeMs(settings.value?.nextCleanupAt)
+  if (nextAt === null) {
+    return '未获取'
+  }
+  const remainingMs = nextAt - (nowTick.value + serverTimeOffsetMs.value)
+  if (remainingMs <= 0) {
+    return '待执行'
+  }
+  return formatCountdown(remainingMs)
+})
+const productSyncCountdownText = computed(() => {
+  if (!settings.value?.productSyncEnabled) {
+    return '已关闭'
+  }
+  const nextAt = parseDateTimeMs(settings.value?.productSyncNextAt)
   if (nextAt === null) {
     return '未获取'
   }
@@ -185,6 +203,9 @@ function applySettings(result: TimeSettings) {
   applyServerTime(result.serverNow)
   form.cleanupWeekday = result.cleanupWeekday
   form.cleanupTime = result.cleanupTime || '09:00'
+  form.productSyncEnabled = result.productSyncEnabled
+  form.productSyncWeekday = result.productSyncWeekday ?? 6
+  form.productSyncTime = result.productSyncTime || '21:00'
 }
 
 function applyServerTime(serverNowValue?: string | null) {
@@ -211,14 +232,21 @@ async function saveSettings() {
     ElMessage.warning('请选择清理时间')
     return
   }
+  if (!form.productSyncTime) {
+    ElMessage.warning('请选择商品同步时间')
+    return
+  }
   saving.value = true
   try {
     const result = await api.updateTimeSettings({
       cleanupWeekday: form.cleanupWeekday,
       cleanupTime: form.cleanupTime,
+      productSyncEnabled: form.productSyncEnabled,
+      productSyncWeekday: form.productSyncWeekday,
+      productSyncTime: form.productSyncTime,
     })
     applySettings(result)
-    ElMessage.success('时间设置已保存')
+    ElMessage.success('资源管理设置已保存')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '保存时间设置失败'))
   } finally {
@@ -376,6 +404,74 @@ function formatBytes(value?: number | null) {
           <div class="status-item">
             <span>设置更新</span>
             <strong>{{ formatValue(settings?.updatedAt) }}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-loading="loading" class="time-panel">
+      <div class="time-panel-head">
+        <div>
+          <h2>商品自动同步</h2>
+          <p>按统一时间为所有启用且凭据完整的店铺创建商品同步任务</p>
+        </div>
+        <div class="panel-head-actions">
+          <el-switch
+            v-model="form.productSyncEnabled"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+          />
+          <el-button type="primary" :icon="Check" :loading="saving" @click="saveSettings">
+            保存
+          </el-button>
+        </div>
+      </div>
+
+      <div class="compact-layout">
+        <el-form label-position="top" class="compact-form">
+          <el-form-item label="每周执行">
+            <div class="schedule-controls">
+              <el-select
+                v-model="form.productSyncWeekday"
+                :disabled="!form.productSyncEnabled"
+                placeholder="选择星期"
+              >
+                <el-option
+                  v-for="item in weekdayOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+              <el-time-picker
+                v-model="form.productSyncTime"
+                :disabled="!form.productSyncEnabled"
+                format="HH:mm"
+                value-format="HH:mm"
+                placeholder="选择时间"
+              />
+            </div>
+          </el-form-item>
+        </el-form>
+
+        <div class="status-grid">
+          <div class="status-item status-item-primary">
+            <span>距下次同步</span>
+            <strong>{{ productSyncCountdownText }}</strong>
+            <em>{{ productSyncNextAtText }}</em>
+          </div>
+          <div class="status-item">
+            <span>当前状态</span>
+            <strong>{{ settings?.productSyncEnabled ? '自动同步已开启' : '自动同步已关闭' }}</strong>
+          </div>
+          <div class="status-item">
+            <span>上次执行</span>
+            <strong>{{ formatValue(settings?.productSyncLastAt) }}</strong>
+          </div>
+          <div class="status-item">
+            <span>上次任务数</span>
+            <strong>{{ settings?.productSyncLastTaskCount ?? 0 }} 个</strong>
           </div>
         </div>
       </div>

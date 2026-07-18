@@ -859,6 +859,12 @@ export interface TimeSettings {
   nextCleanupAt?: string | null
   lastCleanupAt?: string | null
   lastCleanupDeletedCount: number
+  productSyncEnabled: boolean
+  productSyncWeekday: number
+  productSyncTime: string
+  productSyncNextAt?: string | null
+  productSyncLastAt?: string | null
+  productSyncLastTaskCount: number
   unlistedCleanupMonthDay: number
   unlistedCleanupTime: string
   unlistedNextCleanupAt?: string | null
@@ -873,6 +879,9 @@ export interface TimeSettings {
 export interface TimeSettingsPayload {
   cleanupWeekday: number
   cleanupTime: string
+  productSyncEnabled: boolean
+  productSyncWeekday: number
+  productSyncTime: string
 }
 
 export interface ProxyResourceUsage {
