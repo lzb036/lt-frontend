@@ -88,6 +88,7 @@ const filters = reactive({
   priceMin: null as number | null,
   priceMax: null as number | null,
   collectedAtRange: [] as string[] | null,
+  genreStatus: '' as '' | 'missing',
   storeId: null as number | null,
   listedStoreId: '' as ListedStoreFilterValue,
   listingStatus: '' as '' | 'listed' | 'unlisted',
@@ -351,6 +352,7 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       priceMax: props.status !== 'listed' ? filters.priceMax : null,
       collectedAtFrom: props.status !== 'listed' ? collectedAtFromValue() : '',
       collectedAtTo: props.status !== 'listed' ? collectedAtToValue() : '',
+      genreStatus: props.status === 'pending' ? filters.genreStatus : '',
       page: currentPage.value,
       pageSize: pageSize.value,
     })
@@ -528,6 +530,7 @@ function resetFilters() {
   filters.priceMin = null
   filters.priceMax = null
   filters.collectedAtRange = []
+  filters.genreStatus = ''
   filters.storeId = props.status === 'listed' ? (stores.value[0]?.id ?? null) : null
   filters.listedStoreId = ''
   filters.listingStatus = ''
@@ -2685,6 +2688,17 @@ function sanitizedDescriptionHtml(value: string) {
             @keydown.enter="searchProducts"
           />
         </div>
+        <div v-if="status === 'pending'" class="filter-field filter-genre-field">
+          <el-select
+            v-model="filters.genreStatus"
+            class="full-control"
+            clearable
+            placeholder="品类状态"
+            @change="searchProducts"
+          >
+            <el-option label="没有品类" value="missing" />
+          </el-select>
+        </div>
         <div v-if="status !== 'listed'" class="filter-field filter-price-field">
           <el-input-number
             v-model="filters.priceMin"
@@ -3479,6 +3493,10 @@ function sanitizedDescriptionHtml(value: string) {
   flex: 0 0 auto;
   color: var(--text-muted);
   font-weight: 700;
+}
+
+.filter-genre-field {
+  flex: 0 1 150px;
 }
 
 .title-optimization-count {
