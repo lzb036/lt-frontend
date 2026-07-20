@@ -8,7 +8,7 @@ const props = defineProps<{
   session: AuthSession | null
 }>()
 
-const manualPdfUrl = '/docs/product-collection-system-manual.pdf?v=20260720-2129'
+const manualPdfUrl = '/docs/product-collection-system-manual.pdf?v=20260720-2220'
 const canDownload = computed(() => props.session?.role === 'superadmin')
 const manualPdfEmbedUrl = computed(() => (
   `${manualPdfUrl}#view=FitH&toolbar=${canDownload.value ? '1' : '0'}&navpanes=0`
