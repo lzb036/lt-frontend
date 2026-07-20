@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Download, FullScreen } from '@element-plus/icons-vue'
 
+import type { AuthSession } from '../../types/crawler'
+
+const props = defineProps<{
+  session: AuthSession | null
+}>()
+
 const manualPdfUrl = '/docs/product-collection-system-manual.pdf'
-const manualPdfEmbedUrl = `${manualPdfUrl}#view=FitH&toolbar=1&navpanes=0`
+const canDownload = computed(() => props.session?.role === 'superadmin')
+const manualPdfEmbedUrl = computed(() => (
+  `${manualPdfUrl}#view=FitH&toolbar=${canDownload.value ? '1' : '0'}&navpanes=0`
+))
 
 function openPdfManual() {
-  window.open(manualPdfUrl, '_blank', 'noopener,noreferrer')
+  window.open(manualPdfEmbedUrl.value, '_blank', 'noopener,noreferrer')
 }
 </script>
 
@@ -16,6 +26,7 @@ function openPdfManual() {
         新窗口查看
       </el-button>
       <el-button
+        v-if="canDownload"
         type="primary"
         :icon="Download"
         tag="a"
