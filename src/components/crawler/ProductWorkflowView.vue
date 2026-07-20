@@ -2703,7 +2703,7 @@ function sanitizedDescriptionHtml(value: string) {
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="46" :selectable="isProductSelectable" />
-        <el-table-column :label="status === 'pending' ? '商品信息' : '图片'" :min-width="status === 'pending' ? 960 : 86">
+        <el-table-column :label="status === 'pending' ? '商品信息' : '图片'" :min-width="status === 'pending' ? 1100 : 86">
           <template #default="{ row }">
             <div v-if="status === 'pending'" class="pending-product-content">
               <div v-if="row.replacementTaskId" class="pending-replacement-marker">
@@ -2877,7 +2877,7 @@ function sanitizedDescriptionHtml(value: string) {
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="价格(日元)" width="140">
+        <el-table-column v-if="status !== 'pending'" label="价格(日元)" width="140">
           <template #default="{ row }">
             {{ priceText(row) }}
           </template>
@@ -2911,6 +2911,9 @@ function sanitizedDescriptionHtml(value: string) {
         <el-table-column class-name="table-action-column" label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <div class="row-action-stack">
+              <strong v-if="status === 'pending'" class="pending-action-price">
+                {{ priceText(row) }}
+              </strong>
               <el-button :icon="View" link type="primary" :disabled="isProductBusy(row)" @click="openProductDetail(row)">
                 查看详情
               </el-button>
@@ -3509,8 +3512,8 @@ function sanitizedDescriptionHtml(value: string) {
 
 .pending-image-editor {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 14px;
   width: 100%;
   min-width: 0;
 }
@@ -3605,19 +3608,23 @@ function sanitizedDescriptionHtml(value: string) {
 
 .pending-inline-fields {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .pending-inline-fields :deep(.el-textarea__inner) {
   color: var(--text-main);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.65;
+  padding: 12px 14px;
   overflow-wrap: anywhere;
 }
 
 .pending-inline-fields .pending-tagline-input :deep(.el-textarea__inner) {
-  color: var(--text-muted);
+  color: var(--text-main);
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .image-empty {
@@ -3640,6 +3647,15 @@ function sanitizedDescriptionHtml(value: string) {
 .row-action-stack :deep(.el-button) {
   margin-left: 0;
   padding: 0;
+}
+
+.pending-action-price {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 :deep(.product-row-disabled) {
