@@ -2830,6 +2830,18 @@ function sanitizedDescriptionHtml(value: string) {
             </template>
           </template>
         </el-table-column>
+        <el-table-column
+          v-if="status === 'error'"
+          label="异常原因"
+          min-width="260"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span class="product-error-reason">
+              {{ row.lastError || '-' }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column v-if="status !== 'pending'" label="商品标题" min-width="300">
           <template #default="{ row }">
             <CopyableTableText :value="row.title" />
@@ -3430,6 +3442,11 @@ function sanitizedDescriptionHtml(value: string) {
 
 .title-optimization-count {
   color: #d93025;
+  font-weight: 700;
+}
+
+.product-error-reason {
+  color: var(--danger);
   font-weight: 700;
 }
 

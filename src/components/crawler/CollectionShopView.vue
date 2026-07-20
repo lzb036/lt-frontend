@@ -25,6 +25,10 @@ const importInputRef = ref<HTMLInputElement | null>(null)
 const scheduleTableRef = ref<{ clearSelection: () => void } | null>(null)
 const schedules = shallowRef<ScheduledCrawl[]>([])
 const selectedSchedules = shallowRef<ScheduledCrawl[]>([])
+const deleteDialogOpen = shallowRef(false)
+const deleteTargets = shallowRef<ScheduledCrawl[]>([])
+const deleteCollectedProducts = shallowRef(false)
+const deleting = shallowRef(false)
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '日榜', value: 'daily' },
@@ -386,20 +390,48 @@ async function runSchedule(row: ScheduledCrawl) {
   }
 }
 
-async function removeSchedule(row: ScheduledCrawl) {
+function openDeleteDialog(rows: ScheduledCrawl[]) {
+  deleteTargets.value = [...rows]
+  deleteCollectedProducts.value = false
+  deleteDialogOpen.value = true
+}
+
+function removeSchedule(row: ScheduledCrawl) {
+  openDeleteDialog([row])
+}
+
+async function confirmDeleteSchedules() {
+  if (deleteTargets.value.length < 1) {
+    deleteDialogOpen.value = false
+    return
+  }
+  deleting.value = true
   try {
-    await ElMessageBox.confirm(`确认删除采集店铺「${row.name}」？`, '删除采集店铺', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-    await api.deleteSchedule(row.id)
+    const result = await api.deleteSchedules(
+      deleteTargets.value.map((item) => item.id),
+      deleteCollectedProducts.value,
+    )
+    const isBatch = deleteTargets.value.length > 1
+    deleteDialogOpen.value = false
+    deleteTargets.value = []
+    clearSelection()
     await loadSchedules()
-    ElMessage.success('采集店铺已删除')
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '删除采集店铺失败'))
+    const productMessage = deleteCollectedProducts.value
+      ? `，同时删除 ${result.deletedProductCount} 个待审核/已审核/异常商品`
+      : ''
+    if (result.failedIds.length > 0) {
+      ElMessage.warning(`已删除 ${result.deletedCount} 条${productMessage}，${result.failedIds.length} 条删除失败`)
+    } else {
+      ElMessage.success(
+        isBatch
+          ? `已删除 ${result.deletedCount} 条采集店铺${productMessage}`
+          : `采集店铺已删除${productMessage}`,
+      )
     }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '删除采集店铺失败'))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -452,37 +484,12 @@ async function updateSelectedScheduleStatus(enabled: boolean) {
   }
 }
 
-async function deleteSelectedSchedules() {
+function deleteSelectedSchedules() {
   if (selectedSchedules.value.length < 1) {
     ElMessage.warning('请选择要删除的采集店铺')
     return
   }
-  try {
-    await ElMessageBox.confirm(
-      `确认删除选中的 ${selectedSchedules.value.length} 条采集店铺？该操作会删除定时计划，不会删除已采集商品数据。`,
-      '批量删除',
-      {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
-    loading.value = true
-    const result = await api.deleteSchedules(selectedSchedules.value.map((item) => item.id))
-    clearSelection()
-    await loadSchedules()
-    if (result.failedIds.length > 0) {
-      ElMessage.warning(`已删除 ${result.deletedCount} 条，${result.failedIds.length} 条删除失败`)
-    } else {
-      ElMessage.success(`已删除 ${result.deletedCount} 条采集店铺`)
-    }
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '批量删除采集店铺失败'))
-    }
-  } finally {
-    loading.value = false
-  }
+  openDeleteDialog(selectedSchedules.value)
 }
 
 function scheduleStatusLabel(row: ScheduledCrawl) {
@@ -755,6 +762,35 @@ function handlePageSizeChange() {
         <el-button type="primary" :loading="saving" @click="saveSchedule">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="deleteDialogOpen"
+      :title="deleteTargets.length > 1 ? '批量删除采集店铺' : '删除采集店铺'"
+      width="520px"
+      append-to-body
+      :close-on-click-modal="!deleting"
+      :close-on-press-escape="!deleting"
+    >
+      <div class="delete-confirmation">
+        <p class="delete-confirmation-text">
+          {{
+            deleteTargets.length > 1
+              ? `确认删除选中的 ${deleteTargets.length} 条采集店铺？`
+              : `确认删除采集店铺「${deleteTargets[0]?.name || ''}」？`
+          }}
+        </p>
+        <el-checkbox v-model="deleteCollectedProducts" class="delete-products-checkbox">
+          同时删除该采集店铺采集的待审核、已审核、异常商品
+        </el-checkbox>
+        <p class="delete-confirmation-tip">
+          不会删除已上架商品或店铺商品。
+        </p>
+      </div>
+      <template #footer>
+        <el-button :disabled="deleting" @click="deleteDialogOpen = false">取消</el-button>
+        <el-button type="danger" :loading="deleting" @click="confirmDeleteSchedules">删除</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -845,6 +881,32 @@ function handlePageSizeChange() {
 
 .crawl-limit-input {
   width: 180px;
+}
+
+.delete-confirmation {
+  display: grid;
+  gap: 14px;
+}
+
+.delete-confirmation-text,
+.delete-confirmation-tip {
+  margin: 0;
+}
+
+.delete-confirmation-text {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.delete-products-checkbox {
+  align-items: flex-start;
+  height: auto;
+  white-space: normal;
+}
+
+.delete-confirmation-tip {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 @media (max-width: 1280px) {

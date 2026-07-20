@@ -770,16 +770,21 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function deleteSchedule(id: number) {
-    await apiClient.delete<{ deleted: boolean }>(`/crawler/schedules/${id}`)
+  async function deleteSchedule(id: number, deleteCollectedProducts = false) {
+    const response = await apiClient.delete<{
+      deleted: boolean
+      deletedProductCount: number
+    }>(`/crawler/schedules/${id}`, { params: { deleteCollectedProducts } })
+    return response.data
   }
 
-  async function deleteSchedules(scheduleIds: number[]) {
+  async function deleteSchedules(scheduleIds: number[], deleteCollectedProducts = false) {
     const response = await apiClient.delete<{
       deletedIds: number[]
       failedIds: number[]
       deletedCount: number
-    }>('/crawler/schedules', { data: { scheduleIds } })
+      deletedProductCount: number
+    }>('/crawler/schedules', { data: { scheduleIds, deleteCollectedProducts } })
     return response.data
   }
 
