@@ -15,7 +15,6 @@ import {
 } from '../../utils/productGenre'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
-import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
 import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
 import StoreProductReplacementDialog from './StoreProductReplacementDialog.vue'
 
@@ -2719,11 +2718,6 @@ function sanitizedDescriptionHtml(value: string) {
                 </span>
               </div>
               <div class="pending-inline-fields">
-                <PendingProductGenreSelect
-                  :product="row"
-                  :disabled="isPendingInlineSaving(row)"
-                  @updated="mergeUpdatedProduct"
-                />
                 <el-input
                   class="pending-title-input"
                   :model-value="pendingInlineDraft(row).title"
@@ -2888,7 +2882,6 @@ function sanitizedDescriptionHtml(value: string) {
             {{ priceText(row) }}
           </template>
         </el-table-column>
-        <el-table-column v-if="status !== 'listed'" prop="createdAt" label="采集时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" label="上架状态" width="120">
           <template #default="{ row }">
             <el-tag :type="listingStatusCopy(row).type">
