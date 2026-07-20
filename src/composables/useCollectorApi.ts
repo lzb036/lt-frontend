@@ -87,7 +87,6 @@ export function useCollectorApi() {
     displayName?: string
     enabled?: boolean
     permissions?: string[]
-    crawlMinPrice?: 0 | 2500 | 3800
   }) {
     const response = await apiClient.put<{ user: UserAccount }>(`/users/${encodeURIComponent(username)}`, payload)
     return response.data
@@ -114,6 +113,19 @@ export function useCollectorApi() {
   async function verifySecretProfile() {
     const response = await apiClient.post<{ profile: SecretProfile }>('/profile/secrets/verify')
     return response.data.profile
+  }
+
+  async function getCrawlSettings() {
+    const response = await apiClient.get<{ settings: { crawlMinPrice: 0 | 2500 | 3800 } }>('/profile/crawl-settings')
+    return response.data.settings
+  }
+
+  async function updateCrawlSettings(crawlMinPrice: 0 | 2500 | 3800) {
+    const response = await apiClient.put<{ settings: { crawlMinPrice: 0 | 2500 | 3800 } }>(
+      '/profile/crawl-settings',
+      { crawlMinPrice },
+    )
+    return response.data.settings
   }
 
   async function getTimeSettings() {
@@ -944,6 +956,8 @@ export function useCollectorApi() {
     getSecretProfile,
     updateSecretProfile,
     verifySecretProfile,
+    getCrawlSettings,
+    updateCrawlSettings,
     getTimeSettings,
     updateTimeSettings,
     runScheduledTaskCleanup,

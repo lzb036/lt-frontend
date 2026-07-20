@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, CircleClose, Delete, Download, Edit, Plus, Refresh, Search, Upload, VideoPlay } from '@element-plus/icons-vue'
+import { CircleCheck, CircleClose, Coin, Delete, Download, Edit, Plus, Refresh, Search, Upload, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -29,6 +29,10 @@ const deleteDialogOpen = shallowRef(false)
 const deleteTargets = shallowRef<ScheduledCrawl[]>([])
 const deleteCollectedProducts = shallowRef(false)
 const deleting = shallowRef(false)
+const crawlSettingsLoading = shallowRef(false)
+const crawlSettingsSaving = shallowRef(false)
+const crawlMinPrice = shallowRef<0 | 2500 | 3800>(0)
+const savedCrawlMinPrice = shallowRef<0 | 2500 | 3800>(0)
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '日榜', value: 'daily' },
@@ -76,7 +80,37 @@ const {
 
 onMounted(() => {
   void loadSchedules()
+  void loadCrawlSettings()
 })
+
+async function loadCrawlSettings() {
+  crawlSettingsLoading.value = true
+  try {
+    const settings = await api.getCrawlSettings()
+    crawlMinPrice.value = settings.crawlMinPrice
+    savedCrawlMinPrice.value = settings.crawlMinPrice
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载采集价格失败'))
+  } finally {
+    crawlSettingsLoading.value = false
+  }
+}
+
+async function saveCrawlMinPrice(value: 0 | 2500 | 3800) {
+  const previous = savedCrawlMinPrice.value
+  crawlSettingsSaving.value = true
+  try {
+    const settings = await api.updateCrawlSettings(value)
+    crawlMinPrice.value = settings.crawlMinPrice
+    savedCrawlMinPrice.value = settings.crawlMinPrice
+    ElMessage.success('采集价格已保存')
+  } catch (error) {
+    crawlMinPrice.value = previous
+    ElMessage.error(toApiErrorMessage(error, '保存采集价格失败'))
+  } finally {
+    crawlSettingsSaving.value = false
+  }
+}
 
 async function loadSchedules(options: { silent?: boolean } = {}) {
   if (!options.silent) {
@@ -526,59 +560,77 @@ function handlePageSizeChange() {
 
 <template>
   <section class="page-stack">
-    <div class="head-actions">
-      <input
-        ref="importInputRef"
-        class="schedule-import-input"
-        type="file"
-        accept=".xls,.xlsx"
-        @change="handleScheduleImportFileChange"
-      >
-      <el-button type="primary" :icon="VideoPlay" :loading="runningAll" @click="runAllSchedules">
-        立即执行
-      </el-button>
-      <el-button :icon="Download" :loading="downloadingTemplate" @click="downloadScheduleTemplate">
-        下载模板
-      </el-button>
-      <el-button :icon="Upload" :loading="importing" @click="openScheduleImportFilePicker">
-        导入表格
-      </el-button>
-      <el-button :icon="Download" :loading="exporting" @click="exportSchedules">
-        导出表格
-      </el-button>
-      <el-button
-        type="success"
-        :icon="CircleCheck"
-        :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
-        :loading="batchStatusAction === 'enable'"
-        @click="updateSelectedScheduleStatus(true)"
-      >
-        批量启用
-      </el-button>
-      <el-button
-        type="warning"
-        :icon="CircleClose"
-        :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
-        :loading="batchStatusAction === 'disable'"
-        @click="updateSelectedScheduleStatus(false)"
-      >
-        批量停用
-      </el-button>
-      <el-button
-        type="danger"
-        :icon="Delete"
-        :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
-        :loading="loading"
-        @click="deleteSelectedSchedules"
-      >
-        批量删除
-      </el-button>
-      <el-button :icon="Refresh" :loading="refreshing" @click="refreshSchedules">
-        刷新
-      </el-button>
-      <el-button type="primary" :icon="Plus" @click="openCreateDialog">
-        新增定时采集
-      </el-button>
+    <div class="page-toolbar">
+      <div class="crawl-price-setting">
+        <el-icon><Coin /></el-icon>
+        <span>采集价格</span>
+        <el-select
+          v-model="crawlMinPrice"
+          class="crawl-price-select"
+          :loading="crawlSettingsLoading"
+          :disabled="crawlSettingsLoading || crawlSettingsSaving"
+          @change="saveCrawlMinPrice"
+        >
+          <el-option label="全部商品" :value="0" />
+          <el-option label="≥ 2500 日元" :value="2500" />
+          <el-option label="≥ 3800 日元" :value="3800" />
+        </el-select>
+      </div>
+
+      <div class="head-actions">
+        <input
+          ref="importInputRef"
+          class="schedule-import-input"
+          type="file"
+          accept=".xls,.xlsx"
+          @change="handleScheduleImportFileChange"
+        >
+        <el-button type="primary" :icon="VideoPlay" :loading="runningAll" @click="runAllSchedules">
+          立即执行
+        </el-button>
+        <el-button :icon="Download" :loading="downloadingTemplate" @click="downloadScheduleTemplate">
+          下载模板
+        </el-button>
+        <el-button :icon="Upload" :loading="importing" @click="openScheduleImportFilePicker">
+          导入表格
+        </el-button>
+        <el-button :icon="Download" :loading="exporting" @click="exportSchedules">
+          导出表格
+        </el-button>
+        <el-button
+          type="success"
+          :icon="CircleCheck"
+          :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+          :loading="batchStatusAction === 'enable'"
+          @click="updateSelectedScheduleStatus(true)"
+        >
+          批量启用
+        </el-button>
+        <el-button
+          type="warning"
+          :icon="CircleClose"
+          :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+          :loading="batchStatusAction === 'disable'"
+          @click="updateSelectedScheduleStatus(false)"
+        >
+          批量停用
+        </el-button>
+        <el-button
+          type="danger"
+          :icon="Delete"
+          :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+          :loading="loading"
+          @click="deleteSelectedSchedules"
+        >
+          批量删除
+        </el-button>
+        <el-button :icon="Refresh" :loading="refreshing" @click="refreshSchedules">
+          刷新
+        </el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">
+          新增定时采集
+        </el-button>
+      </div>
     </div>
 
     <section class="work-panel">
@@ -800,6 +852,32 @@ function handlePageSizeChange() {
   gap: 18px;
 }
 
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.crawl-price-setting {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.crawl-price-setting .el-icon {
+  color: var(--success);
+  font-size: 18px;
+}
+
+.crawl-price-select {
+  width: 150px;
+}
+
 .head-actions {
   display: flex;
   align-items: center;
@@ -916,6 +994,16 @@ function handlePageSizeChange() {
 }
 
 @media (max-width: 760px) {
+  .page-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .crawl-price-setting,
+  .crawl-price-select {
+    width: 100%;
+  }
+
   .head-actions {
     align-items: stretch;
     flex-direction: column;
