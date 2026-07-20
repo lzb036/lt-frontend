@@ -50,6 +50,7 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const router = useRouter()
+const systemVersion = 'v1.0.0'
 
 const isSuperadmin = computed(() => isSuperadminSession(props.session))
 const defaultRoutePath = computed(() => getDefaultRoutePath(props.session))
@@ -265,6 +266,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
             <Reading />
           </el-icon>
           <span class="sidebar-action-label">使用手册</span>
+          <span class="sidebar-system-version">{{ systemVersion }}</span>
         </button>
         <button
           type="button"
@@ -579,6 +581,16 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   white-space: nowrap;
 }
 
+.sidebar-system-version {
+  margin-left: 6px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
 .shell-sidebar-collapsed .shell-sidebar-footer {
   padding: 12px 8px 14px;
 }
@@ -592,6 +604,10 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   opacity: 0;
   max-width: 0;
   transform: translateX(-6px);
+}
+
+.shell-sidebar-collapsed .sidebar-system-version {
+  display: none;
 }
 
 .shell-main {
@@ -671,7 +687,8 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
     padding-inline: 0;
   }
 
-  .sidebar-action-label {
+  .sidebar-action-label,
+  .sidebar-system-version {
     display: none;
   }
 
