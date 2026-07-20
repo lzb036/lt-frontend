@@ -554,7 +554,7 @@ async function confirmDeleteSchedules() {
     clearSelection()
     await loadSchedules()
     const productMessage = deleteCollectedProducts.value
-      ? `，同时删除 ${result.deletedProductCount} 个待审核/已审核/异常商品`
+      ? `，同时删除 ${result.deletedProductCount} 个待审核/已审核商品`
       : ''
     if (result.failedIds.length > 0) {
       ElMessage.warning(`已删除 ${result.deletedCount} 条${productMessage}，${result.failedIds.length} 条删除失败`)
@@ -990,10 +990,10 @@ function handlePageSizeChange() {
           }}
         </p>
         <el-checkbox v-model="deleteCollectedProducts" class="delete-products-checkbox">
-          同时删除该采集店铺采集的待审核、已审核、异常商品
+          同时删除该采集店铺采集的待审核、已审核商品
         </el-checkbox>
         <p class="delete-confirmation-tip">
-          不会删除已上架商品或店铺商品。
+          异常商品、已上架商品和店铺商品会保留。
         </p>
       </div>
       <template #footer>
