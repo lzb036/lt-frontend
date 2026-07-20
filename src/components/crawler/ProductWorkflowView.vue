@@ -15,6 +15,7 @@ import {
 } from '../../utils/productGenre'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
+import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
 import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
 import StoreProductReplacementDialog from './StoreProductReplacementDialog.vue'
 
@@ -2908,7 +2909,12 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
         <el-table-column v-if="status === 'listed'" prop="listedAt" label="上架时间" min-width="170" />
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="150" fixed="right">
+        <el-table-column
+          :class-name="status === 'pending' ? 'table-action-column pending-action-column' : 'table-action-column'"
+          label="操作"
+          width="150"
+          fixed="right"
+        >
           <template #default="{ row }">
             <div class="row-action-stack">
               <strong v-if="status === 'pending'" class="pending-action-price">
@@ -3651,11 +3657,19 @@ function sanitizedDescriptionHtml(value: string) {
 
 .pending-action-price {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   color: var(--text-main);
   font-size: 16px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+:deep(.pending-action-column) {
+  vertical-align: top;
+}
+
+:deep(.pending-action-column .cell) {
+  padding-top: 12px;
 }
 
 :deep(.product-row-disabled) {
