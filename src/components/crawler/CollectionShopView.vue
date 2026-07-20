@@ -5,7 +5,16 @@ import { CircleCheck, CircleClose, Coin, Delete, Download, Edit, Plus, Refresh, 
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { CrawlLimit, RankingPeriod, ScheduleImportResult, ScheduledCrawl, ScheduledCrawlPayload, ScheduleStatus } from '../../types/crawler'
+import type {
+  CrawlLimit,
+  CrawlPriceOperator,
+  CrawlPriceRule,
+  RankingPeriod,
+  ScheduleImportResult,
+  ScheduledCrawl,
+  ScheduledCrawlPayload,
+  ScheduleStatus,
+} from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
@@ -31,8 +40,20 @@ const deleteCollectedProducts = shallowRef(false)
 const deleting = shallowRef(false)
 const crawlSettingsLoading = shallowRef(false)
 const crawlSettingsSaving = shallowRef(false)
-const crawlMinPrice = shallowRef<0 | 2500 | 3800>(0)
-const savedCrawlMinPrice = shallowRef<0 | 2500 | 3800>(0)
+const crawlPricePreset = shallowRef<'all' | 'gte2500' | 'gte3800' | 'custom'>('all')
+const savedCrawlPriceRule = shallowRef<CrawlPriceRule>({ operator: 'all' })
+const customCrawlPrice = reactive<{
+  operator: Exclude<CrawlPriceOperator, 'all'>
+  value: number
+  minPrice: number
+  maxPrice: number
+}>({
+  operator: 'gte',
+  value: 2500,
+  minPrice: 2500,
+  maxPrice: 5000,
+})
+const crawlPriceMaxValue = 10_000_000
 
 const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '日榜', value: 'daily' },
@@ -87,8 +108,8 @@ async function loadCrawlSettings() {
   crawlSettingsLoading.value = true
   try {
     const settings = await api.getCrawlSettings()
-    crawlMinPrice.value = settings.crawlMinPrice
-    savedCrawlMinPrice.value = settings.crawlMinPrice
+    applyCrawlPriceRule(settings.crawlPriceRule)
+    savedCrawlPriceRule.value = { ...settings.crawlPriceRule }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载采集价格失败'))
   } finally {
@@ -96,16 +117,98 @@ async function loadCrawlSettings() {
   }
 }
 
-async function saveCrawlMinPrice(value: 0 | 2500 | 3800) {
-  const previous = savedCrawlMinPrice.value
+function crawlPricePresetFromRule(rule: CrawlPriceRule) {
+  if (rule.operator === 'all') {
+    return 'all'
+  }
+  if (rule.operator === 'gte' && rule.value === 2500) {
+    return 'gte2500'
+  }
+  if (rule.operator === 'gte' && rule.value === 3800) {
+    return 'gte3800'
+  }
+  return 'custom'
+}
+
+function applyCrawlPriceRule(rule: CrawlPriceRule) {
+  crawlPricePreset.value = crawlPricePresetFromRule(rule)
+  if (rule.operator !== 'all') {
+    customCrawlPrice.operator = rule.operator
+  }
+  if (rule.operator === 'range') {
+    customCrawlPrice.minPrice = Number(rule.minPrice || 2500)
+    customCrawlPrice.maxPrice = Number(rule.maxPrice || 5000)
+  } else if (rule.operator !== 'all') {
+    customCrawlPrice.value = Number(rule.value || 2500)
+  }
+}
+
+function crawlPriceRuleFromPreset(preset: typeof crawlPricePreset.value): CrawlPriceRule | null {
+  if (preset === 'all') {
+    return { operator: 'all' }
+  }
+  if (preset === 'gte2500') {
+    return { operator: 'gte', value: 2500 }
+  }
+  if (preset === 'gte3800') {
+    return { operator: 'gte', value: 3800 }
+  }
+  return null
+}
+
+async function handleCrawlPricePresetChange(preset: typeof crawlPricePreset.value) {
+  const rule = crawlPriceRuleFromPreset(preset)
+  if (rule) {
+    await persistCrawlPriceRule(rule)
+  }
+}
+
+function validCrawlPriceValue(value: number) {
+  return Number.isInteger(value) && value >= 1 && value <= crawlPriceMaxValue
+}
+
+async function saveCustomCrawlPrice() {
+  let rule: CrawlPriceRule
+  if (customCrawlPrice.operator === 'range') {
+    if (
+      !validCrawlPriceValue(customCrawlPrice.minPrice)
+      || !validCrawlPriceValue(customCrawlPrice.maxPrice)
+    ) {
+      ElMessage.warning('价格上下限必须是 1 至 10,000,000 之间的整数')
+      return
+    }
+    if (customCrawlPrice.minPrice >= customCrawlPrice.maxPrice) {
+      ElMessage.warning('价格区间下限必须小于上限')
+      return
+    }
+    rule = {
+      operator: 'range',
+      minPrice: customCrawlPrice.minPrice,
+      maxPrice: customCrawlPrice.maxPrice,
+    }
+  } else {
+    if (!validCrawlPriceValue(customCrawlPrice.value)) {
+      ElMessage.warning('价格必须是 1 至 10,000,000 之间的整数')
+      return
+    }
+    rule = {
+      operator: customCrawlPrice.operator,
+      value: customCrawlPrice.value,
+    }
+  }
+  await persistCrawlPriceRule(rule)
+}
+
+async function persistCrawlPriceRule(rule: CrawlPriceRule) {
+  const previous = { ...savedCrawlPriceRule.value }
   crawlSettingsSaving.value = true
   try {
-    const settings = await api.updateCrawlSettings(value)
-    crawlMinPrice.value = settings.crawlMinPrice
-    savedCrawlMinPrice.value = settings.crawlMinPrice
+    const settings = await api.updateCrawlSettings(rule)
+    applyCrawlPriceRule(settings.crawlPriceRule)
+    savedCrawlPriceRule.value = { ...settings.crawlPriceRule }
     ElMessage.success('采集价格已保存')
   } catch (error) {
-    crawlMinPrice.value = previous
+    applyCrawlPriceRule(previous)
     ElMessage.error(toApiErrorMessage(error, '保存采集价格失败'))
   } finally {
     crawlSettingsSaving.value = false
@@ -565,16 +668,71 @@ function handlePageSizeChange() {
         <el-icon><Coin /></el-icon>
         <span>采集价格</span>
         <el-select
-          v-model="crawlMinPrice"
+          v-model="crawlPricePreset"
           class="crawl-price-select"
           :loading="crawlSettingsLoading"
           :disabled="crawlSettingsLoading || crawlSettingsSaving"
-          @change="saveCrawlMinPrice"
+          @change="handleCrawlPricePresetChange"
         >
-          <el-option label="全部商品" :value="0" />
-          <el-option label="≥ 2500 日元" :value="2500" />
-          <el-option label="≥ 3800 日元" :value="3800" />
+          <el-option label="全部商品" value="all" />
+          <el-option label="≥ 2500 日元" value="gte2500" />
+          <el-option label="≥ 3800 日元" value="gte3800" />
+          <el-option label="自定义" value="custom" />
         </el-select>
+
+        <div v-if="crawlPricePreset === 'custom'" class="custom-price-controls">
+          <el-select
+            v-model="customCrawlPrice.operator"
+            class="custom-price-operator"
+            :disabled="crawlSettingsSaving"
+          >
+            <el-option label="大于" value="gt" />
+            <el-option label="大于等于" value="gte" />
+            <el-option label="小于" value="lt" />
+            <el-option label="小于等于" value="lte" />
+            <el-option label="价格区间" value="range" />
+          </el-select>
+          <template v-if="customCrawlPrice.operator === 'range'">
+            <el-input-number
+              v-model="customCrawlPrice.minPrice"
+              class="custom-price-input"
+              :min="1"
+              :max="crawlPriceMaxValue"
+              :precision="0"
+              :step="100"
+              controls-position="right"
+            />
+            <span class="custom-price-separator">至</span>
+            <el-input-number
+              v-model="customCrawlPrice.maxPrice"
+              class="custom-price-input"
+              :min="1"
+              :max="crawlPriceMaxValue"
+              :precision="0"
+              :step="100"
+              controls-position="right"
+            />
+          </template>
+          <el-input-number
+            v-else
+            v-model="customCrawlPrice.value"
+            class="custom-price-input"
+            :min="1"
+            :max="crawlPriceMaxValue"
+            :precision="0"
+            :step="100"
+            controls-position="right"
+          />
+          <span class="custom-price-unit">日元</span>
+          <el-button
+            type="primary"
+            :icon="CircleCheck"
+            :loading="crawlSettingsSaving"
+            @click="saveCustomCrawlPrice"
+          >
+            保存
+          </el-button>
+        </div>
       </div>
 
       <div class="head-actions">
@@ -854,8 +1012,9 @@ function handlePageSizeChange() {
 
 .page-toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -863,7 +1022,9 @@ function handlePageSizeChange() {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 8px;
+  min-height: 32px;
   color: var(--text-main);
   font-size: 13px;
   font-weight: 800;
@@ -878,9 +1039,32 @@ function handlePageSizeChange() {
   width: 150px;
 }
 
+.custom-price-controls {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.custom-price-operator {
+  width: 120px;
+}
+
+.custom-price-input {
+  width: 145px;
+}
+
+.custom-price-separator,
+.custom-price-unit {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .head-actions {
   display: flex;
   align-items: center;
+  flex: 1 1 680px;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 12px;
@@ -1000,8 +1184,15 @@ function handlePageSizeChange() {
   }
 
   .crawl-price-setting,
-  .crawl-price-select {
+  .crawl-price-select,
+  .custom-price-controls,
+  .custom-price-operator,
+  .custom-price-input {
     width: 100%;
+  }
+
+  .custom-price-controls {
+    align-items: stretch;
   }
 
   .head-actions {

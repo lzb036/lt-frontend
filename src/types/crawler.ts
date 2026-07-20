@@ -8,6 +8,19 @@ export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
 export type RankingPeriod = 'daily' | 'weekly' | 'monthly'
 export type CrawlLimit = 'all' | number
+export type CrawlPriceOperator = 'all' | 'gt' | 'gte' | 'lt' | 'lte' | 'range'
+
+export interface CrawlPriceRule {
+  operator: CrawlPriceOperator
+  value?: number
+  minPrice?: number
+  maxPrice?: number
+}
+
+export interface CrawlPriceSettings {
+  crawlMinPrice: 0 | 2500 | 3800
+  crawlPriceRule: CrawlPriceRule
+}
 
 export interface PageParams {
   page: number
@@ -37,6 +50,7 @@ export interface AuthSession {
   role: UserRole
   enabled: boolean
   crawlMinPrice: 0 | 2500 | 3800
+  crawlPriceRule?: CrawlPriceRule
   permissionCodes: string[]
   permissions: UserPermissions
   createdAt?: string | null

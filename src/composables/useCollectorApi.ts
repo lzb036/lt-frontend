@@ -3,6 +3,8 @@ import type {
   AiTitleSettingsPayload,
   AiProviderOption,
   AuthSession,
+  CrawlPriceRule,
+  CrawlPriceSettings,
   CrawlSource,
   CrawlSourcePayload,
   CrawlTask,
@@ -116,14 +118,14 @@ export function useCollectorApi() {
   }
 
   async function getCrawlSettings() {
-    const response = await apiClient.get<{ settings: { crawlMinPrice: 0 | 2500 | 3800 } }>('/profile/crawl-settings')
+    const response = await apiClient.get<{ settings: CrawlPriceSettings }>('/profile/crawl-settings')
     return response.data.settings
   }
 
-  async function updateCrawlSettings(crawlMinPrice: 0 | 2500 | 3800) {
-    const response = await apiClient.put<{ settings: { crawlMinPrice: 0 | 2500 | 3800 } }>(
+  async function updateCrawlSettings(crawlPriceRule: CrawlPriceRule) {
+    const response = await apiClient.put<{ settings: CrawlPriceSettings }>(
       '/profile/crawl-settings',
-      { crawlMinPrice },
+      { crawlPriceRule },
     )
     return response.data.settings
   }
