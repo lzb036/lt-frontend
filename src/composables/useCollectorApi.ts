@@ -343,6 +343,14 @@ export function useCollectorApi() {
     return response.data.product
   }
 
+  async function updatePendingProductGenres(products: Array<{ productId: number; genreId: string }>) {
+    const response = await apiClient.put<{ products: ProductItem[] }>(
+      '/crawler/products/genres/batch',
+      { products },
+    )
+    return response.data.products
+  }
+
   async function deleteProducts(productIds: number[]) {
     const response = await apiClient.delete<{
       deletedIds?: number[]
@@ -963,6 +971,7 @@ export function useCollectorApi() {
     searchRakutenGenres,
     listRakutenGenreChildren,
     updatePendingProductGenre,
+    updatePendingProductGenres,
     deleteProducts,
     getProductDetail,
     updateProductPrice,

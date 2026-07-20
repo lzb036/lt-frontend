@@ -15,6 +15,7 @@ import {
 } from '../../utils/productGenre'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
+import PendingProductGenreBatchDialog from './PendingProductGenreBatchDialog.vue'
 import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
 import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
 import StoreProductReplacementDialog from './StoreProductReplacementDialog.vue'
@@ -125,6 +126,9 @@ const titleOptimizationVisible = shallowRef(false)
 const titleOptimizationProduct = shallowRef<ProductItem | null>(null)
 const replacementVisible = shallowRef(false)
 const replacementProduct = shallowRef<ProductItem | null>(null)
+const genreBatchVisible = shallowRef(false)
+const genreBatchProducts = shallowRef<ProductItem[]>([])
+const pendingApprovalProductIds = shallowRef<number[]>([])
 const detailGenreProduct = computed<ProductItem | null>(() => {
   if (!selectedProductDetail.value) {
     return null
@@ -815,17 +819,48 @@ async function confirmReviewStatus(productIds: number[], status: ReviewStatus, o
 async function approveSelected() {
   const invalidProducts = invalidGenreProducts(products.value, selectedIds.value)
   if (invalidProducts.length > 0) {
-    const names = invalidProducts.slice(0, 3).map(productDisplayName).join('、')
-    const suffix = invalidProducts.length > 3 ? '等' : ''
-    ElMessage.warning(`${invalidProducts.length} 个商品缺少有效品类：${names}${suffix}。请先选择品类后再审核。`)
+    pendingApprovalProductIds.value = [...selectedIds.value]
+    genreBatchProducts.value = invalidProducts
+    genreBatchVisible.value = true
     return
   }
-  await confirmReviewStatus(selectedIds.value, 'approved', {
+  await confirmSelectedApproval(selectedIds.value)
+}
+
+async function confirmSelectedApproval(productIds: number[]) {
+  await confirmReviewStatus(productIds, 'approved', {
     title: '批量审核通过',
-    message: `确认将选中的 ${selectedIds.value.length} 个商品批量审核通过？该操作只修改本地数据库。`,
+    message: `确认将选中的 ${productIds.length} 个商品批量审核通过？该操作只修改本地数据库。`,
     confirmButtonText: '审核通过',
     type: 'success',
   })
+}
+
+async function handleGenreBatchSaved(updatedProducts: ProductItem[]) {
+  mergeVisibleProducts(updatedProducts)
+  const approvalIds = [...pendingApprovalProductIds.value]
+  pendingApprovalProductIds.value = []
+  genreBatchProducts.value = []
+  clearSelection()
+  if (approvalIds.length < 1) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `品类已保存。是否继续将选中的 ${approvalIds.length} 个商品批量审核通过？`,
+      '继续批量审核',
+      {
+        confirmButtonText: '审核通过',
+        cancelButtonText: '暂不审核',
+        type: 'success',
+      },
+    )
+    await applyReviewStatus(approvalIds, 'approved')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '批量审核通过失败'))
+    }
+  }
 }
 
 async function approveProduct(product: ProductItem) {
@@ -3053,6 +3088,12 @@ function sanitizedDescriptionHtml(value: string) {
       v-model="titleOptimizationVisible"
       :product="titleOptimizationProduct"
       @saved="handleTitleOptimizationSaved"
+    />
+
+    <PendingProductGenreBatchDialog
+      v-model="genreBatchVisible"
+      :products="genreBatchProducts"
+      @saved="handleGenreBatchSaved"
     />
 
     <StoreProductReplacementDialog
