@@ -213,7 +213,7 @@ function createdAtToValue() {
 
 function taskResultText(row: CrawlTask) {
   const pending = row.status === 'queued' || row.status === 'running'
-  return `总 ${taskTotalText(row, pending)} / 成功 ${row.successCount || 0} / 失败 ${row.failedCount || 0} / 警告 ${row.warningCount || 0}`
+  return `总 ${taskTotalText(row, pending)} / 入库 ${row.savedCount || 0} / 跳过 ${row.skippedCount || 0} / 失败 ${row.failedCount || 0} / 警告 ${row.warningCount || 0}`
 }
 
 function taskTotalText(row: CrawlTask, pending = false) {
@@ -248,6 +248,24 @@ function taskFinished(row: CrawlTask) {
   return row.status !== 'queued' && row.status !== 'running'
 }
 
+function taskSkippedOnly(row: CrawlTask) {
+  return (
+    taskFinished(row)
+    && Number(row.savedCount || 0) === 0
+    && Number(row.skippedCount || 0) > 0
+    && Number(row.failedCount || 0) === 0
+  )
+}
+
+function taskPartiallySaved(row: CrawlTask) {
+  return (
+    taskFinished(row)
+    && Number(row.savedCount || 0) > 0
+    && Number(row.skippedCount || 0) > 0
+    && Number(row.failedCount || 0) === 0
+  )
+}
+
 function taskCancelable(row: CrawlTask) {
   return (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
 }
@@ -259,6 +277,12 @@ function taskWaitingCancel(row: CrawlTask) {
 function statusLabel(row: CrawlTask) {
   if (row.cancelRequested) {
     return '终止中'
+  }
+  if (taskSkippedOnly(row)) {
+    return '已跳过'
+  }
+  if (taskPartiallySaved(row)) {
+    return '部分入库'
   }
   const status = effectiveTaskStatus(row)
   const labels: Record<string, string> = {
@@ -274,6 +298,9 @@ function statusLabel(row: CrawlTask) {
 
 function statusType(row: CrawlTask) {
   if (row.cancelRequested) {
+    return 'warning'
+  }
+  if (taskSkippedOnly(row) || taskPartiallySaved(row)) {
     return 'warning'
   }
   const status = effectiveTaskStatus(row)
@@ -367,7 +394,7 @@ function handlePageSizeChange() {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="采集结果" min-width="180">
+        <el-table-column label="采集结果" min-width="260">
           <template #default="{ row }">
             {{ taskResultText(row) }}
           </template>

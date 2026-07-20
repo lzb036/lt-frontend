@@ -110,6 +110,8 @@ export interface CrawlTask {
   successCount: number
   failedCount: number
   warningCount?: number
+  savedCount?: number
+  skippedCount?: number
   cancelRequested?: boolean
   message: string
   errorDetail?: string | null
