@@ -2,9 +2,12 @@
 import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
 import {
   CircleCheck,
+  Download,
+  FullScreen,
   Key,
   Link,
   Location,
+  Refresh,
   Search,
   Warning,
 } from '@element-plus/icons-vue'
@@ -18,6 +21,9 @@ import {
 const keyword = shallowRef('')
 const activeSectionId = shallowRef(operatorManualSections[0]?.id || '')
 const contentRef = useTemplateRef<HTMLElement>('contentRef')
+const pdfFrameRef = useTemplateRef<HTMLIFrameElement>('pdfFrameRef')
+const manualPdfUrl = '/docs/product-collection-system-manual.pdf'
+const manualPdfEmbedUrl = `${manualPdfUrl}#view=FitH&toolbar=1&navpanes=0`
 
 const filteredSections = computed(() => searchOperatorManualSections(keyword.value))
 const activeSection = computed(() => (
@@ -43,6 +49,16 @@ function clearSearch() {
   keyword.value = ''
   activeSectionId.value = operatorManualSections[0]?.id || ''
 }
+
+function openPdfManual() {
+  window.open(manualPdfUrl, '_blank', 'noopener,noreferrer')
+}
+
+function reloadPdfManual() {
+  if (pdfFrameRef.value) {
+    pdfFrameRef.value.src = manualPdfEmbedUrl
+  }
+}
 </script>
 
 <template>
@@ -55,16 +71,51 @@ function clearSearch() {
           覆盖采集、审核、上架、店铺商品、订单同步、销量筛选和任务处理，并标明操作影响与所需权限。
         </p>
       </div>
-      <div class="operator-manual-search">
-        <el-input
-          v-model="keyword"
-          :prefix-icon="Search"
-          clearable
-          placeholder="搜索功能、操作或错误，例如：销量、订单同步、品类、替换"
-        />
-        <span>{{ filteredSections.length }} 个相关章节</span>
+      <div class="operator-manual-header-tools">
+        <div class="operator-manual-actions">
+          <el-button :icon="FullScreen" @click="openPdfManual">
+            新窗口查看
+          </el-button>
+          <el-button
+            type="primary"
+            :icon="Download"
+            tag="a"
+            :href="manualPdfUrl"
+            download="商品采集系统完整界面功能手册.pdf"
+          >
+            下载PDF
+          </el-button>
+        </div>
+        <div class="operator-manual-search">
+          <el-input
+            v-model="keyword"
+            :prefix-icon="Search"
+            clearable
+            placeholder="搜索功能、操作或错误，例如：销量、订单同步、品类、替换"
+          />
+          <span>{{ filteredSections.length }} 个相关章节</span>
+        </div>
       </div>
     </header>
+
+    <section class="operator-manual-pdf">
+      <div class="operator-manual-pdf-head">
+        <div>
+          <h2>完整图文手册</h2>
+          <p>50页生产系统截图与操作说明，可在页面中直接阅读，也可以下载后离线查看。</p>
+        </div>
+        <el-button :icon="Refresh" @click="reloadPdfManual">重新加载</el-button>
+      </div>
+      <iframe
+        ref="pdfFrameRef"
+        class="operator-manual-pdf-frame"
+        :src="manualPdfEmbedUrl"
+        title="商品采集系统完整界面功能手册"
+      />
+      <p class="operator-manual-pdf-fallback">
+        浏览器无法显示PDF时，请使用上方“新窗口查看”或“下载PDF”。
+      </p>
+    </section>
 
     <div class="operator-manual-workspace">
       <nav class="operator-manual-nav" aria-label="使用手册章节">
@@ -147,7 +198,7 @@ function clearSearch() {
 .operator-manual {
   display: grid;
   min-height: calc(100vh - 56px);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   color: var(--text-main);
 }
 
@@ -183,6 +234,17 @@ function clearSearch() {
   line-height: 1.7;
 }
 
+.operator-manual-header-tools {
+  display: grid;
+  gap: 12px;
+}
+
+.operator-manual-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .operator-manual-search {
   display: grid;
   gap: 7px;
@@ -192,6 +254,47 @@ function clearSearch() {
   color: var(--text-faint);
   font-size: 12px;
   text-align: right;
+}
+
+.operator-manual-pdf {
+  display: grid;
+  gap: 12px;
+  border-bottom: 1px solid var(--panel-border);
+  padding: 20px 0 24px;
+}
+
+.operator-manual-pdf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.operator-manual-pdf-head h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.operator-manual-pdf-head p,
+.operator-manual-pdf-fallback {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.operator-manual-pdf-frame {
+  width: 100%;
+  height: min(74vh, 900px);
+  min-height: 620px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-muted);
+}
+
+.operator-manual-pdf-fallback {
+  margin: 0;
+  text-align: center;
 }
 
 .operator-manual-workspace {
@@ -411,8 +514,22 @@ function clearSearch() {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .operator-manual-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .operator-manual-search span {
     text-align: left;
+  }
+
+  .operator-manual-pdf-head {
+    align-items: flex-start;
+  }
+
+  .operator-manual-pdf-frame {
+    height: 68vh;
+    min-height: 480px;
   }
 
   .operator-manual-nav {
