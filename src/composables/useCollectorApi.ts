@@ -80,7 +80,7 @@ export function useCollectorApi() {
     return toPageResult(response.data, 'users')
   }
 
-  async function createUser(payload: { username: string; password: string; displayName: string; permissions?: string[] }) {
+  async function createUser(payload: { username: string; password: string; displayName: string }) {
     const response = await apiClient.post<{ user: UserAccount }>('/users', payload)
     return response.data
   }
@@ -88,7 +88,6 @@ export function useCollectorApi() {
   async function updateUser(username: string, payload: {
     displayName?: string
     enabled?: boolean
-    permissions?: string[]
   }) {
     const response = await apiClient.put<{ user: UserAccount }>(`/users/${encodeURIComponent(username)}`, payload)
     return response.data

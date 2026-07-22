@@ -44,22 +44,22 @@ const createForm = reactive({
   username: '',
   displayName: '',
   password: '',
-  permissions: ['crawler.manage', 'products.manage', 'stores.manage'] as string[],
 })
 
+const GENERATED_PASSWORD_LENGTH = 14
+const PASSWORD_CHARACTER_GROUPS = [
+  'ABCDEFGHJKLMNPQRSTUVWXYZ',
+  'abcdefghijkmnopqrstuvwxyz',
+  '23456789',
+  '!@#$%&*+-_',
+] as const
+const PASSWORD_CHARACTERS = PASSWORD_CHARACTER_GROUPS.join('')
+
 const canManageUsers = computed(() => props.session?.role === 'superadmin')
-const permissionOptions = [
-  { label: '任务管理', value: 'crawler.manage' },
-  { label: '商品管理', value: 'products.manage' },
-  { label: '店铺管理', value: 'stores.manage' },
-  { label: '系统设置', value: 'settings.manage' },
-  { label: 'AI 管理', value: 'ai.manage' },
-]
 
 const editForm = reactive({
   displayName: '',
   enabled: true,
-  permissions: [] as string[],
 })
 
 const storeDialogOpen = shallowRef(false)
@@ -121,13 +121,11 @@ async function createUser() {
       username: createForm.username.trim(),
       displayName: createForm.displayName.trim(),
       password: createForm.password,
-      permissions: createForm.permissions,
     })
     await loadUsers()
     createForm.username = ''
     createForm.displayName = ''
     createForm.password = ''
-    createForm.permissions = ['crawler.manage', 'products.manage', 'stores.manage']
     createDialogOpen.value = false
     ElMessage.success('用户已创建')
   } catch (error) {
@@ -141,8 +139,40 @@ function openCreateDialog() {
   createForm.username = ''
   createForm.displayName = ''
   createForm.password = ''
-  createForm.permissions = ['crawler.manage', 'products.manage', 'stores.manage']
   createDialogOpen.value = true
+}
+
+function generateCreatePassword() {
+  const passwordCharacters = PASSWORD_CHARACTER_GROUPS.map((characters) => (
+    characters[secureRandomIndex(characters.length)]
+  ))
+
+  while (passwordCharacters.length < GENERATED_PASSWORD_LENGTH) {
+    passwordCharacters.push(PASSWORD_CHARACTERS[secureRandomIndex(PASSWORD_CHARACTERS.length)])
+  }
+
+  for (let index = passwordCharacters.length - 1; index > 0; index -= 1) {
+    const swapIndex = secureRandomIndex(index + 1)
+    const currentCharacter = passwordCharacters[index]
+    passwordCharacters[index] = passwordCharacters[swapIndex]
+    passwordCharacters[swapIndex] = currentCharacter
+  }
+
+  createForm.password = passwordCharacters.join('')
+  ElMessage.success('已生成随机密码')
+}
+
+function secureRandomIndex(maxExclusive: number) {
+  const randomValues = new Uint32Array(1)
+  const maxUnbiasedValue = Math.floor(0x100000000 / maxExclusive) * maxExclusive
+  let value = 0
+
+  do {
+    window.crypto.getRandomValues(randomValues)
+    value = randomValues[0]
+  } while (value >= maxUnbiasedValue)
+
+  return value % maxExclusive
 }
 
 async function updateEnabled(row: UserAccount, enabled: boolean) {
@@ -160,7 +190,6 @@ function openEditDialog(row: UserAccount) {
   editingUser.value = row
   editForm.displayName = row.displayName || row.username
   editForm.enabled = row.enabled
-  editForm.permissions = [...(row.permissionCodes || [])]
   editDialogOpen.value = true
 }
 
@@ -173,11 +202,10 @@ async function saveUserSettings() {
     await api.updateUser(editingUser.value.username, {
       displayName: editForm.displayName.trim(),
       enabled: editForm.enabled,
-      permissions: editForm.permissions,
     })
     await loadUsers()
     editDialogOpen.value = false
-    ElMessage.success('用户权限已保存')
+    ElMessage.success('用户设置已保存')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '保存用户失败'))
   } finally {
@@ -524,18 +552,6 @@ function timeText(value?: string | null) {
       <el-table v-loading="loading" :data="users" empty-text="暂无用户" height="max(520px, calc(100vh - 230px))">
         <el-table-column prop="username" label="用户名" min-width="150" />
         <el-table-column prop="displayName" label="显示名称" min-width="160" />
-        <el-table-column label="权限" min-width="260">
-          <template #default="{ row }">
-            <div class="permission-tags">
-              <el-tag v-if="row.role === 'superadmin'" type="warning">全部权限</el-tag>
-              <template v-else>
-                <el-tag v-for="permission in row.permissionCodes" :key="permission" type="info">
-                  {{ permissionOptions.find((item) => item.value === permission)?.label || permission }}
-                </el-tag>
-              </template>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column label="状态" width="140">
           <template #default="{ row }">
             <el-switch
@@ -554,7 +570,7 @@ function timeText(value?: string | null) {
               店铺
             </el-button>
             <el-button :disabled="row.role === 'superadmin'" :icon="EditPen" link type="primary" @click="openEditDialog(row)">
-              权限
+              编辑
             </el-button>
             <el-button :icon="CircleCheck" link type="primary" @click="resetPassword(row)">
               重置密码
@@ -584,12 +600,20 @@ function timeText(value?: string | null) {
           <el-input v-model="createForm.displayName" placeholder="请输入显示名称" />
         </el-form-item>
         <el-form-item label="初始密码">
-          <el-input v-model="createForm.password" :prefix-icon="Lock" type="password" show-password placeholder="请输入至少 6 位初始密码" />
-        </el-form-item>
-        <el-form-item label="功能权限">
-          <el-select v-model="createForm.permissions" class="full-control" multiple collapse-tags collapse-tags-tooltip placeholder="分配权限">
-            <el-option v-for="permission in permissionOptions" :key="permission.value" :label="permission.label" :value="permission.value" />
-          </el-select>
+          <el-input
+            v-model="createForm.password"
+            :prefix-icon="Lock"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入至少 6 位初始密码"
+          >
+            <template #append>
+              <el-button :icon="Refresh" @click="generateCreatePassword">
+                随机生成
+              </el-button>
+            </template>
+          </el-input>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -598,18 +622,13 @@ function timeText(value?: string | null) {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="editDialogOpen" title="用户权限设置" width="560px">
+    <el-dialog v-model="editDialogOpen" title="用户设置" width="560px">
       <el-form :model="editForm" label-width="90px">
         <el-form-item label="显示名称">
           <el-input v-model="editForm.displayName" />
         </el-form-item>
         <el-form-item label="启用状态">
           <el-switch v-model="editForm.enabled" active-text="启用" inactive-text="停用" />
-        </el-form-item>
-        <el-form-item label="功能权限">
-          <el-select v-model="editForm.permissions" class="full-control" multiple collapse-tags collapse-tags-tooltip placeholder="分配权限">
-            <el-option v-for="permission in permissionOptions" :key="permission.value" :label="permission.label" :value="permission.value" />
-          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -930,19 +949,12 @@ function timeText(value?: string | null) {
   gap: 12px;
 }
 
-.full-row,
-.full-control {
+.full-row {
   width: 100%;
 }
 
 .full-row {
   grid-column: 1 / -1;
-}
-
-.permission-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
 }
 
 @media (max-width: 760px) {
