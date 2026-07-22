@@ -253,7 +253,6 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
     0 3px 0 rgba(10, 73, 72, 0.3);
   content: '';
   clip-path: polygon(0 38%, 42% 8%, 82% 22%, 100% 55%, 76% 72%, 31% 61%, 0 100%);
-  transform: rotate(-1deg) skewX(-18deg);
 }
 
 .brand-name strong {
@@ -273,7 +272,7 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   filter:
     drop-shadow(0 2px 0 rgba(5, 48, 52, 0.82))
     drop-shadow(0 10px 22px rgba(57, 224, 194, 0.24));
-  transform: rotate(-2deg) skewX(-5deg) scaleX(1.03);
+  transform: scaleX(1.03);
   transform-origin: left center;
 }
 
