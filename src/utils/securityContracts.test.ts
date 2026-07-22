@@ -37,5 +37,8 @@ for (const endpoint of ['82" y2="17', '91" y2="53', '75" y2="88', '10" y2="73'])
   assertMatch(loginBrandSource, new RegExp(`x2="${endpoint}`), `missing precise map route endpoint ${endpoint}`)
 }
 assertNoMatch(loginBrandSource, /<span class="map-route/, 'fixed-angle map route spans must be removed')
+assertMatch(loginBrandSource, /font-size: clamp\(58px, 5vw, 76px\)/, 'login brand name must remain prominent')
+assertMatch(loginBrandSource, /"Microsoft YaHei", "PingFang SC"/, 'login brand must use a readable bold font stack')
+assertNoMatch(loginBrandSource, /FZShuTi|STXingkai|华文行楷/, 'hard-to-read calligraphy fonts must not return')
 
 console.log('security and performance source contract tests passed')

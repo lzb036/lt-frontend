@@ -169,26 +169,38 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 }
 
 .brand-header {
+  position: relative;
   display: flex;
+  width: max-content;
   align-items: center;
-  gap: 24px;
+  gap: 30px;
+  padding: 10px 24px 14px 8px;
+}
+
+.brand-header::before {
+  position: absolute;
+  inset: -18px -34px -20px -24px;
+  z-index: -1;
+  background: radial-gradient(ellipse at center, rgba(67, 224, 195, 0.13), transparent 68%);
+  content: '';
+  filter: blur(8px);
 }
 
 .brand-mark {
   position: relative;
   display: grid;
-  width: 78px;
-  height: 78px;
+  width: 94px;
+  height: 94px;
   place-items: center;
-  border: 1px solid rgba(161, 244, 226, 0.38);
+  border: 1px solid rgba(173, 250, 234, 0.48);
   border-radius: 8px;
   background:
-    linear-gradient(145deg, rgba(220, 255, 248, 0.15), rgba(87, 223, 195, 0.06)),
+    linear-gradient(145deg, rgba(220, 255, 248, 0.2), rgba(87, 223, 195, 0.08)),
     rgba(7, 34, 43, 0.72);
   box-shadow:
-    inset 0 0 28px rgba(87, 223, 195, 0.14),
-    0 14px 36px rgba(0, 0, 0, 0.22),
-    0 0 30px rgba(79, 226, 197, 0.08);
+    inset 0 0 32px rgba(87, 223, 195, 0.18),
+    0 16px 40px rgba(0, 0, 0, 0.26),
+    0 0 38px rgba(79, 226, 197, 0.12);
 }
 
 .brand-mark::before,
@@ -216,15 +228,15 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 
 .brand-mark img {
   display: block;
-  width: 62px;
-  height: 62px;
-  filter: drop-shadow(0 6px 12px rgba(50, 219, 187, 0.2));
+  width: 76px;
+  height: 76px;
+  filter: drop-shadow(0 7px 14px rgba(50, 219, 187, 0.24));
 }
 
 .brand-name {
   position: relative;
   display: inline-block;
-  padding: 0 8px 10px 0;
+  padding: 0 12px 13px 0;
 }
 
 .brand-name::after {
@@ -241,22 +253,24 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 
 .brand-name strong {
   display: block;
-  background: linear-gradient(128deg, #ffffff 5%, #c9fff3 46%, #f7df91 76%, #ffffff 100%);
+  background: linear-gradient(118deg, #ffffff 4%, #d7fff7 40%, #80efd7 65%, #f8d778 88%);
   background-size: 180% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 0.35px rgba(234, 255, 250, 0.5);
-  font-family: "FZShuTi", "STXingkai", "华文行楷", "STKaiti", "KaiTi", serif;
-  font-size: clamp(46px, 3.8vw, 58px);
+  -webkit-text-stroke: 0.7px rgba(238, 255, 251, 0.68);
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+  font-size: clamp(58px, 5vw, 76px);
   font-weight: 900;
-  line-height: 0.96;
-  letter-spacing: 6px;
+  line-height: 1;
+  letter-spacing: 8px;
   filter:
-    drop-shadow(0 2px 0 rgba(8, 51, 54, 0.8))
-    drop-shadow(0 9px 18px rgba(57, 224, 194, 0.2));
-  transform: skewX(-4deg);
+    drop-shadow(0 3px 0 rgba(5, 48, 52, 0.92))
+    drop-shadow(0 7px 0 rgba(10, 85, 82, 0.42))
+    drop-shadow(0 13px 24px rgba(57, 224, 194, 0.24));
+  transform: skewX(-3deg) scaleX(1.04);
+  transform-origin: left center;
 }
 
 .brand-stage {
@@ -510,6 +524,21 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
     padding: 32px 0 24px;
   }
 
+  .brand-mark {
+    width: 76px;
+    height: 76px;
+  }
+
+  .brand-mark img {
+    width: 60px;
+    height: 60px;
+  }
+
+  .brand-name strong {
+    font-size: 48px;
+    letter-spacing: 6px;
+  }
+
   .brand-stage h1 {
     font-size: 34px;
   }
@@ -544,18 +573,18 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   }
 
   .brand-mark {
-    width: 62px;
-    height: 62px;
+    width: 68px;
+    height: 68px;
   }
 
   .brand-mark img {
-    width: 50px;
-    height: 50px;
+    width: 54px;
+    height: 54px;
   }
 
   .brand-name strong {
-    font-size: 38px;
-    letter-spacing: 4px;
+    font-size: 43px;
+    letter-spacing: 5px;
   }
 
   .brand-kicker,
