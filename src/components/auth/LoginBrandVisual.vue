@@ -28,24 +28,24 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
       </p>
       <h1>专注乐天商品<br />采集与归档</h1>
       <p class="brand-summary">从乐天店铺接入、商品采集到数据归档，在一个清晰可靠的工作台完成。</p>
+    </div>
 
-      <div class="data-map" aria-hidden="true">
-        <span class="map-grid"></span>
-        <span class="map-glow"></span>
-        <span class="map-route route-one"></span>
-        <span class="map-route route-two"></span>
-        <span class="map-route route-three"></span>
-        <span class="map-node node-origin">
-          <span class="node-pulse"></span>
-          <img src="/favicon.svg" alt="" />
-        </span>
-        <span class="map-node node-one"><el-icon><Key /></el-icon></span>
-        <span class="map-node node-two"><el-icon><Connection /></el-icon></span>
-        <span class="map-node node-three"><el-icon><Goods /></el-icon></span>
-        <span class="map-node node-four"><el-icon><Box /></el-icon></span>
-        <span class="route-spark spark-one"></span>
-        <span class="route-spark spark-two"></span>
-      </div>
+    <div class="data-map" aria-hidden="true">
+      <span class="map-grid"></span>
+      <span class="map-glow"></span>
+      <span class="map-route route-one"></span>
+      <span class="map-route route-two"></span>
+      <span class="map-route route-three"></span>
+      <span class="map-node node-origin">
+        <span class="node-pulse"></span>
+        <img src="/favicon.svg" alt="" />
+      </span>
+      <span class="map-node node-one"><el-icon><Key /></el-icon></span>
+      <span class="map-node node-two"><el-icon><Connection /></el-icon></span>
+      <span class="map-node node-three"><el-icon><Goods /></el-icon></span>
+      <span class="map-node node-four"><el-icon><Box /></el-icon></span>
+      <span class="route-spark spark-one"></span>
+      <span class="route-spark spark-two"></span>
     </div>
 
     <footer class="brand-footer">
@@ -162,19 +162,21 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 .brand-header {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 18px;
 }
 
 .brand-mark {
   position: relative;
   display: grid;
-  width: 46px;
-  height: 46px;
+  width: 64px;
+  height: 64px;
   place-items: center;
   border: 1px solid rgba(161, 244, 226, 0.38);
   border-radius: 8px;
   background: rgba(201, 255, 244, 0.09);
-  box-shadow: inset 0 0 18px rgba(87, 223, 195, 0.08);
+  box-shadow:
+    inset 0 0 22px rgba(87, 223, 195, 0.1),
+    0 10px 28px rgba(0, 0, 0, 0.16);
 }
 
 .brand-mark::before,
@@ -202,22 +204,43 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 
 .brand-mark img {
   display: block;
-  width: 34px;
-  height: 34px;
+  width: 50px;
+  height: 50px;
 }
 
 .brand-name {
-  display: block;
+  position: relative;
+  display: inline-block;
+  padding: 0 4px 6px 0;
+}
+
+.brand-name::after {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #f3c96b, rgba(83, 224, 193, 0.68), transparent);
+  content: '';
 }
 
 .brand-name strong {
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1.2;
+  display: block;
+  background: linear-gradient(118deg, #ffffff 10%, #d8fff7 58%, #f5d887 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-family: "STKaiti", "KaiTi", "FZKai-Z03", "Microsoft YaHei", serif;
+  font-size: clamp(32px, 2.8vw, 42px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 4px;
+  text-shadow: 0 8px 22px rgba(60, 221, 192, 0.14);
 }
 
 .brand-stage {
-  width: min(680px, 100%);
+  width: min(600px, 58%);
   margin: auto 0;
   padding: clamp(34px, 6vh, 76px) 0;
 }
@@ -260,10 +283,11 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 .data-map {
   position: absolute;
   top: 50%;
-  right: clamp(-80px, -4vw, -30px);
-  width: clamp(230px, 26vw, 400px);
+  right: clamp(36px, 5vw, 90px);
+  z-index: 1;
+  width: clamp(280px, 29vw, 420px);
   aspect-ratio: 1;
-  transform: translateY(-44%);
+  transform: translateY(-42%);
 }
 
 .map-grid,
@@ -444,8 +468,13 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 
 @media (max-width: 1120px) {
   .data-map {
-    opacity: 0.68;
-    right: -96px;
+    right: -24px;
+    width: 230px;
+    opacity: 0.58;
+  }
+
+  .brand-stage {
+    width: min(460px, calc(100% - 190px));
   }
 
   .brand-stage h1 {
@@ -460,6 +489,7 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   }
 
   .brand-stage {
+    width: min(470px, calc(100% - 230px));
     padding: 32px 0 24px;
   }
 
@@ -474,9 +504,10 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   }
 
   .data-map {
-    top: 54%;
-    right: -38px;
-    width: 250px;
+    top: 56%;
+    right: 20px;
+    width: 210px;
+    opacity: 0.52;
   }
 
   .brand-footer {
@@ -491,7 +522,22 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   }
 
   .brand-stage {
+    width: 100%;
     padding: 26px 0 8px;
+  }
+
+  .brand-mark {
+    width: 54px;
+    height: 54px;
+  }
+
+  .brand-mark img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand-name strong {
+    font-size: 31px;
   }
 
   .brand-kicker,

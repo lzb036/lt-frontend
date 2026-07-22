@@ -154,12 +154,8 @@ function restoreRememberedLogin() {
         </div>
 
         <div class="login-header">
-          <span class="login-icon">
-            <img src="/favicon.svg" alt="" />
-          </span>
           <p class="login-eyebrow">欢迎回来</p>
           <h2 id="login-title" class="login-title">登录乐天商品采集系统</h2>
-          <p class="login-subtitle">使用工作账号进入乐天商品采集后台</p>
         </div>
 
         <form class="login-form" @submit.prevent="handleSubmit">
@@ -341,25 +337,7 @@ function restoreRememberedLogin() {
 }
 
 .login-header {
-  margin-bottom: 28px;
-}
-
-.login-icon {
-  display: grid;
-  width: 50px;
-  height: 50px;
-  place-items: center;
-  margin-bottom: 20px;
-  border: 1px solid color-mix(in srgb, #0f766e, transparent 62%);
-  border-radius: 8px;
-  background: color-mix(in srgb, #0f766e, var(--panel-bg) 90%);
-  box-shadow: inset 0 -12px 24px rgba(15, 118, 110, 0.05);
-}
-
-.login-icon img {
-  display: block;
-  width: 38px;
-  height: 38px;
+  margin-bottom: 34px;
 }
 
 .login-eyebrow {
@@ -375,12 +353,6 @@ function restoreRememberedLogin() {
   font-size: 30px;
   font-weight: 800;
   line-height: 1.2;
-}
-
-.login-subtitle {
-  margin: 10px 0 0;
-  color: var(--text-soft);
-  font-size: 13px;
 }
 
 .login-form {
