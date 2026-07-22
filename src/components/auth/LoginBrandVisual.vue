@@ -244,32 +244,36 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   right: -4px;
   bottom: 0;
   left: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #f4c765 0%, #72ead1 60%, transparent 100%);
-  box-shadow: 0 0 12px rgba(93, 231, 204, 0.34);
+  height: 4px;
+  border-radius: 50%;
+  background:
+    linear-gradient(90deg, #f4c765 0%, #72ead1 58%, rgba(114, 234, 209, 0.12) 92%, transparent 100%);
+  box-shadow:
+    0 0 12px rgba(93, 231, 204, 0.34),
+    0 3px 0 rgba(10, 73, 72, 0.3);
   content: '';
-  transform: skewX(-22deg);
+  clip-path: polygon(0 38%, 42% 8%, 82% 22%, 100% 55%, 76% 72%, 31% 61%, 0 100%);
+  transform: rotate(-1deg) skewX(-18deg);
 }
 
 .brand-name strong {
   display: block;
-  background: linear-gradient(118deg, #ffffff 4%, #d7fff7 40%, #80efd7 65%, #f8d778 88%);
+  background: linear-gradient(122deg, #ffffff 4%, #ddfff8 42%, #8ff0dc 69%, #f7d77b 91%);
   background-size: 180% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 0.7px rgba(238, 255, 251, 0.68);
-  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif;
-  font-size: clamp(58px, 5vw, 76px);
+  -webkit-text-stroke: 1px rgba(238, 255, 251, 0.72);
+  font-family: "STKaiti", "KaiTi", "Kaiti SC", "楷体", "Microsoft YaHei", serif;
+  font-size: clamp(62px, 5.2vw, 78px);
   font-weight: 900;
-  line-height: 1;
-  letter-spacing: 8px;
+  line-height: 0.98;
+  letter-spacing: 10px;
   filter:
-    drop-shadow(0 3px 0 rgba(5, 48, 52, 0.92))
-    drop-shadow(0 7px 0 rgba(10, 85, 82, 0.42))
-    drop-shadow(0 13px 24px rgba(57, 224, 194, 0.24));
-  transform: skewX(-3deg) scaleX(1.04);
+    drop-shadow(0 2px 0 rgba(5, 48, 52, 0.82))
+    drop-shadow(0 10px 22px rgba(57, 224, 194, 0.24));
+  transform: rotate(-2deg) skewX(-5deg) scaleX(1.03);
   transform-origin: left center;
 }
 
@@ -535,7 +539,7 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   }
 
   .brand-name strong {
-    font-size: 48px;
+    font-size: 51px;
     letter-spacing: 6px;
   }
 
@@ -583,7 +587,7 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   }
 
   .brand-name strong {
-    font-size: 43px;
+    font-size: 45px;
     letter-spacing: 5px;
   }
 
