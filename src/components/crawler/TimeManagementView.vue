@@ -55,9 +55,17 @@ const orderState = reactive({
   savedSnapshot: null as SalesOrderSyncGlobalSettings | null,
 })
 const orderDraft = reactive<SalesOrderSyncGlobalSettingsPayload>({ ...DEFAULT_ORDER_SETTINGS })
-const orderSettingsDirty = computed(() => (
-  JSON.stringify(orderDraft) !== JSON.stringify(orderState.savedSnapshot)
-))
+const orderSettingsDirty = computed(() => {
+  const savedSnapshot = orderState.savedSnapshot
+  if (!isSuperadmin.value || !savedSnapshot) {
+    return false
+  }
+  return (
+    orderDraft.enabled !== savedSnapshot.enabled
+    || orderDraft.intervalMinutes !== savedSnapshot.intervalMinutes
+    || orderDraft.successRetentionDays !== savedSnapshot.successRetentionDays
+  )
+})
 
 const weekdayOptions = [
   { label: '周一', value: 0 },
@@ -236,8 +244,7 @@ async function loadOrderSettings() {
   orderState.error = ''
   try {
     const result = await api.getSalesOrderSyncGlobalSettings()
-    Object.assign(orderDraft, result)
-    orderState.savedSnapshot = { ...result }
+    applyOrderSettings(result)
     window.addEventListener('beforeunload', handleBeforeUnload)
   } catch (error) {
     orderState.error = toApiErrorMessage(error, '加载订单同步设置失败')
@@ -342,8 +349,7 @@ async function saveOrderSettings() {
   orderState.error = ''
   try {
     const result = await api.updateSalesOrderSyncGlobalSettings({ ...orderDraft })
-    Object.assign(orderDraft, result)
-    orderState.savedSnapshot = { ...result }
+    applyOrderSettings(result)
     ElMessage.success('订单同步设置已保存')
   } catch (error) {
     orderState.error = toApiErrorMessage(error, '保存订单同步设置失败')
@@ -355,6 +361,13 @@ async function saveOrderSettings() {
 
 function restoreOrderDefaults() {
   Object.assign(orderDraft, DEFAULT_ORDER_SETTINGS)
+}
+
+function applyOrderSettings(result: SalesOrderSyncGlobalSettings) {
+  orderDraft.enabled = result.enabled
+  orderDraft.intervalMinutes = result.intervalMinutes
+  orderDraft.successRetentionDays = result.successRetentionDays
+  orderState.savedSnapshot = { ...result }
 }
 
 async function runScheduledTaskCleanupNow() {
