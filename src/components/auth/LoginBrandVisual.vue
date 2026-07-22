@@ -33,9 +33,18 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
     <div class="data-map" aria-hidden="true">
       <span class="map-grid"></span>
       <span class="map-glow"></span>
-      <span class="map-route route-one"></span>
-      <span class="map-route route-two"></span>
-      <span class="map-route route-three"></span>
+      <svg class="map-routes" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="map-route-gradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#5ce7c9" stop-opacity="0.9" />
+            <stop offset="1" stop-color="#f2b36f" stop-opacity="0.48" />
+          </linearGradient>
+        </defs>
+        <line x1="50" y1="50" x2="82" y2="17" />
+        <line x1="50" y1="50" x2="91" y2="53" />
+        <line x1="50" y1="50" x2="75" y2="88" />
+        <line x1="50" y1="50" x2="10" y2="73" />
+      </svg>
       <span class="map-node node-origin">
         <span class="node-pulse"></span>
         <img src="/favicon.svg" alt="" />
@@ -162,21 +171,24 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 .brand-header {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 24px;
 }
 
 .brand-mark {
   position: relative;
   display: grid;
-  width: 64px;
-  height: 64px;
+  width: 78px;
+  height: 78px;
   place-items: center;
   border: 1px solid rgba(161, 244, 226, 0.38);
   border-radius: 8px;
-  background: rgba(201, 255, 244, 0.09);
+  background:
+    linear-gradient(145deg, rgba(220, 255, 248, 0.15), rgba(87, 223, 195, 0.06)),
+    rgba(7, 34, 43, 0.72);
   box-shadow:
-    inset 0 0 22px rgba(87, 223, 195, 0.1),
-    0 10px 28px rgba(0, 0, 0, 0.16);
+    inset 0 0 28px rgba(87, 223, 195, 0.14),
+    0 14px 36px rgba(0, 0, 0, 0.22),
+    0 0 30px rgba(79, 226, 197, 0.08);
 }
 
 .brand-mark::before,
@@ -204,39 +216,47 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 
 .brand-mark img {
   display: block;
-  width: 50px;
-  height: 50px;
+  width: 62px;
+  height: 62px;
+  filter: drop-shadow(0 6px 12px rgba(50, 219, 187, 0.2));
 }
 
 .brand-name {
   position: relative;
   display: inline-block;
-  padding: 0 4px 6px 0;
+  padding: 0 8px 10px 0;
 }
 
 .brand-name::after {
   position: absolute;
-  right: 1px;
+  right: -4px;
   bottom: 0;
   left: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #f3c96b, rgba(83, 224, 193, 0.68), transparent);
+  height: 3px;
+  background: linear-gradient(90deg, #f4c765 0%, #72ead1 60%, transparent 100%);
+  box-shadow: 0 0 12px rgba(93, 231, 204, 0.34);
   content: '';
+  transform: skewX(-22deg);
 }
 
 .brand-name strong {
   display: block;
-  background: linear-gradient(118deg, #ffffff 10%, #d8fff7 58%, #f5d887 100%);
+  background: linear-gradient(128deg, #ffffff 5%, #c9fff3 46%, #f7df91 76%, #ffffff 100%);
+  background-size: 180% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  font-family: "STKaiti", "KaiTi", "FZKai-Z03", "Microsoft YaHei", serif;
-  font-size: clamp(32px, 2.8vw, 42px);
+  -webkit-text-stroke: 0.35px rgba(234, 255, 250, 0.5);
+  font-family: "FZShuTi", "STXingkai", "华文行楷", "STKaiti", "KaiTi", serif;
+  font-size: clamp(46px, 3.8vw, 58px);
   font-weight: 900;
-  line-height: 1;
-  letter-spacing: 4px;
-  text-shadow: 0 8px 22px rgba(60, 221, 192, 0.14);
+  line-height: 0.96;
+  letter-spacing: 6px;
+  filter:
+    drop-shadow(0 2px 0 rgba(8, 51, 54, 0.8))
+    drop-shadow(0 9px 18px rgba(57, 224, 194, 0.2));
+  transform: skewX(-4deg);
 }
 
 .brand-stage {
@@ -292,7 +312,7 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 
 .map-grid,
 .map-glow,
-.map-route,
+.map-routes,
 .map-node,
 .route-spark {
   position: absolute;
@@ -316,30 +336,23 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   filter: blur(24px);
 }
 
-.map-route {
-  top: 50%;
-  left: 50%;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(79, 224, 196, 0.74), rgba(255, 161, 103, 0.26));
-  transform-origin: left center;
+.map-routes {
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.route-one {
-  width: 38%;
-  transform: rotate(-42deg);
-}
-
-.route-two {
-  width: 42%;
-  transform: rotate(17deg);
-}
-
-.route-three {
-  width: 36%;
-  transform: rotate(132deg);
+.map-routes line {
+  stroke: url('#map-route-gradient');
+  stroke-width: 0.28;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .map-node {
+  z-index: 2;
   display: grid;
   width: 42px;
   height: 42px;
@@ -377,23 +390,27 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 }
 
 .node-one {
-  top: 12%;
-  right: 12%;
+  top: 17%;
+  left: 82%;
+  transform: translate(-50%, -50%);
 }
 
 .node-two {
-  top: 48%;
-  right: 2%;
+  top: 53%;
+  left: 91%;
+  transform: translate(-50%, -50%);
 }
 
 .node-three {
-  right: 20%;
-  bottom: 5%;
+  top: 88%;
+  left: 75%;
+  transform: translate(-50%, -50%);
 }
 
 .node-four {
-  bottom: 22%;
-  left: 7%;
+  top: 73%;
+  left: 10%;
+  transform: translate(-50%, -50%);
 }
 
 .route-spark {
@@ -527,17 +544,18 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   }
 
   .brand-mark {
-    width: 54px;
-    height: 54px;
+    width: 62px;
+    height: 62px;
   }
 
   .brand-mark img {
-    width: 42px;
-    height: 42px;
+    width: 50px;
+    height: 50px;
   }
 
   .brand-name strong {
-    font-size: 31px;
+    font-size: 38px;
+    letter-spacing: 4px;
   }
 
   .brand-kicker,

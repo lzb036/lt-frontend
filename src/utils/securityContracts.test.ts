@@ -8,6 +8,10 @@ const workflowSource = readFileSync(
   resolve(sourceRoot, 'components/crawler/ProductWorkflowView.vue'),
   'utf8',
 )
+const loginBrandSource = readFileSync(
+  resolve(sourceRoot, 'components/auth/LoginBrandVisual.vue'),
+  'utf8',
+)
 const apiSource = readFileSync(resolve(sourceRoot, 'utils/api.ts'), 'utf8')
 
 function assertMatch(source: string, pattern: RegExp, message: string) {
@@ -28,5 +32,10 @@ assertNoMatch(workflowSource, /new DOMParser\(\)/, 'custom DOMParser sanitizer m
 assertMatch(routerSource, /const ProductWorkflowView = \(\) => import\(/, 'route views must be lazy loaded')
 assertNoMatch(routerSource, /import ProductWorkflowView from/, 'route view must not be eagerly imported')
 assertMatch(apiSource, /timeout:\s*60_000/, 'API client must define a timeout')
+assertMatch(loginBrandSource, /<svg class="map-routes"/, 'login data map must use an SVG route layer')
+for (const endpoint of ['82" y2="17', '91" y2="53', '75" y2="88', '10" y2="73']) {
+  assertMatch(loginBrandSource, new RegExp(`x2="${endpoint}`), `missing precise map route endpoint ${endpoint}`)
+}
+assertNoMatch(loginBrandSource, /<span class="map-route/, 'fixed-angle map route spans must be removed')
 
 console.log('security and performance source contract tests passed')
