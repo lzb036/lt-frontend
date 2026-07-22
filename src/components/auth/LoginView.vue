@@ -150,16 +150,16 @@ function restoreRememberedLogin() {
             <span></span>
             SECURE ACCESS
           </span>
-          <span class="system-version">YIXIN · COLLECTOR</span>
+          <span class="system-version">RAKUTEN · COLLECTOR</span>
         </div>
 
         <div class="login-header">
           <span class="login-icon">
-            亦
+            <img src="/favicon.svg" alt="" />
           </span>
           <p class="login-eyebrow">欢迎回来</p>
-          <h2 id="login-title" class="login-title">登录亦信采集系统</h2>
-          <p class="login-subtitle">使用你的工作账号继续进入运营后台</p>
+          <h2 id="login-title" class="login-title">登录乐天商品采集系统</h2>
+          <p class="login-subtitle">使用工作账号进入乐天商品采集后台</p>
         </div>
 
         <form class="login-form" @submit.prevent="handleSubmit">
@@ -244,8 +244,8 @@ function restoreRememberedLogin() {
         </form>
 
         <div class="login-panel-footer">
-          <span>YIXIN DIGITAL</span>
-          <span>亦信商品数据服务</span>
+          <span>RAKUTEN PRODUCT COLLECTOR</span>
+          <span>乐天商品采集系统</span>
         </div>
       </section>
     </section>
@@ -353,10 +353,13 @@ function restoreRememberedLogin() {
   border: 1px solid color-mix(in srgb, #0f766e, transparent 62%);
   border-radius: 8px;
   background: color-mix(in srgb, #0f766e, var(--panel-bg) 90%);
-  color: #0f766e;
-  font-size: 25px;
-  font-weight: 800;
   box-shadow: inset 0 -12px 24px rgba(15, 118, 110, 0.05);
+}
+
+.login-icon img {
+  display: block;
+  width: 38px;
+  height: 38px;
 }
 
 .login-eyebrow {

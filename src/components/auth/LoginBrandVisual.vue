@@ -3,7 +3,7 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 </script>
 
 <template>
-  <aside class="brand-visual" aria-label="亦信商品采集平台">
+  <aside class="brand-visual" aria-label="乐天商品采集平台">
     <div class="brand-backdrop" aria-hidden="true">
       <span class="orbit orbit-one"></span>
       <span class="orbit orbit-two"></span>
@@ -14,21 +14,20 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
 
     <header class="brand-header">
       <span class="brand-mark" aria-hidden="true">
-        <span class="brand-mark-core">亦</span>
+        <img src="/favicon.svg" alt="" />
       </span>
       <span class="brand-name">
         <strong>亦信</strong>
-        <span>YIXIN DIGITAL</span>
       </span>
     </header>
 
     <div class="brand-stage">
       <p class="brand-kicker">
         <span class="status-dot"></span>
-        YIXIN PRODUCT INTELLIGENCE
+        RAKUTEN PRODUCT COLLECTOR
       </p>
-      <h1>让商品数据<br />流动得更聪明</h1>
-      <p class="brand-summary">从店铺接入、采集任务到商品归档，在一个清晰可靠的工作台完成。</p>
+      <h1>专注乐天商品<br />采集与归档</h1>
+      <p class="brand-summary">从乐天店铺接入、商品采集到数据归档，在一个清晰可靠的工作台完成。</p>
 
       <div class="data-map" aria-hidden="true">
         <span class="map-grid"></span>
@@ -201,28 +200,20 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   border-left: 2px solid;
 }
 
-.brand-mark-core {
-  font-size: 23px;
-  font-weight: 800;
-  line-height: 1;
+.brand-mark img {
+  display: block;
+  width: 34px;
+  height: 34px;
 }
 
 .brand-name {
-  display: grid;
-  gap: 1px;
+  display: block;
 }
 
 .brand-name strong {
   font-size: 20px;
   font-weight: 800;
   line-height: 1.2;
-}
-
-.brand-name span {
-  color: rgba(205, 229, 232, 0.58);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.8px;
 }
 
 .brand-stage {
