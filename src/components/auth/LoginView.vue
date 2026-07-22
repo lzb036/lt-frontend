@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Box, Connection, Goods, Key, Lock, Refresh, User } from '@element-plus/icons-vue'
+import { Key, Lock, Refresh, User } from '@element-plus/icons-vue'
+import LoginBrandVisual from './LoginBrandVisual.vue'
 
 const props = defineProps<{
   loading: boolean
@@ -141,51 +142,24 @@ function restoreRememberedLogin() {
 <template>
   <main class="login-page">
     <section class="login-layout">
-      <aside class="login-visual" aria-label="系统概览">
-        <div class="brand-row">
-          <span class="brand-mark">
-            <img src="/favicon.svg" alt="" />
+      <LoginBrandVisual />
+
+      <section class="login-panel" aria-labelledby="login-title">
+        <div class="login-panel-top">
+          <span class="secure-status">
+            <span></span>
+            SECURE ACCESS
           </span>
-          <span class="brand-copy">
-            <strong>商品采集系统</strong>
-            <span>Rakuten Product Collector</span>
-          </span>
+          <span class="system-version">YIXIN · COLLECTOR</span>
         </div>
 
-        <div class="visual-copy">
-          <p class="visual-eyebrow">按用户隔离的采集工作台</p>
-          <h1>店铺、商品结果按账号独立管理</h1>
-          <p>超级管理员只建账号，具体店铺与乐天 API 密钥由用户自行维护。</p>
-        </div>
-
-        <div class="feature-grid">
-          <div class="feature-item">
-            <el-icon><Key /></el-icon>
-            <span>店铺密钥</span>
-          </div>
-          <div class="feature-item">
-            <el-icon><Connection /></el-icon>
-            <span>店铺配置</span>
-          </div>
-          <div class="feature-item">
-            <el-icon><Goods /></el-icon>
-            <span>商品结果</span>
-          </div>
-          <div class="feature-item">
-            <el-icon><Box /></el-icon>
-            <span>任务留痕</span>
-          </div>
-        </div>
-      </aside>
-
-      <section class="login-card" aria-labelledby="login-title">
         <div class="login-header">
           <span class="login-icon">
-            <img src="/favicon.svg" alt="" />
+            亦
           </span>
-          <p class="login-eyebrow">运营后台登录</p>
-          <h2 id="login-title" class="login-title">商品采集系统</h2>
-          <p class="login-subtitle">请输入账号信息进入采集后台</p>
+          <p class="login-eyebrow">欢迎回来</p>
+          <h2 id="login-title" class="login-title">登录亦信采集系统</h2>
+          <p class="login-subtitle">使用你的工作账号继续进入运营后台</p>
         </div>
 
         <form class="login-form" @submit.prevent="handleSubmit">
@@ -211,6 +185,7 @@ function restoreRememberedLogin() {
               autocomplete="current-password"
               placeholder="请输入密码"
               aria-label="密码"
+              show-password
               @keydown.enter="handleSubmit"
             />
           </label>
@@ -264,9 +239,14 @@ function restoreRememberedLogin() {
             :disabled="loading"
             @click="handleSubmit"
           >
-            登录系统
+            进入工作台
           </el-button>
         </form>
+
+        <div class="login-panel-footer">
+          <span>YIXIN DIGITAL</span>
+          <span>亦信商品数据服务</span>
+        </div>
       </section>
     </section>
   </main>
@@ -274,219 +254,122 @@ function restoreRememberedLogin() {
 
 <style scoped>
 .login-page {
-  position: relative;
-  isolation: isolate;
-  display: grid;
+  height: 100%;
   min-height: 100vh;
-  place-items: center;
   color: var(--text-main);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent), transparent 94%), transparent 34%),
-    linear-gradient(180deg, var(--page-bg) 0%, var(--page-bg-strong) 100%);
-  padding: 22px;
-}
-
-.login-page::before {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--panel-border), transparent 64%) 1px, transparent 1px),
-    linear-gradient(0deg, color-mix(in srgb, var(--panel-border), transparent 64%) 1px, transparent 1px);
-  background-size: 34px 34px;
-  content: '';
-  opacity: 0.44;
+  background: var(--panel-bg);
+  overflow-y: auto;
 }
 
 .login-layout {
   display: grid;
-  width: min(1120px, 100%);
-  min-height: min(720px, calc(100vh - 44px));
-  grid-template-columns: minmax(420px, 1.05fr) minmax(390px, 0.95fr);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  background: var(--panel-bg);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
+  min-height: 100vh;
+  grid-template-columns: minmax(0, 1.35fr) minmax(420px, 0.85fr);
 }
 
-.login-visual {
+.login-panel {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 42px 50px;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--accent-active), #111827 72%),
-      color-mix(in srgb, var(--accent), #173d59 66%) 58%,
-      color-mix(in srgb, var(--accent), #0f766e 48%)
-    ),
-    linear-gradient(45deg, rgba(255, 255, 255, 0.08), transparent);
-  color: #ffffff;
-  overflow: hidden;
-}
-
-.login-visual::before {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 42px 42px;
-  content: '';
-  opacity: 0.18;
-}
-
-.brand-row,
-.visual-copy,
-.feature-grid {
-  position: relative;
-  z-index: 1;
-}
-
-.brand-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.brand-mark {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.brand-mark img {
-  display: block;
-  width: 34px;
-  height: 34px;
-}
-
-.brand-copy {
-  display: grid;
-  gap: 2px;
-}
-
-.brand-copy strong {
-  font-size: 18px;
-  line-height: 1.1;
-}
-
-.brand-copy span {
-  color: rgba(255, 255, 255, 0.66);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.visual-copy {
-  max-width: 520px;
-}
-
-.visual-eyebrow {
-  margin: 0 0 16px;
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.visual-copy h1 {
-  margin: 0;
-  font-size: clamp(31px, 3.7vw, 46px);
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.visual-copy p:last-child {
-  max-width: 460px;
-  margin: 16px 0 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 15px;
-  line-height: 1.8;
-}
-
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.feature-item {
-  display: grid;
-  min-height: 78px;
-  align-content: center;
-  gap: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 14px;
-}
-
-.feature-item .el-icon {
-  color: color-mix(in srgb, var(--accent-border), #ffffff 32%);
-  font-size: 22px;
-}
-
-.feature-item span {
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.login-card {
   display: flex;
   min-width: 0;
   flex-direction: column;
   justify-content: center;
-  padding: 46px 56px;
-  background: var(--panel-bg);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--panel-border), transparent 72%) 1px, transparent 1px),
+    var(--panel-bg);
+  background-size: 42px 42px;
+  padding: clamp(38px, 6vw, 86px);
+}
+
+.login-panel::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 3px;
+  height: 32%;
+  background: #ff8f55;
+  content: '';
+}
+
+.login-panel-top,
+.login-panel-footer {
+  position: absolute;
+  right: clamp(32px, 5vw, 72px);
+  left: clamp(32px, 5vw, 72px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+}
+
+.login-panel-top {
+  top: 30px;
+}
+
+.secure-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secure-status span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1cb184;
+  box-shadow: 0 0 0 4px rgba(28, 177, 132, 0.1);
+}
+
+.login-panel-footer {
+  bottom: 28px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 16px;
+  letter-spacing: 0.8px;
+}
+
+.login-panel-footer span:last-child {
+  letter-spacing: 0;
 }
 
 .login-header,
 .login-form {
-  width: min(392px, 100%);
+  width: min(410px, 100%);
   margin-right: auto;
   margin-left: auto;
 }
 
 .login-header {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .login-icon {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   place-items: center;
-  margin-bottom: 14px;
-  border: 1px solid var(--accent-border);
+  margin-bottom: 20px;
+  border: 1px solid color-mix(in srgb, #0f766e, transparent 62%);
   border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.login-icon img {
-  display: block;
-  width: 36px;
-  height: 36px;
+  background: color-mix(in srgb, #0f766e, var(--panel-bg) 90%);
+  color: #0f766e;
+  font-size: 25px;
+  font-weight: 800;
+  box-shadow: inset 0 -12px 24px rgba(15, 118, 110, 0.05);
 }
 
 .login-eyebrow {
-  margin: 0 0 8px;
-  color: var(--accent);
-  font-size: 13px;
+  margin: 0 0 10px;
+  color: #0f8d78;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .login-title {
   margin: 0;
   color: var(--text-main);
-  font-size: 29px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -494,12 +377,12 @@ function restoreRememberedLogin() {
 .login-subtitle {
   margin: 10px 0 0;
   color: var(--text-soft);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .login-form {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .form-field {
@@ -508,7 +391,7 @@ function restoreRememberedLogin() {
 }
 
 .field-label {
-  color: var(--text-soft);
+  color: var(--text-main);
   font-size: 13px;
   font-weight: 700;
 }
@@ -529,9 +412,9 @@ function restoreRememberedLogin() {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-sm);
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent), white 78%), var(--panel-bg)),
-    repeating-linear-gradient(-15deg, transparent 0, transparent 6px, color-mix(in srgb, var(--accent), transparent 88%) 6px, color-mix(in srgb, var(--accent), transparent 88%) 8px);
-  color: var(--accent-active);
+    linear-gradient(135deg, color-mix(in srgb, #0f766e, white 91%), var(--panel-bg)),
+    repeating-linear-gradient(-15deg, transparent 0, transparent 6px, rgba(15, 118, 110, 0.08) 6px, rgba(15, 118, 110, 0.08) 8px);
+  color: #0d7465;
   cursor: pointer;
   font: inherit;
   font-size: 20px;
@@ -539,8 +422,8 @@ function restoreRememberedLogin() {
 }
 
 .captcha-code:hover {
-  border-color: var(--accent-border);
-  color: var(--accent);
+  border-color: color-mix(in srgb, #0f766e, transparent 48%);
+  color: #0f766e;
 }
 
 .form-options {
@@ -560,18 +443,31 @@ function restoreRememberedLogin() {
 
 .login-submit {
   width: 100%;
-  height: 48px;
+  height: 50px;
   border: 0;
   border-radius: var(--radius-sm);
-  background: var(--accent) !important;
+  background: linear-gradient(105deg, #0a7567, #129581 58%, #0d7769) !important;
   color: var(--on-accent) !important;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
+  box-shadow: 0 12px 26px rgba(15, 118, 110, 0.2);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.login-submit:hover:not(.is-disabled) {
+  box-shadow: 0 15px 30px rgba(15, 118, 110, 0.28);
+  transform: translateY(-1px);
 }
 
 .login-form :deep(.el-input__wrapper) {
   min-height: 46px;
-  background: var(--panel-muted) !important;
+  background: color-mix(in srgb, var(--panel-muted), var(--panel-bg) 28%) !important;
+  transition: box-shadow 180ms ease, background 180ms ease;
+}
+
+.login-form :deep(.el-input__wrapper.is-focus) {
+  background: var(--panel-bg) !important;
+  box-shadow: 0 0 0 1px #0f8d78 inset, 0 0 0 3px rgba(15, 141, 120, 0.08) !important;
 }
 
 .login-form :deep(.el-input__inner) {
@@ -585,35 +481,16 @@ function restoreRememberedLogin() {
     grid-template-columns: 1fr;
   }
 
-  .login-visual {
-    padding: 24px 28px;
-  }
-
-  .visual-copy p:last-child,
-  .feature-grid {
-    display: none;
-  }
-
-  .visual-copy {
-    margin-top: 22px;
+  .login-panel {
+    min-height: 640px;
+    padding: 70px 40px 84px;
   }
 }
 
 @media (max-width: 560px) {
-  .login-page {
-    padding: 10px;
-  }
-
-  .login-card {
-    padding: 22px 18px;
-  }
-
-  .login-visual {
-    padding: 18px;
-  }
-
-  .visual-copy h1 {
-    font-size: 22px;
+  .login-panel {
+    min-height: 610px;
+    padding: 66px 20px 78px;
   }
 
   .captcha-row {
@@ -622,6 +499,21 @@ function restoreRememberedLogin() {
 
   .captcha-code {
     width: 100%;
+  }
+
+  .system-version,
+  .login-panel-footer span:first-child {
+    display: none;
+  }
+
+  .login-title {
+    font-size: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-submit {
+    transition: none;
   }
 }
 </style>
