@@ -8,6 +8,7 @@ export function resolveApiBaseUrl() {
 export const apiClient = axios.create({
   baseURL: resolveApiBaseUrl(),
   withCredentials: true,
+  timeout: 60_000,
 })
 
 export function toApiErrorMessage(error: unknown, fallback: string) {

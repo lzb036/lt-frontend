@@ -11,6 +11,7 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.16.1",
+    "dompurify": "^3.4.12",
     "element-plus": "^2.14.0",
     "mt-image-editor-sdk": "^3.6.4",
     "pinia": "^3.0.4",

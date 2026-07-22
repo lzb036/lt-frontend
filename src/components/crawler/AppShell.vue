@@ -135,21 +135,21 @@ const menuGroups = computed(() => {
       ],
     })
   }
-  if (hasPermission(props.session, 'settings.manage')) {
-    const settingsChildren: MenuEntry[] = [
-      { path: '/system/theme', label: '主题管理', icon: Setting },
+  const settingsChildren: MenuEntry[] = [
+    { path: '/system/theme', label: '主题管理', icon: Setting },
+  ]
+  if (isSuperadmin.value) {
+    settingsChildren.push(
       { path: '/system/time', label: '资源管理', icon: AlarmClock },
-    ]
-    if (isSuperadmin.value) {
-      settingsChildren.push({ path: '/system/sensitive-words', label: '敏感词管理', icon: Warning })
-    }
-    groups.push({
-      key: 'settings',
-      label: '系统设置',
-      icon: Setting,
-      children: settingsChildren,
-    })
+      { path: '/system/sensitive-words', label: '敏感词管理', icon: Warning },
+    )
   }
+  groups.push({
+    key: 'settings',
+    label: '系统设置',
+    icon: Setting,
+    children: settingsChildren,
+  })
   return groups
 })
 

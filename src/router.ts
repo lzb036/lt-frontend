@@ -1,22 +1,23 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 import AppShell from './components/crawler/AppShell.vue'
-import AiTitleSettingsView from './components/crawler/AiTitleSettingsView.vue'
-import CollectionShopView from './components/crawler/CollectionShopView.vue'
-import CrawlTaskManager from './components/crawler/CrawlTaskManager.vue'
-import ListingTaskView from './components/crawler/ListingTaskView.vue'
-import ManualCrawlView from './components/crawler/ManualCrawlView.vue'
-import OperatorManualView from './components/crawler/OperatorManualView.vue'
-import SalesOrderSyncHistoryView from './components/crawler/SalesOrderSyncHistoryView.vue'
-import ProductWorkflowView from './components/crawler/ProductWorkflowView.vue'
-import ProductResultTable from './components/crawler/ProductResultTable.vue'
-import ScheduledCrawlView from './components/crawler/ScheduledCrawlView.vue'
-import SensitiveWordManagementView from './components/crawler/SensitiveWordManagementView.vue'
-import StoreManagerView from './components/crawler/StoreManagerView.vue'
-import SyncTaskView from './components/crawler/SyncTaskView.vue'
-import ThemeSettingsView from './components/crawler/ThemeSettingsView.vue'
-import TimeManagementView from './components/crawler/TimeManagementView.vue'
-import UserManagement from './components/crawler/UserManagement.vue'
+
+const AiTitleSettingsView = () => import('./components/crawler/AiTitleSettingsView.vue')
+const CollectionShopView = () => import('./components/crawler/CollectionShopView.vue')
+const CrawlTaskManager = () => import('./components/crawler/CrawlTaskManager.vue')
+const ListingTaskView = () => import('./components/crawler/ListingTaskView.vue')
+const ManualCrawlView = () => import('./components/crawler/ManualCrawlView.vue')
+const OperatorManualView = () => import('./components/crawler/OperatorManualView.vue')
+const SalesOrderSyncHistoryView = () => import('./components/crawler/SalesOrderSyncHistoryView.vue')
+const ProductWorkflowView = () => import('./components/crawler/ProductWorkflowView.vue')
+const ProductResultTable = () => import('./components/crawler/ProductResultTable.vue')
+const ScheduledCrawlView = () => import('./components/crawler/ScheduledCrawlView.vue')
+const SensitiveWordManagementView = () => import('./components/crawler/SensitiveWordManagementView.vue')
+const StoreManagerView = () => import('./components/crawler/StoreManagerView.vue')
+const SyncTaskView = () => import('./components/crawler/SyncTaskView.vue')
+const ThemeSettingsView = () => import('./components/crawler/ThemeSettingsView.vue')
+const TimeManagementView = () => import('./components/crawler/TimeManagementView.vue')
+const UserManagement = () => import('./components/crawler/UserManagement.vue')
 
 const routes: RouteRecordRaw[] = [
   {
@@ -43,8 +44,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltHj/collectionShops', name: 'collection-shops', component: CollectionShopView, meta: { title: '采集店铺', permission: 'crawler.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
-      { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理', permission: 'settings.manage' } },
-      { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', permission: 'settings.manage' } },
+      { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理' } },
+      { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', superadminOnly: true } },
       { path: 'system/order-sync', name: 'system-order-sync', redirect: '/system/time', meta: { title: '订单同步设置', superadminOnly: true } },
       { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
       { path: 'help/operator-manual', name: 'operator-manual', component: OperatorManualView, meta: { title: '使用手册' } },

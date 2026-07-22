@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Download, EditPen, Finished, MagicStick, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
+import DOMPurify from 'dompurify'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -2433,21 +2434,10 @@ function meituImageMimeType(ext: string) {
 }
 
 function sanitizedDescriptionHtml(value: string) {
-  const parser = new DOMParser()
-  const documentValue = parser.parseFromString(value || '', 'text/html')
-  for (const element of Array.from(documentValue.body.querySelectorAll('script, style, iframe, object, embed, link, meta, svg, canvas, video, audio'))) {
-    element.remove()
-  }
-  for (const element of Array.from(documentValue.body.querySelectorAll('*'))) {
-    for (const attribute of Array.from(element.attributes)) {
-      const name = attribute.name.toLowerCase()
-      const attrValue = attribute.value.trim()
-      if (name.startsWith('on') || attrValue.toLowerCase().startsWith('javascript:')) {
-        element.removeAttribute(attribute.name)
-      }
-    }
-  }
-  return documentValue.body.innerHTML
+  return DOMPurify.sanitize(value || '', {
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'svg', 'canvas', 'video', 'audio'],
+    FORBID_ATTR: ['style'],
+  })
 }
 </script>
 

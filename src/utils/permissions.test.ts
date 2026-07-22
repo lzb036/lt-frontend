@@ -59,9 +59,28 @@ for (const requiredContract of [
 
 const ordinaryStoreSession = {
   role: 'operator',
-  permissionCodes: ['stores.manage', 'settings.manage'],
+  permissionCodes: ['stores.manage'],
 }
 if (canAccessRouteMeta(ordinaryStoreSession, { superadminOnly: true })) {
   throw new Error('expected ordinary users to be denied order administration pages')
+}
+
+if (!canAccessRouteMeta(ordinaryStoreSession, { title: '主题管理' })) {
+  throw new Error('expected ordinary users to access personal theme settings')
+}
+
+if (canAccessRouteMeta(ordinaryStoreSession, { title: '资源管理', superadminOnly: true })) {
+  throw new Error('expected ordinary users to be denied global resource settings')
+}
+
+for (const requiredContract of [
+  "meta: { title: '主题管理' }",
+  "meta: { title: '资源管理', superadminOnly: true }",
+  "{ path: '/system/time', superadminOnly: true }",
+]) {
+  const sources = [permissionsSource, routerSource, appShellSource]
+  if (!sources.some((source) => source.includes(requiredContract))) {
+    throw new Error(`missing fixed settings visibility contract: ${requiredContract}`)
+  }
 }
 
