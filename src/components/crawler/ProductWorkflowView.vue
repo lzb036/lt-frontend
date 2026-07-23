@@ -3894,6 +3894,9 @@ function sanitizedDescriptionHtml(value: string) {
 }
 
 :deep(.pending-action-column .cell) {
+  position: sticky;
+  z-index: 2;
+  top: 0;
   padding-top: 12px;
 }
 

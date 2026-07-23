@@ -38,6 +38,11 @@ assertNoMatch(workflowSource, /<el-image\s+class="pending-product-image"/, 'pend
 assertMatch(workflowSource, /<ElImageViewer/, 'pending product images must share one image viewer')
 assertMatch(workflowSource, /<textarea\s+class="pending-title-input"/, 'pending product title editing must use a native textarea')
 assertMatch(workflowSource, /<textarea\s+class="pending-tagline-input"/, 'pending product tagline editing must use a native textarea')
+assertMatch(
+  workflowSource,
+  /:deep\(\.pending-action-column \.cell\)\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/s,
+  'pending product actions must remain visible while scrolling within a tall row',
+)
 assertMatch(routerSource, /const ProductWorkflowView = \(\) => import\(/, 'route views must be lazy loaded')
 assertNoMatch(routerSource, /import ProductWorkflowView from/, 'route view must not be eagerly imported')
 assertMatch(apiSource, /timeout:\s*60_000/, 'API client must define a timeout')
