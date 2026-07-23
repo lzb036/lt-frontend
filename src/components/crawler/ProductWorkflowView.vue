@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElImageViewer, ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Download, EditPen, Finished, MagicStick, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
 import DOMPurify from 'dompurify'
 
@@ -73,6 +73,9 @@ const pendingInlineDrafts = reactive<Record<number, PendingInlineDraft>>({})
 const pendingInlineSavingIds = shallowRef<Set<number>>(new Set())
 const replacingInlineImageProductId = shallowRef<number | null>(null)
 const replacingInlineImageIndex = shallowRef(0)
+const imageViewerVisible = shallowRef(false)
+const imageViewerUrls = shallowRef<string[]>([])
+const imageViewerInitialIndex = shallowRef(0)
 const productImageUrlsCache = new WeakMap<ProductItem, string[]>()
 let refreshRequestId = 0
 const detailForm = reactive({
@@ -284,6 +287,7 @@ onMounted(() => {
 watch(
   () => props.status,
   () => {
+    closeImageViewer()
     clearSelection()
     selectedPendingImages.value = new Map()
     hiddenProducts.value = new Map()
@@ -443,6 +447,10 @@ function setPendingInlineDraftField(product: ProductItem, field: keyof PendingIn
   pendingInlineDraft(product)[field] = String(value ?? '')
 }
 
+function handlePendingInlineTextInput(product: ProductItem, field: keyof PendingInlineDraft, event: Event) {
+  setPendingInlineDraftField(product, field, (event.target as HTMLTextAreaElement).value)
+}
+
 function setPendingInlineSaving(productId: number, saving: boolean) {
   const next = new Set(pendingInlineSavingIds.value)
   if (saving) {
@@ -503,6 +511,19 @@ function togglePendingImageSelection(productId: number, imageUrl: string, select
 
 function handlePendingImageSelectionChange(productId: number, imageUrl: string, event: Event) {
   togglePendingImageSelection(productId, imageUrl, (event.target as HTMLInputElement).checked)
+}
+
+function openImageViewer(urls: string[], initialIndex = 0) {
+  if (urls.length < 1) {
+    return
+  }
+  imageViewerUrls.value = [...urls]
+  imageViewerInitialIndex.value = Math.min(Math.max(0, initialIndex), urls.length - 1)
+  imageViewerVisible.value = true
+}
+
+function closeImageViewer() {
+  imageViewerVisible.value = false
 }
 
 function clearPendingImageSelection(productId: number) {
@@ -2794,30 +2815,28 @@ function sanitizedDescriptionHtml(value: string) {
                 </span>
               </div>
               <div class="pending-inline-fields">
-                <el-input
+                <textarea
                   class="pending-title-input"
-                  :model-value="pendingInlineDraft(row).title"
-                  type="textarea"
-                  :autosize="{ minRows: 2, maxRows: 8 }"
-                  resize="vertical"
+                  :value="pendingInlineDraft(row).title"
+                  rows="2"
                   maxlength="500"
                   placeholder="商品标题"
+                  spellcheck="false"
                   :disabled="isPendingInlineSaving(row)"
-                  @update:model-value="setPendingInlineDraftField(row, 'title', $event)"
+                  @input="handlePendingInlineTextInput(row, 'title', $event)"
                   @blur="savePendingInlineText(row)"
-                />
-                <el-input
+                ></textarea>
+                <textarea
                   class="pending-tagline-input"
-                  :model-value="pendingInlineDraft(row).tagline"
-                  type="textarea"
-                  :autosize="{ minRows: 2, maxRows: 8 }"
-                  resize="vertical"
+                  :value="pendingInlineDraft(row).tagline"
+                  rows="2"
                   maxlength="174"
                   placeholder="商品副标题"
+                  spellcheck="false"
                   :disabled="isPendingInlineSaving(row)"
-                  @update:model-value="setPendingInlineDraftField(row, 'tagline', $event)"
+                  @input="handlePendingInlineTextInput(row, 'tagline', $event)"
                   @blur="savePendingInlineText(row)"
-                />
+                ></textarea>
               </div>
               <div class="pending-image-editor">
                 <div
@@ -2836,15 +2855,19 @@ function sanitizedDescriptionHtml(value: string) {
                       @change="handlePendingImageSelectionChange(row.id, image, $event)"
                     >
                   </div>
-                  <el-image
+                  <img
                     class="pending-product-image"
                     :src="image"
-                    fit="cover"
-                    lazy
-                    :preview-src-list="productListImageUrls(row)"
-                    :initial-index="imageIndex"
-                    preview-teleported
-                  />
+                    :alt="`${row.title || '商品'} 第 ${imageIndex + 1} 张图片`"
+                    loading="lazy"
+                    decoding="async"
+                    draggable="false"
+                    role="button"
+                    tabindex="0"
+                    @click="openImageViewer(productListImageUrls(row), imageIndex)"
+                    @keydown.enter.prevent="openImageViewer(productListImageUrls(row), imageIndex)"
+                    @keydown.space.prevent="openImageViewer(productListImageUrls(row), imageIndex)"
+                  >
                   <div class="pending-image-actions">
                     <button
                       class="pending-image-action pending-image-action-edit"
@@ -3109,6 +3132,15 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
       </el-table>
       <input v-if="status === 'pending'" ref="inlineImageFileInputRef" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/gif" @change="handleInlineImageReplace" />
+      <ElImageViewer
+        v-if="imageViewerVisible"
+        :url-list="imageViewerUrls"
+        :initial-index="imageViewerInitialIndex"
+        teleported
+        hide-on-click-modal
+        show-progress
+        @close="closeImageViewer"
+      />
       <div class="pagination-row">
         <el-pagination
           v-model:current-page="currentPage"
@@ -3683,12 +3715,21 @@ function sanitizedDescriptionHtml(value: string) {
 }
 
 .pending-product-image {
+  display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 1;
+  object-fit: cover;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   background: var(--panel-muted);
+  cursor: zoom-in;
+  user-select: none;
+}
+
+.pending-product-image:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
 }
 
 .pending-image-actions {
@@ -3773,16 +3814,45 @@ function sanitizedDescriptionHtml(value: string) {
   min-width: 0;
 }
 
-.pending-inline-fields :deep(.el-textarea__inner) {
+.pending-inline-fields textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 78px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  background: var(--panel-bg);
   color: var(--text-main);
+  font-family: inherit;
   font-size: 16px;
   font-weight: 700;
   line-height: 1.65;
   padding: 12px 14px;
   overflow-wrap: anywhere;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.pending-inline-fields .pending-tagline-input :deep(.el-textarea__inner) {
+.pending-inline-fields textarea:hover:not(:disabled) {
+  border-color: var(--el-border-color-hover);
+}
+
+.pending-inline-fields textarea:focus {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+  outline: none;
+}
+
+.pending-inline-fields textarea:disabled {
+  background: var(--el-disabled-bg-color);
+  color: var(--el-disabled-text-color);
+  cursor: not-allowed;
+}
+
+.pending-inline-fields textarea::placeholder {
+  color: var(--el-text-color-placeholder);
+}
+
+.pending-inline-fields .pending-tagline-input {
   color: var(--text-main);
   font-size: 15px;
   font-weight: 700;
