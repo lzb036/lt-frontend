@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 
@@ -12,6 +12,7 @@ import CopyableTableText from './CopyableTableText.vue'
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const records = shallowRef<DeletedProductImageCleanupRecord[]>([])
+let progressTimer: number | undefined
 const {
   currentPage,
   pageSize,
@@ -26,8 +27,16 @@ onMounted(() => {
   void loadRecords()
 })
 
-async function loadRecords() {
-  loading.value = true
+onBeforeUnmount(() => {
+  stopProgressPolling()
+})
+
+watch(records, syncProgressPolling)
+
+async function loadRecords(options: { silent?: boolean } = {}) {
+  if (!options.silent) {
+    loading.value = true
+  }
   try {
     const result = await api.listDeletedProductImageCleanupsPage({
       page: currentPage.value,
@@ -36,10 +45,39 @@ async function loadRecords() {
     records.value = result.items
     setPageResult(result)
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载待清理图片记录失败'))
+    if (!options.silent) {
+      ElMessage.error(toApiErrorMessage(error, '加载待清理图片记录失败'))
+    }
   } finally {
-    loading.value = false
+    if (!options.silent) {
+      loading.value = false
+    }
   }
+}
+
+function syncProgressPolling() {
+  if (records.value.some((record) => record.status === 'queued')) {
+    startProgressPolling()
+  } else {
+    stopProgressPolling()
+  }
+}
+
+function startProgressPolling() {
+  if (progressTimer) {
+    return
+  }
+  progressTimer = window.setInterval(() => {
+    void loadRecords({ silent: true })
+  }, 2000)
+}
+
+function stopProgressPolling() {
+  if (!progressTimer) {
+    return
+  }
+  window.clearInterval(progressTimer)
+  progressTimer = undefined
 }
 
 function refreshRecords() {

@@ -12,6 +12,10 @@ const loginBrandSource = readFileSync(
   resolve(sourceRoot, 'components/auth/LoginBrandVisual.vue'),
   'utf8',
 )
+const deletedImageCleanupSource = readFileSync(
+  resolve(sourceRoot, 'components/crawler/DeletedProductImageCleanupView.vue'),
+  'utf8',
+)
 const apiSource = readFileSync(resolve(sourceRoot, 'utils/api.ts'), 'utf8')
 
 function assertMatch(source: string, pattern: RegExp, message: string) {
@@ -61,5 +65,20 @@ assertMatch(loginBrandSource, /class="brand-name-image"/, 'login brand calligrap
 assertMatch(loginBrandSource, /width: clamp\(176px, 15vw, 230px\)/, 'login brand calligraphy must remain prominent')
 assertNoMatch(loginBrandSource, /transform: rotate\(-2deg\) skewX\(-5deg\)/, 'login brand text must not be tilted')
 assertNoMatch(loginBrandSource, /FZShuTi|STXingkai|华文行楷/, 'hard-to-read calligraphy fonts must not return')
+assertMatch(
+  deletedImageCleanupSource,
+  /record\.status === 'queued'/,
+  'queued image cleanup records must enable automatic progress polling',
+)
+assertMatch(
+  deletedImageCleanupSource,
+  /loadRecords\(\{ silent: true \}\)/,
+  'image cleanup progress polling must refresh without blocking the table',
+)
+assertMatch(
+  deletedImageCleanupSource,
+  /onBeforeUnmount\(\(\) => \{\s*stopProgressPolling\(\)/s,
+  'image cleanup progress polling must stop when leaving the page',
+)
 
 console.log('security and performance source contract tests passed')
