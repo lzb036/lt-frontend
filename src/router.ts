@@ -5,6 +5,7 @@ import AppShell from './components/crawler/AppShell.vue'
 const AiTitleSettingsView = () => import('./components/crawler/AiTitleSettingsView.vue')
 const CollectionShopView = () => import('./components/crawler/CollectionShopView.vue')
 const CrawlTaskManager = () => import('./components/crawler/CrawlTaskManager.vue')
+const DeletedProductImageCleanupView = () => import('./components/crawler/DeletedProductImageCleanupView.vue')
 const ListingTaskView = () => import('./components/crawler/ListingTaskView.vue')
 const ManualCrawlView = () => import('./components/crawler/ManualCrawlView.vue')
 const OperatorManualView = () => import('./components/crawler/OperatorManualView.vue')
@@ -46,6 +47,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理', superadminOnly: true } },
+      { path: 'system/deleted-product-images', name: 'system-deleted-product-images', component: DeletedProductImageCleanupView, meta: { title: '待清理图片', superadminOnly: true } },
       { path: 'system/order-sync', name: 'system-order-sync', redirect: '/system/time', meta: { title: '订单同步设置', superadminOnly: true } },
       { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
       { path: 'help/operator-manual', name: 'operator-manual', component: OperatorManualView, meta: { title: '使用手册' } },

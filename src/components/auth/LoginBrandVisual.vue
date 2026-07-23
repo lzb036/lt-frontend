@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
+
+import yixinCalligraphy from '../../assets/yixin-calligraphy.png'
 </script>
 
 <template>
@@ -17,7 +19,7 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
         <img src="/favicon.svg" alt="" />
       </span>
       <span class="brand-name">
-        <strong>亦信</strong>
+        <img class="brand-name-image" :src="yixinCalligraphy" alt="亦信" />
       </span>
     </header>
 
@@ -255,25 +257,15 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
   clip-path: polygon(0 38%, 42% 8%, 82% 22%, 100% 55%, 76% 72%, 31% 61%, 0 100%);
 }
 
-.brand-name strong {
+.brand-name-image {
   display: block;
-  background: linear-gradient(122deg, #ffffff 4%, #ddfff8 42%, #8ff0dc 69%, #f7d77b 91%);
-  background-size: 180% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 1px rgba(238, 255, 251, 0.72);
-  font-family: "STKaiti", "KaiTi", "Kaiti SC", "楷体", "Microsoft YaHei", serif;
-  font-size: clamp(62px, 5.2vw, 78px);
-  font-weight: 900;
-  line-height: 0.98;
-  letter-spacing: 10px;
+  width: clamp(176px, 15vw, 230px);
+  height: auto;
+  aspect-ratio: 77 / 42;
+  object-fit: contain;
   filter:
     drop-shadow(0 2px 0 rgba(5, 48, 52, 0.82))
     drop-shadow(0 10px 22px rgba(57, 224, 194, 0.24));
-  transform: scaleX(1.03);
-  transform-origin: left center;
 }
 
 .brand-stage {
@@ -537,9 +529,8 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
     height: 60px;
   }
 
-  .brand-name strong {
-    font-size: 51px;
-    letter-spacing: 6px;
+  .brand-name-image {
+    width: 172px;
   }
 
   .brand-stage h1 {
@@ -585,9 +576,8 @@ import { Box, Connection, Goods, Key } from '@element-plus/icons-vue'
     height: 54px;
   }
 
-  .brand-name strong {
-    font-size: 45px;
-    letter-spacing: 5px;
+  .brand-name-image {
+    width: 150px;
   }
 
   .brand-kicker,

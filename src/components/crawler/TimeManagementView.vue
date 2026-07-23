@@ -7,7 +7,6 @@ import { Check, Refresh, RefreshLeft, VideoPlay } from '@element-plus/icons-vue'
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type {
   AuthSession,
-  DeletedProductImageCleanupRecord,
   ProxyResourceUsage,
   SalesOrderSyncGlobalSettings,
   SalesOrderSyncGlobalSettingsPayload,
@@ -26,10 +25,6 @@ const saving = shallowRef(false)
 const runningTaskCleanup = shallowRef(false)
 const runningUnlistedCleanup = shallowRef(false)
 const runningDeletedImageCleanup = shallowRef(false)
-const deletedImageRecordsLoading = shallowRef(false)
-const deletedImageRecords = shallowRef<DeletedProductImageCleanupRecord[]>([])
-const deletedImageRecordsPage = shallowRef(1)
-const deletedImageRecordsTotal = shallowRef(0)
 const proxyLoading = shallowRef(false)
 const queueLoading = shallowRef(false)
 const settings = shallowRef<TimeSettings | null>(null)
@@ -188,7 +183,6 @@ onMounted(() => {
   startCountdown()
   void loadSettings()
   if (isSuperadmin.value) {
-    void loadDeletedImageRecords()
     void loadOrderSettings()
   }
   if (isSuperadmin.value) {
@@ -451,23 +445,6 @@ async function runUnlistedProductCleanupNow() {
   }
 }
 
-async function loadDeletedImageRecords() {
-  deletedImageRecordsLoading.value = true
-  try {
-    const result = await api.listDeletedProductImageCleanupsPage({
-      page: deletedImageRecordsPage.value,
-      pageSize: 30,
-    })
-    deletedImageRecords.value = result.items
-    deletedImageRecordsTotal.value = result.total
-    deletedImageRecordsPage.value = result.page
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载待清理图片记录失败'))
-  } finally {
-    deletedImageRecordsLoading.value = false
-  }
-}
-
 async function runDeletedImageCleanupNow() {
   try {
     await ElMessageBox.confirm(
@@ -482,7 +459,6 @@ async function runDeletedImageCleanupNow() {
     runningDeletedImageCleanup.value = true
     const result = await api.runDeletedProductImageCleanup()
     applySettings(result.settings)
-    await loadDeletedImageRecords()
     ElMessage.success(
       result.summary.productCount > 0
         ? `已创建 ${result.summary.taskCount} 个图片清理任务，涉及 ${result.summary.productCount} 个商品`
@@ -499,15 +475,6 @@ async function runDeletedImageCleanupNow() {
 
 function formatValue(value: string | null | undefined) {
   return value || '-'
-}
-
-function deletedImageCleanupStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: '待清理',
-    queued: '已创建任务',
-    failed: '清理失败',
-  }
-  return labels[status] || status
 }
 
 function queuePendingText(row: { queued: number; started: number; deferred: number; scheduled: number }) {
@@ -787,7 +754,7 @@ function formatBytes(value?: number | null) {
           </div>
           <div class="status-item">
             <span>待清理商品</span>
-            <strong>{{ deletedImageRecordsTotal }} 个</strong>
+            <strong>{{ settings?.deletedImageCleanupPendingCount ?? 0 }} 个</strong>
           </div>
           <div class="status-item">
             <span>上次执行</span>
@@ -803,36 +770,6 @@ function formatBytes(value?: number | null) {
         </div>
       </div>
 
-      <el-table
-        v-loading="deletedImageRecordsLoading"
-        :data="deletedImageRecords"
-        empty-text="暂无待清理图片记录"
-        max-height="420"
-        row-key="id"
-      >
-        <el-table-column prop="ownerUsername" label="所属用户" min-width="140" />
-        <el-table-column prop="storeName" label="店铺" min-width="150" />
-        <el-table-column prop="productCode" label="原商品" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="cabinetImageCount" label="R-Cabinet" width="110" />
-        <el-table-column prop="localImageCount" label="本地/OSS" width="100" />
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }">
-            {{ deletedImageCleanupStatusLabel(row.status) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="syncTaskId" label="同步任务" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="lastError" label="错误信息" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="deletedAt" label="商品删除时间" min-width="170" />
-      </el-table>
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="deletedImageRecordsPage"
-          :page-size="30"
-          :total="deletedImageRecordsTotal"
-          layout="total, prev, pager, next"
-          @current-change="loadDeletedImageRecords"
-        />
-      </div>
     </section>
 
     <section v-if="isSuperadmin" v-loading="orderState.loading" class="time-panel">

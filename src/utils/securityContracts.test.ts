@@ -44,6 +44,11 @@ assertMatch(
   'pending product actions must remain visible while scrolling within a tall row',
 )
 assertMatch(routerSource, /const ProductWorkflowView = \(\) => import\(/, 'route views must be lazy loaded')
+assertMatch(
+  routerSource,
+  /const DeletedProductImageCleanupView = \(\) => import\(/,
+  'deleted image cleanup records view must be lazy loaded',
+)
 assertNoMatch(routerSource, /import ProductWorkflowView from/, 'route view must not be eagerly imported')
 assertMatch(apiSource, /timeout:\s*60_000/, 'API client must define a timeout')
 assertMatch(loginBrandSource, /<svg class="map-routes"/, 'login data map must use an SVG route layer')
@@ -51,9 +56,9 @@ for (const endpoint of ['82" y2="17', '91" y2="53', '75" y2="88', '10" y2="73'])
   assertMatch(loginBrandSource, new RegExp(`x2="${endpoint}`), `missing precise map route endpoint ${endpoint}`)
 }
 assertNoMatch(loginBrandSource, /<span class="map-route/, 'fixed-angle map route spans must be removed')
-assertMatch(loginBrandSource, /font-size: clamp\(62px, 5\.2vw, 78px\)/, 'login brand name must remain prominent')
-assertMatch(loginBrandSource, /"STKaiti", "KaiTi", "Kaiti SC"/, 'login brand must use a readable handwritten font stack')
-assertMatch(loginBrandSource, /transform: scaleX\(1\.03\)/, 'login brand text must remain horizontally aligned')
+assertMatch(loginBrandSource, /import yixinCalligraphy from '\.\.\/\.\.\/assets\/yixin-calligraphy\.png'/, 'login brand must use the supplied calligraphy artwork')
+assertMatch(loginBrandSource, /class="brand-name-image"/, 'login brand calligraphy image must be rendered')
+assertMatch(loginBrandSource, /width: clamp\(176px, 15vw, 230px\)/, 'login brand calligraphy must remain prominent')
 assertNoMatch(loginBrandSource, /transform: rotate\(-2deg\) skewX\(-5deg\)/, 'login brand text must not be tilted')
 assertNoMatch(loginBrandSource, /FZShuTi|STXingkai|华文行楷/, 'hard-to-read calligraphy fonts must not return')
 

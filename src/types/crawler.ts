@@ -721,6 +721,7 @@ export interface TimeSettings {
   deletedImageCleanupLastAt?: string | null
   deletedImageCleanupLastProductCount: number
   deletedImageCleanupLastTaskCount: number
+  deletedImageCleanupPendingCount: number
   queueHealth?: TaskQueueHealth | null
   serverNow?: string | null
   updatedAt?: string | null

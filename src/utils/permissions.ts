@@ -27,6 +27,7 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltJobs/orderSyncHistory', superadminOnly: true },
   { path: '/system/theme' },
   { path: '/system/time', superadminOnly: true },
+  { path: '/system/deleted-product-images', superadminOnly: true },
   { path: '/system/order-sync', superadminOnly: true },
 ]
 

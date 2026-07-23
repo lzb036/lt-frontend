@@ -6,6 +6,7 @@ import {
   Aim,
   AlarmClock,
   Cpu,
+  Delete,
   Document,
   Expand,
   Finished,
@@ -141,6 +142,7 @@ const menuGroups = computed(() => {
   if (isSuperadmin.value) {
     settingsChildren.push(
       { path: '/system/time', label: '资源管理', icon: AlarmClock },
+      { path: '/system/deleted-product-images', label: '待清理图片', icon: Delete },
       { path: '/system/sensitive-words', label: '敏感词管理', icon: Warning },
     )
   }
