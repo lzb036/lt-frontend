@@ -17,6 +17,14 @@ const deletedImageCleanupSource = readFileSync(
   'utf8',
 )
 const apiSource = readFileSync(resolve(sourceRoot, 'utils/api.ts'), 'utf8')
+const collectorApiSource = readFileSync(
+  resolve(sourceRoot, 'composables/useCollectorApi.ts'),
+  'utf8',
+)
+const manualResultSource = readFileSync(
+  resolve(sourceRoot, 'components/crawler/ManualCrawlResultDialog.vue'),
+  'utf8',
+)
 
 function assertMatch(source: string, pattern: RegExp, message: string) {
   if (!pattern.test(source)) {
@@ -90,6 +98,31 @@ assertMatch(
   deletedImageCleanupSource,
   /onBeforeUnmount\(\(\) => \{\s*stopProgressPolling\(\)/s,
   'image cleanup progress polling must stop when leaving the page',
+)
+assertMatch(
+  collectorApiSource,
+  /taskIds:\s*taskIds\.length > 0 \? taskIds\.join\(','\) : undefined/,
+  'task polling APIs must send only the requested task ids',
+)
+assertNoMatch(
+  workflowSource,
+  /api\.list(?:Listing|Sync)Tasks\(\)/,
+  'product operation polling must not load complete task histories',
+)
+assertMatch(
+  manualResultSource,
+  /api\.listProductsPage\(\{/,
+  'manual crawl results must use server pagination',
+)
+assertNoMatch(
+  manualResultSource,
+  /pageSize:\s*500/,
+  'manual crawl results must not load a fixed 500-product batch',
+)
+assertMatch(
+  manualResultSource,
+  /本页全部上架/,
+  'manual crawl result batch action must describe its page scope',
 )
 
 console.log('security and performance source contract tests passed')

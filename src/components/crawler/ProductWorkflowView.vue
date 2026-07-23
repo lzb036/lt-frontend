@@ -1432,7 +1432,7 @@ function watchListingTaskCompletion(taskId: string, productIds: number[]) {
   let pollFailures = 0
   const timer = window.setInterval(async () => {
     try {
-      const tasks = await api.listListingTasks()
+      const tasks = await api.listListingTasks([taskId])
       pollFailures = 0
       const task = tasks.find((item) => item.id === taskId)
       if (!task) {
@@ -1465,7 +1465,7 @@ function watchListingTasksCompletion(taskIdsToWatch: string[], productIds: numbe
   let pollFailures = 0
   const timer = window.setInterval(async () => {
     try {
-      const tasks = await api.listListingTasks()
+      const tasks = await api.listListingTasks(taskIdsToWatch)
       pollFailures = 0
       const matchedTasks = tasks.filter((item) => idSet.has(item.id))
       if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
@@ -1536,7 +1536,7 @@ function watchDeleteSyncTasksCompletion(taskIdsToWatch: string[], productIds: nu
   let pollFailures = 0
   const timer = window.setInterval(async () => {
     try {
-      const tasks = await api.listSyncTasks()
+      const tasks = await api.listSyncTasks(taskIdsToWatch)
       pollFailures = 0
       const matchedTasks = tasks.filter((item) => idSet.has(item.id))
       if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
@@ -1563,7 +1563,7 @@ function watchListingStatusSyncTasksCompletion(taskIdsToWatch: string[], product
   let pollFailures = 0
   const timer = window.setInterval(async () => {
     try {
-      const tasks = await api.listSyncTasks()
+      const tasks = await api.listSyncTasks(taskIdsToWatch)
       pollFailures = 0
       const matchedTasks = tasks.filter((item) => idSet.has(item.id))
       if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
@@ -1590,7 +1590,7 @@ function watchTitleOptimizationTaskCompletion(taskIdsToWatch: string[], productI
   let pollFailures = 0
   const timer = window.setInterval(async () => {
     try {
-      const tasks = await api.listSyncTasks()
+      const tasks = await api.listSyncTasks(taskIdsToWatch)
       pollFailures = 0
       const matchedTasks = tasks.filter((item) => idSet.has(item.id))
       if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {

@@ -863,8 +863,10 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function listListingTasks() {
-    const response = await apiClient.get<{ listingTasks: ListingTask[] }>('/crawler/listing-tasks')
+  async function listListingTasks(taskIds: string[] = []) {
+    const response = await apiClient.get<{ listingTasks: ListingTask[] }>('/crawler/listing-tasks', {
+      params: { taskIds: taskIds.length > 0 ? taskIds.join(',') : undefined },
+    })
     return response.data.listingTasks
   }
 
@@ -910,8 +912,10 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function listSyncTasks() {
-    const response = await apiClient.get<{ syncTasks: SyncTask[] }>('/crawler/sync-tasks')
+  async function listSyncTasks(taskIds: string[] = []) {
+    const response = await apiClient.get<{ syncTasks: SyncTask[] }>('/crawler/sync-tasks', {
+      params: { taskIds: taskIds.length > 0 ? taskIds.join(',') : undefined },
+    })
     return response.data.syncTasks
   }
 

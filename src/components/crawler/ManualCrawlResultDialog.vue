@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, EditPen, Upload } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlTask, ProductDetail, ProductDetailEditPayload, ProductItem, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
@@ -31,6 +32,16 @@ const listingForm = reactive({
   storeIds: [] as number[],
   taskName: '',
 })
+const {
+  currentPage,
+  pageSize,
+  pageSizes,
+  paginationLayout,
+  total,
+  resetPage,
+  setPageResult,
+} = useServerPagination()
+const resultPageSizes = pageSizes.filter((size) => size <= 90)
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -50,29 +61,40 @@ watch(
   () => [props.modelValue, props.task?.id] as const,
   ([visible, taskId]) => {
     if (visible && taskId) {
-      void loadResult(taskId)
+      resetPage()
+      void loadResult(taskId, { loadStores: true })
     }
   },
   { immediate: true },
 )
 
-async function loadResult(taskId: string) {
+async function loadResult(taskId: string, options: { loadStores?: boolean } = {}) {
   loading.value = true
   try {
     const [taskProducts, storeRows] = await Promise.all([
-      api.listProducts({ taskId, page: 1, pageSize: 500 }),
-      api.listStores(),
+      api.listProductsPage({
+        taskId,
+        page: currentPage.value,
+        pageSize: pageSize.value,
+      }),
+      options.loadStores ? api.listStores() : Promise.resolve(stores.value),
     ])
-    products.value = taskProducts
+    products.value = taskProducts.items
+    setPageResult(taskProducts)
     stores.value = storeRows
     listingForm.storeIds = []
     listingForm.taskName = ''
-    syncDrafts(taskProducts)
+    syncDrafts(taskProducts.items)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载采集商品详情失败'))
   } finally {
     loading.value = false
   }
+}
+
+function handlePageSizeChange() {
+  resetPage()
+  void loadResult(props.task?.id || '')
 }
 
 function syncDrafts(rows: ProductItem[]) {
@@ -343,7 +365,7 @@ function normalizeImageExt(ext: string, imageBase64: string) {
 async function submitAllProducts() {
   const productIds = eligibleProducts.value.map((product) => product.id)
   if (productIds.length < 1) {
-    ElMessage.warning('本次采集没有可上架的待审核商品')
+    ElMessage.warning('本页没有可上架的待审核商品')
     return
   }
   if (listingForm.storeIds.length < 1) {
@@ -367,7 +389,7 @@ async function submitAllProducts() {
       .map((store) => store.aliasName || store.storeName || store.storeCode)
       .join('、')
     await ElMessageBox.confirm(
-      `确认将本次采集的 ${productIds.length} 个商品全部上架到 ${listingForm.storeIds.length} 个店铺（${storeNames}）？`,
+      `确认将本页的 ${productIds.length} 个商品全部上架到 ${listingForm.storeIds.length} 个店铺（${storeNames}）？`,
       '创建上架任务',
       {
         confirmButtonText: '确认上架',
@@ -400,8 +422,8 @@ async function submitAllProducts() {
     <div v-loading="loading" class="manual-result-shell">
       <div class="result-summary">
         <div>
-          <strong>采集商品：{{ products.length }} 个</strong>
-          <span>可上架：{{ eligibleProducts.length }} 个</span>
+          <strong>采集商品：{{ total }} 个</strong>
+          <span>本页可上架：{{ eligibleProducts.length }} 个</span>
         </div>
         <span>{{ task?.target }}</span>
       </div>
@@ -416,7 +438,7 @@ async function submitAllProducts() {
           >
             <div class="product-heading">
               <div class="product-title-line">
-                <span>{{ productIndex + 1 }}. {{ drafts[product.id]?.title || product.title }}</span>
+                <span>{{ (currentPage - 1) * pageSize + productIndex + 1 }}. {{ drafts[product.id]?.title || product.title }}</span>
                 <div v-if="product.listedStores?.length" class="listed-store-tags">
                   <el-tooltip
                     v-for="store in product.listedStores"
@@ -515,6 +537,18 @@ async function submitAllProducts() {
         </div>
       </div>
 
+      <div class="result-pagination">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="resultPageSizes"
+          :total="total"
+          :layout="paginationLayout"
+          @current-change="loadResult(task?.id || '')"
+          @size-change="handlePageSizeChange"
+        />
+      </div>
+
       <div class="listing-panel">
         <el-select
           v-model="listingForm.storeIds"
@@ -542,7 +576,7 @@ async function submitAllProducts() {
         :disabled="loading || eligibleProducts.length < 1"
         @click="submitAllProducts"
       >
-        全部上架
+        本页全部上架
       </el-button>
     </template>
 
@@ -553,9 +587,16 @@ async function submitAllProducts() {
 <style scoped>
 .manual-result-shell {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   height: 68vh;
   min-height: 420px;
+}
+
+.result-pagination {
+  display: flex;
+  justify-content: flex-end;
+  overflow-x: auto;
+  padding: 10px 0;
 }
 
 .result-summary {
