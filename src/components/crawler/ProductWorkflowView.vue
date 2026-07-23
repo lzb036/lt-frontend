@@ -2791,10 +2791,11 @@ function sanitizedDescriptionHtml(value: string) {
 
       <el-table
         ref="productTableRef"
+        class="product-table"
         v-loading="loading"
         :data="visibleProducts"
         :empty-text="statusCopy.empty"
-        height="max(620px, calc(100vh - 330px))"
+        height="100%"
         row-key="id"
         :row-class-name="productRowClassName"
         @selection-change="handleSelectionChange"
@@ -3384,6 +3385,8 @@ function sanitizedDescriptionHtml(value: string) {
 <style scoped>
 .page-stack {
   display: grid;
+  min-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -3447,14 +3450,19 @@ function sanitizedDescriptionHtml(value: string) {
 }
 
 .work-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm);
+  padding: 18px;
 }
 
-.work-panel {
-  padding: 18px;
+.product-table {
+  flex: 1 1 620px;
+  min-height: 620px;
 }
 
 .filter-row {

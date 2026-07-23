@@ -42,6 +42,17 @@ assertNoMatch(workflowSource, /<el-image\s+class="pending-product-image"/, 'pend
 assertMatch(workflowSource, /<ElImageViewer/, 'pending product images must share one image viewer')
 assertMatch(workflowSource, /<textarea\s+class="pending-title-input"/, 'pending product title editing must use a native textarea')
 assertMatch(workflowSource, /<textarea\s+class="pending-tagline-input"/, 'pending product tagline editing must use a native textarea')
+assertMatch(workflowSource, /class="product-table"[\s\S]*height="100%"/, 'product table must fill the remaining content height')
+assertMatch(
+  workflowSource,
+  /\.page-stack\s*\{[^}]*min-height:\s*100%;[^}]*grid-template-rows:\s*auto minmax\(0,\s*1fr\);/s,
+  'product workflow must fill the available shell content height',
+)
+assertMatch(
+  workflowSource,
+  /\.work-panel\s*\{[^}]*display:\s*flex;[^}]*min-height:\s*0;[^}]*flex-direction:\s*column;/s,
+  'product workflow panel must distribute remaining height to its table',
+)
 assertMatch(
   workflowSource,
   /:deep\(\.pending-action-column \.cell\)\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/s,
