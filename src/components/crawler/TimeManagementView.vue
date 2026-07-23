@@ -7,6 +7,7 @@ import { Check, Refresh, RefreshLeft, VideoPlay } from '@element-plus/icons-vue'
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type {
   AuthSession,
+  DeletedProductImageCleanupRecord,
   ProxyResourceUsage,
   SalesOrderSyncGlobalSettings,
   SalesOrderSyncGlobalSettingsPayload,
@@ -24,6 +25,11 @@ const loading = shallowRef(false)
 const saving = shallowRef(false)
 const runningTaskCleanup = shallowRef(false)
 const runningUnlistedCleanup = shallowRef(false)
+const runningDeletedImageCleanup = shallowRef(false)
+const deletedImageRecordsLoading = shallowRef(false)
+const deletedImageRecords = shallowRef<DeletedProductImageCleanupRecord[]>([])
+const deletedImageRecordsPage = shallowRef(1)
+const deletedImageRecordsTotal = shallowRef(0)
 const proxyLoading = shallowRef(false)
 const queueLoading = shallowRef(false)
 const settings = shallowRef<TimeSettings | null>(null)
@@ -42,6 +48,9 @@ const form = reactive<TimeSettingsPayload>({
   productSyncWeekday: 6,
   productSyncTime: '21:00',
   unlistedCleanupEnabled: true,
+  deletedImageCleanupEnabled: true,
+  deletedImageCleanupWeekday: 5,
+  deletedImageCleanupTime: '09:00',
 })
 const DEFAULT_ORDER_SETTINGS: SalesOrderSyncGlobalSettingsPayload = {
   enabled: true,
@@ -85,6 +94,7 @@ const unlistedCleanupTimeText = computed(() => {
   return `每月 ${day} 号 ${time}`
 })
 const unlistedNextCleanupAtText = computed(() => settings.value?.unlistedNextCleanupAt || '-')
+const deletedImageCleanupNextAtText = computed(() => settings.value?.deletedImageCleanupNextAt || '-')
 const queueHealth = computed(() => settings.value?.queueHealth || null)
 const queueHealthTagType = computed(() => {
   if (!queueHealth.value) {
@@ -155,6 +165,17 @@ const unlistedCleanupCountdownText = computed(() => {
   }
   return formatCountdown(remainingMs)
 })
+const deletedImageCleanupCountdownText = computed(() => {
+  if (!settings.value?.deletedImageCleanupEnabled) {
+    return '已关闭'
+  }
+  const nextAt = parseDateTimeMs(settings.value?.deletedImageCleanupNextAt)
+  if (nextAt === null) {
+    return '未获取'
+  }
+  const remainingMs = nextAt - (nowTick.value + serverTimeOffsetMs.value)
+  return remainingMs <= 0 ? '待执行' : formatCountdown(remainingMs)
+})
 const proxyResetCountdownText = computed(() => {
   const nextAt = parseDateTimeMs(proxyUsage.value?.resetAt)
   if (nextAt === null) {
@@ -167,6 +188,7 @@ onMounted(() => {
   startCountdown()
   void loadSettings()
   if (isSuperadmin.value) {
+    void loadDeletedImageRecords()
     void loadOrderSettings()
   }
   if (isSuperadmin.value) {
@@ -294,6 +316,9 @@ function applySettings(result: TimeSettings) {
   form.productSyncWeekday = result.productSyncWeekday ?? 6
   form.productSyncTime = result.productSyncTime || '21:00'
   form.unlistedCleanupEnabled = result.unlistedCleanupEnabled
+  form.deletedImageCleanupEnabled = result.deletedImageCleanupEnabled
+  form.deletedImageCleanupWeekday = result.deletedImageCleanupWeekday ?? 5
+  form.deletedImageCleanupTime = result.deletedImageCleanupTime || '09:00'
 }
 
 function applyServerTime(serverNowValue?: string | null) {
@@ -334,6 +359,9 @@ async function saveSettings() {
       productSyncWeekday: form.productSyncWeekday,
       productSyncTime: form.productSyncTime,
       unlistedCleanupEnabled: form.unlistedCleanupEnabled,
+      deletedImageCleanupEnabled: form.deletedImageCleanupEnabled,
+      deletedImageCleanupWeekday: form.deletedImageCleanupWeekday,
+      deletedImageCleanupTime: form.deletedImageCleanupTime,
     })
     applySettings(result)
     ElMessage.success('资源管理设置已保存')
@@ -397,7 +425,7 @@ async function runScheduledTaskCleanupNow() {
 async function runUnlistedProductCleanupNow() {
   try {
     await ElMessageBox.confirm(
-      '确认立即为所有启用店铺创建未上架商品删除任务？该操作会同步删除乐天商品，并尝试删除关联的 R-Cabinet 图片。',
+      '确认立即为所有启用店铺创建未上架商品删除任务？任务会删除乐天商品和本地商品记录，关联图片进入每周图片清理队列。',
       '立即删除未上架商品',
       {
         confirmButtonText: '执行',
@@ -423,8 +451,63 @@ async function runUnlistedProductCleanupNow() {
   }
 }
 
+async function loadDeletedImageRecords() {
+  deletedImageRecordsLoading.value = true
+  try {
+    const result = await api.listDeletedProductImageCleanupsPage({
+      page: deletedImageRecordsPage.value,
+      pageSize: 30,
+    })
+    deletedImageRecords.value = result.items
+    deletedImageRecordsTotal.value = result.total
+    deletedImageRecordsPage.value = result.page
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '加载待清理图片记录失败'))
+  } finally {
+    deletedImageRecordsLoading.value = false
+  }
+}
+
+async function runDeletedImageCleanupNow() {
+  try {
+    await ElMessageBox.confirm(
+      '确认立即按店铺创建已删除商品图片清理任务？每个同步任务最多处理 50 个商品。',
+      '立即清理图片',
+      {
+        confirmButtonText: '创建任务',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    runningDeletedImageCleanup.value = true
+    const result = await api.runDeletedProductImageCleanup()
+    applySettings(result.settings)
+    await loadDeletedImageRecords()
+    ElMessage.success(
+      result.summary.productCount > 0
+        ? `已创建 ${result.summary.taskCount} 个图片清理任务，涉及 ${result.summary.productCount} 个商品`
+        : '没有可创建任务的待清理图片记录',
+    )
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '创建图片清理任务失败'))
+    }
+  } finally {
+    runningDeletedImageCleanup.value = false
+  }
+}
+
 function formatValue(value: string | null | undefined) {
   return value || '-'
+}
+
+function deletedImageCleanupStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: '待清理',
+    queued: '已创建任务',
+    failed: '清理失败',
+  }
+  return labels[status] || status
 }
 
 function queuePendingText(row: { queued: number; started: number; deferred: number; scheduled: number }) {
@@ -642,6 +725,113 @@ function formatBytes(value?: number | null) {
           <span>上次任务数</span>
           <strong>{{ settings?.unlistedLastTaskCount ?? 0 }} 个</strong>
         </div>
+      </div>
+    </section>
+
+    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
+      <div class="time-panel-head">
+        <div>
+          <h2>已删除商品图片清理</h2>
+          <p>商品删除时保留图片，每周按商品数量创建同步任务清理 R-Cabinet 和本地/OSS 图片</p>
+        </div>
+        <div class="panel-head-actions">
+          <el-switch
+            v-model="form.deletedImageCleanupEnabled"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+          />
+          <el-button
+            type="danger"
+            :icon="VideoPlay"
+            :loading="runningDeletedImageCleanup"
+            @click="runDeletedImageCleanupNow"
+          >
+            立即执行
+          </el-button>
+          <el-button type="primary" :icon="Check" :loading="saving" @click="saveSettings">
+            保存
+          </el-button>
+        </div>
+      </div>
+
+      <div class="compact-layout">
+        <el-form label-position="top" class="compact-form">
+          <el-form-item label="每周执行">
+            <div class="schedule-controls">
+              <el-select
+                v-model="form.deletedImageCleanupWeekday"
+                :disabled="!form.deletedImageCleanupEnabled"
+              >
+                <el-option
+                  v-for="item in weekdayOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+              <el-time-picker
+                v-model="form.deletedImageCleanupTime"
+                :disabled="!form.deletedImageCleanupEnabled"
+                format="HH:mm"
+                value-format="HH:mm"
+              />
+            </div>
+          </el-form-item>
+        </el-form>
+        <div class="status-grid">
+          <div class="status-item status-item-primary">
+            <span>距下次清理</span>
+            <strong>{{ deletedImageCleanupCountdownText }}</strong>
+            <em>{{ deletedImageCleanupNextAtText }}</em>
+          </div>
+          <div class="status-item">
+            <span>待清理商品</span>
+            <strong>{{ deletedImageRecordsTotal }} 个</strong>
+          </div>
+          <div class="status-item">
+            <span>上次执行</span>
+            <strong>{{ formatValue(settings?.deletedImageCleanupLastAt) }}</strong>
+          </div>
+          <div class="status-item">
+            <span>上次任务</span>
+            <strong>
+              {{ settings?.deletedImageCleanupLastTaskCount ?? 0 }} 个 /
+              {{ settings?.deletedImageCleanupLastProductCount ?? 0 }} 商品
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      <el-table
+        v-loading="deletedImageRecordsLoading"
+        :data="deletedImageRecords"
+        empty-text="暂无待清理图片记录"
+        max-height="420"
+        row-key="id"
+      >
+        <el-table-column prop="ownerUsername" label="所属用户" min-width="140" />
+        <el-table-column prop="storeName" label="店铺" min-width="150" />
+        <el-table-column prop="productCode" label="原商品" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="cabinetImageCount" label="R-Cabinet" width="110" />
+        <el-table-column prop="localImageCount" label="本地/OSS" width="100" />
+        <el-table-column label="状态" width="110">
+          <template #default="{ row }">
+            {{ deletedImageCleanupStatusLabel(row.status) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="syncTaskId" label="同步任务" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="lastError" label="错误信息" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="deletedAt" label="商品删除时间" min-width="170" />
+      </el-table>
+      <div class="pagination-row">
+        <el-pagination
+          v-model:current-page="deletedImageRecordsPage"
+          :page-size="30"
+          :total="deletedImageRecordsTotal"
+          layout="total, prev, pager, next"
+          @current-change="loadDeletedImageRecords"
+        />
       </div>
     </section>
 

@@ -714,6 +714,13 @@ export interface TimeSettings {
   unlistedLastCleanupAt?: string | null
   unlistedLastDeletedCount: number
   unlistedLastTaskCount: number
+  deletedImageCleanupEnabled: boolean
+  deletedImageCleanupWeekday: number
+  deletedImageCleanupTime: string
+  deletedImageCleanupNextAt?: string | null
+  deletedImageCleanupLastAt?: string | null
+  deletedImageCleanupLastProductCount: number
+  deletedImageCleanupLastTaskCount: number
   queueHealth?: TaskQueueHealth | null
   serverNow?: string | null
   updatedAt?: string | null
@@ -727,6 +734,26 @@ export interface TimeSettingsPayload {
   productSyncWeekday: number
   productSyncTime: string
   unlistedCleanupEnabled: boolean
+  deletedImageCleanupEnabled: boolean
+  deletedImageCleanupWeekday: number
+  deletedImageCleanupTime: string
+}
+
+export interface DeletedProductImageCleanupRecord {
+  id: number
+  ownerUsername: string
+  storeId?: number | null
+  storeName: string
+  originalProductId: number
+  productCode: string
+  cabinetImageCount: number
+  localImageCount: number
+  status: string
+  syncTaskId?: string | null
+  lastError?: string | null
+  deletedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
 }
 
 export interface ProxyResourceUsage {

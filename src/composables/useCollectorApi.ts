@@ -9,6 +9,7 @@ import type {
   CrawlSourcePayload,
   CrawlTask,
   CreateTaskPayload,
+  DeletedProductImageCleanupRecord,
   ListingPreflightResult,
   ListingTask,
   ListingTaskPayload,
@@ -636,6 +637,22 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function listDeletedProductImageCleanupsPage(params: PageParams) {
+    const response = await apiClient.get<ApiPageResponse<'records', DeletedProductImageCleanupRecord>>(
+      '/crawler/settings/time/deleted-product-images',
+      { params },
+    )
+    return toPageResult(response.data, 'records')
+  }
+
+  async function runDeletedProductImageCleanup() {
+    const response = await apiClient.post<{
+      settings: TimeSettings
+      summary: { taskCount: number; productCount: number }
+    }>('/crawler/settings/time/deleted-product-images/run')
+    return response.data
+  }
+
   async function createProductTitleOptimizationTask(productIds: number[]) {
     const response = await apiClient.post<{
       syncTask: SyncTask
@@ -963,6 +980,8 @@ export function useCollectorApi() {
     updateTimeSettings,
     runScheduledTaskCleanup,
     runUnlistedProductCleanup,
+    listDeletedProductImageCleanupsPage,
+    runDeletedProductImageCleanup,
     getProxyResourceUsage,
     listSensitiveWordsPage,
     createSensitiveWord,

@@ -980,7 +980,7 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
   try {
     const deleteTaskCount = Math.ceil(productIds.length / BATCH_TASK_PRODUCT_LIMIT)
     const deleteMessage = props.status === 'listed'
-      ? `确认删除选中的 ${productIds.length} 个店铺商品？将创建 ${deleteTaskCount} 个同步任务，每个任务最多 ${BATCH_TASK_PRODUCT_LIMIT} 个商品；任务会同步删除乐天商品，并尝试删除关联的 R-Cabinet 图片。`
+      ? `确认删除选中的 ${productIds.length} 个店铺商品？将创建 ${deleteTaskCount} 个同步任务，每个任务最多 ${BATCH_TASK_PRODUCT_LIMIT} 个商品；任务只删除乐天商品和本地商品记录，关联图片会进入每周图片清理队列。`
       : product
         ? `确认删除商品「${productDisplayName(product)}」？该操作会直接删除本地数据库记录和本地图片文件，不会创建同步任务。`
         : `确认直接删除选中的 ${productIds.length} 个商品？该操作会删除本地数据库记录和本地图片文件，不会创建同步任务。`
