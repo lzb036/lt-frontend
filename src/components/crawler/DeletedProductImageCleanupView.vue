@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -11,6 +11,7 @@ import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
+const runningCleanup = shallowRef(false)
 const records = shallowRef<DeletedProductImageCleanupRecord[]>([])
 let progressTimer: number | undefined
 const {
@@ -85,6 +86,35 @@ function refreshRecords() {
   void loadRecords()
 }
 
+async function runCleanupNow() {
+  try {
+    await ElMessageBox.confirm(
+      '确认立即创建已删除商品图片清理任务？系统会按所属用户和店铺分组，每个同步任务最多处理 50 个商品。',
+      '立即清理图片',
+      {
+        confirmButtonText: '创建任务',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    runningCleanup.value = true
+    const result = await api.runDeletedProductImageCleanup()
+    resetPage()
+    await loadRecords({ silent: true })
+    ElMessage.success(
+      result.summary.productCount > 0
+        ? `已创建 ${result.summary.taskCount} 个图片清理任务，涉及 ${result.summary.productCount} 个商品`
+        : '没有可创建任务的待清理图片记录',
+    )
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '创建图片清理任务失败'))
+    }
+  } finally {
+    runningCleanup.value = false
+  }
+}
+
 function handlePageSizeChange() {
   resetPage()
   void loadRecords()
@@ -117,9 +147,19 @@ function statusType(status: string) {
         <p class="eyebrow">System Settings</p>
         <h1>待清理图片记录</h1>
       </div>
-      <el-button :icon="Refresh" :loading="loading" @click="refreshRecords">
-        刷新
-      </el-button>
+      <div class="page-head-actions">
+        <el-button
+          type="danger"
+          :icon="VideoPlay"
+          :loading="runningCleanup"
+          @click="runCleanupNow"
+        >
+          立即执行
+        </el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="refreshRecords">
+          刷新
+        </el-button>
+      </div>
     </div>
 
     <section class="work-panel">
@@ -201,6 +241,12 @@ function statusType(status: string) {
   font-weight: 800;
 }
 
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .work-panel {
   padding: 18px;
   border: 1px solid var(--panel-border);
@@ -213,6 +259,10 @@ function statusType(status: string) {
   .page-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .page-head-actions {
+    justify-content: flex-end;
   }
 }
 </style>
