@@ -73,6 +73,7 @@ const pendingInlineDrafts = reactive<Record<number, PendingInlineDraft>>({})
 const pendingInlineSavingIds = shallowRef<Set<number>>(new Set())
 const replacingInlineImageProductId = shallowRef<number | null>(null)
 const replacingInlineImageIndex = shallowRef(0)
+const productImageUrlsCache = new WeakMap<ProductItem, string[]>()
 let refreshRequestId = 0
 const detailForm = reactive({
   productId: null as number | null,
@@ -457,13 +458,19 @@ function isPendingInlineSaving(product: ProductItem) {
 }
 
 function productListImageUrls(product: ProductItem) {
+  const cached = productImageUrlsCache.get(product)
+  if (cached) {
+    return cached
+  }
   const urls = [...(product.images || [])]
   if (product.imageUrl && !urls.includes(product.imageUrl)) {
     urls.unshift(product.imageUrl)
   }
-  return urls
+  const normalizedUrls = urls
     .map((url) => String(url || '').trim())
     .filter((url, index, values) => Boolean(url) && values.indexOf(url) === index)
+  productImageUrlsCache.set(product, normalizedUrls)
+  return normalizedUrls
 }
 
 function selectedPendingImageUrls(productId: number) {
@@ -492,6 +499,10 @@ function togglePendingImageSelection(productId: number, imageUrl: string, select
     nextSelections.delete(productId)
   }
   selectedPendingImages.value = nextSelections
+}
+
+function handlePendingImageSelectionChange(productId: number, imageUrl: string, event: Event) {
+  togglePendingImageSelection(productId, imageUrl, (event.target as HTMLInputElement).checked)
 }
 
 function clearPendingImageSelection(productId: number) {
@@ -557,18 +568,18 @@ function resetFilters() {
   filters.salesZeroOnly = false
   filters.listedAtRange = []
   resetPage()
-  void refreshAll()
+  void refreshAll({ loadStores: false })
 }
 
 function searchProducts() {
   resetPage()
   clearSelection()
-  void refreshAll()
+  void refreshAll({ loadStores: false })
 }
 
 function reloadProducts() {
   clearSelection()
-  void refreshAll()
+  void refreshAll({ loadStores: false })
 }
 
 function formatDateValue(value: Date) {
@@ -2763,6 +2774,7 @@ function sanitizedDescriptionHtml(value: string) {
         :data="visibleProducts"
         :empty-text="statusCopy.empty"
         height="max(620px, calc(100vh - 330px))"
+        row-key="id"
         :row-class-name="productRowClassName"
         @selection-change="handleSelectionChange"
       >
@@ -2815,12 +2827,14 @@ function sanitizedDescriptionHtml(value: string) {
                   :class="{ 'is-selected': isPendingImageSelected(row.id, image) }"
                 >
                   <div class="pending-image-selector" @click.stop>
-                    <el-checkbox
-                      :model-value="isPendingImageSelected(row.id, image)"
+                    <input
+                      class="pending-image-checkbox"
+                      type="checkbox"
+                      :checked="isPendingImageSelected(row.id, image)"
                       :disabled="isPendingInlineSaving(row)"
                       :aria-label="`选择第 ${imageIndex + 1} 张图片`"
-                      @change="togglePendingImageSelection(row.id, image, Boolean($event))"
-                    />
+                      @change="handlePendingImageSelectionChange(row.id, image, $event)"
+                    >
                   </div>
                   <el-image
                     class="pending-product-image"
@@ -2832,40 +2846,36 @@ function sanitizedDescriptionHtml(value: string) {
                     preview-teleported
                   />
                   <div class="pending-image-actions">
-                    <el-tooltip content="编辑图片" placement="top">
-                      <el-button
-                        :icon="EditPen"
-                        size="small"
-                        type="success"
-                        plain
-                        aria-label="编辑图片"
-                        :loading="isPendingInlineSaving(row)"
-                        :disabled="isPendingInlineSaving(row)"
-                        @click="editPendingInlineImageWithMeitu(row, imageIndex)"
-                      />
-                    </el-tooltip>
-                    <el-tooltip content="替换图片" placement="top">
-                      <el-button
-                        :icon="Upload"
-                        size="small"
-                        aria-label="替换图片"
-                        :loading="isPendingInlineSaving(row)"
-                        :disabled="isPendingInlineSaving(row)"
-                        @click="triggerInlineImageReplace(row, imageIndex)"
-                      />
-                    </el-tooltip>
-                    <el-tooltip content="删除图片" placement="top">
-                      <el-button
-                        :icon="Delete"
-                        size="small"
-                        type="danger"
-                        plain
-                        aria-label="删除图片"
-                        :loading="isPendingInlineSaving(row)"
-                        :disabled="isPendingInlineSaving(row)"
-                        @click="deletePendingInlineImage(row, imageIndex)"
-                      />
-                    </el-tooltip>
+                    <button
+                      class="pending-image-action pending-image-action-edit"
+                      type="button"
+                      title="编辑图片"
+                      aria-label="编辑图片"
+                      :disabled="isPendingInlineSaving(row)"
+                      @click="editPendingInlineImageWithMeitu(row, imageIndex)"
+                    >
+                      <EditPen />
+                    </button>
+                    <button
+                      class="pending-image-action"
+                      type="button"
+                      title="替换图片"
+                      aria-label="替换图片"
+                      :disabled="isPendingInlineSaving(row)"
+                      @click="triggerInlineImageReplace(row, imageIndex)"
+                    >
+                      <Upload />
+                    </button>
+                    <button
+                      class="pending-image-action pending-image-action-delete"
+                      type="button"
+                      title="删除图片"
+                      aria-label="删除图片"
+                      :disabled="isPendingInlineSaving(row)"
+                      @click="deletePendingInlineImage(row, imageIndex)"
+                    >
+                      <Delete />
+                    </button>
                   </div>
                 </div>
                 <button
@@ -3660,14 +3670,16 @@ function sanitizedDescriptionHtml(value: string) {
   place-items: center;
 }
 
-.pending-image-selector :deep(.el-checkbox) {
-  height: 20px;
-  margin-right: 0;
-}
-
-.pending-image-selector :deep(.el-checkbox__inner) {
+.pending-image-checkbox {
+  margin: 0;
   width: 20px;
   height: 20px;
+  accent-color: var(--el-color-primary);
+  cursor: pointer;
+}
+
+.pending-image-checkbox:disabled {
+  cursor: not-allowed;
 }
 
 .pending-product-image {
@@ -3685,13 +3697,54 @@ function sanitizedDescriptionHtml(value: string) {
   gap: 6px;
 }
 
-.pending-image-actions :deep(.el-button) {
-  justify-content: center;
+.pending-image-action {
+  display: inline-grid;
   width: 100%;
   min-width: 0;
   height: 30px;
-  margin-left: 0;
+  place-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
   padding: 0;
+}
+
+.pending-image-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pending-image-action:hover:not(:disabled) {
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+.pending-image-action-edit {
+  border-color: var(--el-color-success-light-5);
+  color: var(--el-color-success);
+}
+
+.pending-image-action-edit:hover:not(:disabled) {
+  border-color: var(--el-color-success);
+  color: var(--el-color-success);
+}
+
+.pending-image-action-delete {
+  border-color: var(--el-color-danger-light-5);
+  color: var(--el-color-danger);
+}
+
+.pending-image-action-delete:hover:not(:disabled) {
+  border-color: var(--el-color-danger);
+  color: var(--el-color-danger);
+}
+
+.pending-image-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .pending-image-empty-card {
