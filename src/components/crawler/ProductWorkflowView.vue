@@ -44,6 +44,7 @@ const props = defineProps<{
 }>()
 
 const LISTED_STORE_NONE_FILTER = '__none__'
+const BATCH_TASK_PRODUCT_LIMIT = 50
 type ListedStoreFilterValue = number | typeof LISTED_STORE_NONE_FILTER | ''
 
 const api = useCollectorApi()
@@ -72,6 +73,7 @@ const pendingInlineDrafts = reactive<Record<number, PendingInlineDraft>>({})
 const pendingInlineSavingIds = shallowRef<Set<number>>(new Set())
 const replacingInlineImageProductId = shallowRef<number | null>(null)
 const replacingInlineImageIndex = shallowRef(0)
+let refreshRequestId = 0
 const detailForm = reactive({
   productId: null as number | null,
   title: '',
@@ -281,7 +283,7 @@ onMounted(() => {
 watch(
   () => props.status,
   () => {
-    selectedIds.value = []
+    clearSelection()
     selectedPendingImages.value = new Map()
     hiddenProducts.value = new Map()
     resetPage()
@@ -301,10 +303,14 @@ watch(
 )
 
 async function refreshAll(options: { loadStores?: boolean } = {}) {
+  const requestId = ++refreshRequestId
   const loadStores = options.loadStores ?? true
   loading.value = true
   try {
     const storeValues = loadStores ? await api.listStores() : stores.value
+    if (requestId !== refreshRequestId) {
+      return
+    }
     if (loadStores) {
       stores.value = storeValues
     }
@@ -357,15 +363,22 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       page: currentPage.value,
       pageSize: pageSize.value,
     })
+    if (requestId !== refreshRequestId) {
+      return
+    }
     products.value = result.items
     syncPendingInlineDrafts(result.items)
     reconcilePendingImageSelections(result.items)
     reconcileHiddenProducts(result.items)
     setPageResult(result)
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载商品失败'))
+    if (requestId === refreshRequestId) {
+      ElMessage.error(toApiErrorMessage(error, '加载商品失败'))
+    }
   } finally {
-    loading.value = false
+    if (requestId === refreshRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -527,6 +540,7 @@ function mergeUpdatedProduct(product: ProductItem) {
 }
 
 function resetFilters() {
+  clearSelection()
   filters.keyword = ''
   filters.priceMin = null
   filters.priceMax = null
@@ -548,6 +562,12 @@ function resetFilters() {
 
 function searchProducts() {
   resetPage()
+  clearSelection()
+  void refreshAll()
+}
+
+function reloadProducts() {
+  clearSelection()
   void refreshAll()
 }
 
@@ -926,11 +946,12 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     return
   }
   try {
+    const deleteTaskCount = Math.ceil(productIds.length / BATCH_TASK_PRODUCT_LIMIT)
     const deleteMessage = props.status === 'listed'
-      ? `确认删除选中的 ${productIds.length} 个店铺商品？该操作会同步删除乐天商品，并尝试删除商品关联的 R-Cabinet 图片。`
+      ? `确认删除选中的 ${productIds.length} 个店铺商品？将创建 ${deleteTaskCount} 个同步任务，每个任务最多 ${BATCH_TASK_PRODUCT_LIMIT} 个商品；任务会同步删除乐天商品，并尝试删除关联的 R-Cabinet 图片。`
       : product
-        ? `确认删除商品「${productDisplayName(product)}」？该操作会删除本地数据库记录和本地图片文件。`
-        : `确认批量删除选中的 ${productIds.length} 个商品？该操作会删除本地数据库记录和本地图片文件。`
+        ? `确认删除商品「${productDisplayName(product)}」？该操作会直接删除本地数据库记录和本地图片文件，不会创建同步任务。`
+        : `确认直接删除选中的 ${productIds.length} 个商品？该操作会删除本地数据库记录和本地图片文件，不会创建同步任务。`
     await ElMessageBox.confirm(deleteMessage, '删除商品', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
@@ -1207,7 +1228,7 @@ function hasSelectedProductBusy() {
 }
 
 function isProductSelectable(product: ProductItem) {
-  return !isProductBusy(product)
+  return !loading.value && !isProductBusy(product)
 }
 
 function productRowClassName({ row }: { row: ProductItem }) {
@@ -2449,23 +2470,26 @@ function sanitizedDescriptionHtml(value: string) {
         <h1>{{ title }}</h1>
       </div>
       <div class="head-actions">
+        <span v-if="selectedIds.length > 0" class="selection-summary">
+          已选择 <strong>{{ selectedIds.length }}</strong> 个商品
+        </span>
         <div v-if="status === 'pending'" class="batch-action-group">
-          <el-button type="success" :icon="Finished" :disabled="selectedIds.length < 1" :loading="operating" @click="approveSelected">
+          <el-button type="success" :icon="Finished" :disabled="loading || selectedIds.length < 1" :loading="operating" @click="approveSelected">
             批量审核通过
           </el-button>
-          <el-button type="warning" :icon="EditPen" :disabled="selectedIds.length < 1" :loading="operating" @click="markError()">
+          <el-button type="warning" :icon="EditPen" :disabled="loading || selectedIds.length < 1" :loading="operating" @click="markError()">
             批量标记异常
           </el-button>
-          <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
-            批量删除商品
+          <el-button type="danger" plain :icon="Delete" :disabled="loading || selectedIds.length < 1" :loading="operating" @click="removeSelected">
+            批量删除（{{ selectedIds.length }}）
           </el-button>
         </div>
         <div v-if="status === 'error'" class="batch-action-group">
-          <el-button type="primary" :icon="Refresh" :disabled="selectedIds.length < 1" :loading="operating" @click="recheckSelected">
+          <el-button type="primary" :icon="Refresh" :disabled="loading || selectedIds.length < 1" :loading="operating" @click="recheckSelected">
             重新审核
           </el-button>
-          <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1" :loading="operating" @click="removeSelected">
-            删除商品
+          <el-button type="danger" plain :icon="Delete" :disabled="loading || selectedIds.length < 1" :loading="operating" @click="removeSelected">
+            删除商品（{{ selectedIds.length }}）
           </el-button>
         </div>
         <div v-if="status === 'listed'" class="batch-action-group">
@@ -2473,7 +2497,7 @@ function sanitizedDescriptionHtml(value: string) {
             type="primary"
             plain
             :icon="MagicStick"
-            :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
+            :disabled="loading || selectedIds.length < 1 || hasSelectedProductBusy()"
             :loading="operating"
             @click="createTitleOptimizationTask"
           >
@@ -2483,7 +2507,7 @@ function sanitizedDescriptionHtml(value: string) {
             type="success"
             plain
             :icon="Top"
-            :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
+            :disabled="loading || selectedIds.length < 1 || hasSelectedProductBusy()"
             :loading="operating"
             @click="updateSelectedListingStatus('listed')"
           >
@@ -2493,7 +2517,7 @@ function sanitizedDescriptionHtml(value: string) {
             type="warning"
             plain
             :icon="Warning"
-            :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
+            :disabled="loading || selectedIds.length < 1 || hasSelectedProductBusy()"
             :loading="operating"
             @click="updateSelectedListingStatus('unlisted')"
           >
@@ -2505,27 +2529,27 @@ function sanitizedDescriptionHtml(value: string) {
           type="danger"
           plain
           :icon="Delete"
-          :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
+          :disabled="loading || selectedIds.length < 1 || hasSelectedProductBusy()"
           :loading="operating"
           @click="removeSelected"
         >
-          批量删除
+          批量删除（{{ selectedIds.length }}）
         </el-button>
         <div v-if="status === 'approved' || status === 'listed_master'" class="approved-head-actions">
           <el-button
             type="primary"
             :icon="Upload"
-            :disabled="selectedIds.length < 1 || hasSelectedProductBusy()"
+            :disabled="loading || selectedIds.length < 1 || hasSelectedProductBusy()"
             :loading="operating"
             @click="createListingTask"
           >
             {{ status === 'listed_master' ? '批量重新上架' : '批量上架' }}
           </el-button>
-          <el-button type="danger" plain :icon="Delete" :disabled="selectedIds.length < 1 || hasSelectedProductBusy()" :loading="operating" @click="removeSelected">
-            批量删除商品
+          <el-button type="danger" plain :icon="Delete" :disabled="loading || selectedIds.length < 1 || hasSelectedProductBusy()" :loading="operating" @click="removeSelected">
+            批量删除（{{ selectedIds.length }}）
           </el-button>
         </div>
-        <el-button :icon="Refresh" :loading="loading" @click="refreshAll">
+        <el-button :icon="Refresh" :loading="loading" @click="reloadProducts">
           刷新
         </el-button>
       </div>
@@ -3350,6 +3374,18 @@ function sanitizedDescriptionHtml(value: string) {
   gap: 12px;
 }
 
+.selection-summary {
+  color: var(--text-secondary);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.selection-summary strong {
+  color: var(--el-color-primary);
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .batch-action-group {
   display: flex;
   align-items: center;
@@ -3970,6 +4006,19 @@ function sanitizedDescriptionHtml(value: string) {
 }
 
 @media (max-width: 760px) {
+  .head-actions,
+  .batch-action-group {
+    width: 100%;
+  }
+
+  .selection-summary {
+    width: 100%;
+  }
+
+  .batch-action-group {
+    flex-wrap: wrap;
+  }
+
   .filter-field,
   .filter-buttons,
   .approved-head-actions,
