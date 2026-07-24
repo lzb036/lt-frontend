@@ -353,10 +353,7 @@ async function removeStore(row: StoreAccount) {
         <el-table-column label="乐天商品数" min-width="170">
           <template #default="{ row }">
             <div class="store-counts">
-              <span>
-                总数：{{ countText(row.rakutenProductTotalCount) }}
-                <span v-if="row.rakutenProductTotalExceedsLimit" class="count-limit-warning">商品数大于10000</span>
-              </span>
+              <span>总数：{{ countText(row.rakutenProductTotalCount) }}</span>
               <span>已上架：{{ countText(row.rakutenProductListedCount) }}</span>
               <span>未上架：{{ countText(row.rakutenProductUnlistedCount) }}</span>
             </div>
@@ -568,12 +565,6 @@ async function removeStore(row: StoreAccount) {
   color: var(--text-main);
   font-size: 12px;
   line-height: 1.45;
-}
-
-.count-limit-warning {
-  margin-left: 6px;
-  color: var(--el-color-danger);
-  font-weight: 600;
 }
 
 .empty-folder-summary {
