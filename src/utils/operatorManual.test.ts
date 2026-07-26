@@ -22,6 +22,7 @@ if (adminResults.length > 0) {
 for (const [keyword, sectionId] of [
   ['近一年订单数', 'store-order-data'],
   ['销量从高到低', 'store-product-sales'],
+  ['零值筛选', 'store-product-sales'],
   ['订单获取记录', 'order-sync-history'],
   ['成功记录保留', 'order-sync-settings'],
 ] as const) {

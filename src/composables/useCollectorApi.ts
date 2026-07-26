@@ -293,6 +293,7 @@ export function useCollectorApi() {
     salesSort?: 'asc' | 'desc' | ''
     salesMin?: number | null
     salesMax?: number | null
+    zeroFilter?: 'sales' | 'optimization' | 'sales_and_optimization' | ''
     page?: number
     pageSize?: number
   }) {
@@ -325,6 +326,7 @@ export function useCollectorApi() {
     salesSort?: 'asc' | 'desc' | ''
     salesMin?: number | null
     salesMax?: number | null
+    zeroFilter?: 'sales' | 'optimization' | 'sales_and_optimization' | ''
     page: number
     pageSize: number
   }) {

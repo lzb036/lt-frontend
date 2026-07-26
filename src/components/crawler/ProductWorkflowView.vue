@@ -47,6 +47,7 @@ const props = defineProps<{
 const LISTED_STORE_NONE_FILTER = '__none__'
 const BATCH_TASK_PRODUCT_LIMIT = 50
 type ListedStoreFilterValue = number | typeof LISTED_STORE_NONE_FILTER | ''
+type ZeroValueFilter = '' | 'sales' | 'optimization' | 'sales_and_optimization'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -107,7 +108,7 @@ const filters = reactive({
   salesSort: '' as '' | 'asc' | 'desc',
   salesMin: null as number | null,
   salesMax: null as number | null,
-  salesZeroOnly: false,
+  zeroFilter: '' as ZeroValueFilter,
   listedAtRange: [] as string[] | null,
 })
 const salesPeriodOptions = [
@@ -124,6 +125,10 @@ const salesPeriodLabel = computed(
   () => salesPeriodOptions.find(
     (option) => option.value === filters.salesPeriodDays,
   )?.label || '自定义销量',
+)
+const salesRangeDisabled = computed(
+  () => filters.zeroFilter === 'sales'
+    || filters.zeroFilter === 'sales_and_optimization',
 )
 
 const listingForm = reactive({
@@ -356,11 +361,12 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
         : '',
       salesSort: props.status === 'listed' ? filters.salesSort : '',
       salesMin: props.status === 'listed'
-        ? (filters.salesZeroOnly ? 0 : filters.salesMin)
+        ? (salesRangeDisabled.value ? null : filters.salesMin)
         : null,
       salesMax: props.status === 'listed'
-        ? (filters.salesZeroOnly ? 0 : filters.salesMax)
+        ? (salesRangeDisabled.value ? null : filters.salesMax)
         : null,
+      zeroFilter: props.status === 'listed' ? filters.zeroFilter : '',
       listedAtFrom: props.status === 'listed' ? listedAtFromValue() : '',
       listedAtTo: props.status === 'listed' ? listedAtToValue() : '',
       priceMin: props.status !== 'listed' ? filters.priceMin : null,
@@ -589,7 +595,7 @@ function resetFilters() {
   filters.salesSort = ''
   filters.salesMin = null
   filters.salesMax = null
-  filters.salesZeroOnly = false
+  filters.zeroFilter = ''
   filters.listedAtRange = []
   resetPage()
   void refreshAll({ loadStores: false })
@@ -655,11 +661,8 @@ function handleSalesPeriodRangeChange(value: string[] | null) {
   searchProducts()
 }
 
-function handleSalesZeroOnlyChange(value: boolean) {
-  if (value) {
-    filters.salesMin = 0
-    filters.salesMax = 0
-  } else {
+function handleZeroFilterChange(value: ZeroValueFilter) {
+  if (value === 'sales' || value === 'sales_and_optimization') {
     filters.salesMin = null
     filters.salesMax = null
   }
@@ -2673,7 +2676,7 @@ function sanitizedDescriptionHtml(value: string) {
             :precision="0"
             :controls="false"
             placeholder="最小销量"
-            :disabled="filters.salesZeroOnly"
+            :disabled="salesRangeDisabled"
             @change="searchProducts"
           />
           <span class="range-separator">至</span>
@@ -2684,17 +2687,22 @@ function sanitizedDescriptionHtml(value: string) {
             :precision="0"
             :controls="false"
             placeholder="最大销量"
-            :disabled="filters.salesZeroOnly"
+            :disabled="salesRangeDisabled"
             @change="searchProducts"
           />
         </div>
-        <div v-if="status === 'listed'" class="filter-field filter-sales-zero-field">
-          <el-checkbox
-            v-model="filters.salesZeroOnly"
-            @change="handleSalesZeroOnlyChange"
+        <div v-if="status === 'listed'" class="filter-field filter-zero-value-field">
+          <el-select
+            v-model="filters.zeroFilter"
+            class="full-control"
+            clearable
+            placeholder="零值筛选"
+            @change="handleZeroFilterChange"
           >
-            仅显示销量为0
-          </el-checkbox>
+            <el-option label="销量为0" value="sales" />
+            <el-option label="优化次数为0" value="optimization" />
+            <el-option label="销量和优化次数为0" value="sales_and_optimization" />
+          </el-select>
         </div>
         <div v-if="status === 'listed'" class="filter-field filter-range-field">
           <el-date-picker
@@ -3514,9 +3522,9 @@ function sanitizedDescriptionHtml(value: string) {
   gap: 8px;
 }
 
-.filter-sales-zero-field {
-  flex: 0 0 auto;
-  white-space: nowrap;
+.filter-zero-value-field {
+  flex: 0 1 210px;
+  min-width: 190px;
 }
 
 .sales-range-input {
@@ -3614,8 +3622,8 @@ function sanitizedDescriptionHtml(value: string) {
   min-width: 240px;
 }
 
-.filter-row-with-store .filter-sales-zero-field {
-  flex: 0 0 150px;
+.filter-row-with-store .filter-zero-value-field {
+  flex: 0 0 210px;
 }
 
 .filter-row-with-store .filter-range-field {
