@@ -35,6 +35,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltJobs/wjProductJob', name: 'scheduled-crawl', component: ScheduledCrawlView, meta: { title: '定时采集', permission: 'crawler.manage' } },
       { path: 'ltJobs/upGoodsJob', name: 'listing-jobs', component: ListingTaskView, meta: { title: '上架任务', permission: 'products.manage' } },
       { path: 'ltJobs/syncJob', name: 'sync-jobs', component: SyncTaskView, meta: { title: '同步任务', anyPermission: ['products.manage', 'stores.manage'] } },
+      { path: 'ltJobs/titleOptimizationJob', name: 'title-optimization-jobs', component: SyncTaskView, props: { taskGroup: 'title_optimization', title: '标题优化任务', eyebrow: 'AI Jobs', emptyText: '暂无标题优化任务', actionLabel: '标题优化' }, meta: { title: '标题优化任务', permission: 'ai.manage' } },
+      { path: 'ltJobs/imageCleanupJob', name: 'image-cleanup-jobs', component: SyncTaskView, props: { taskGroup: 'image_cleanup', title: '图片清理任务', eyebrow: 'Cleanup Jobs', emptyText: '暂无图片清理任务', actionLabel: '图片清理' }, meta: { title: '图片清理任务', superadminOnly: true } },
       { path: 'ltJobs/orderSyncHistory', name: 'order-sync-history', component: SalesOrderSyncHistoryView, meta: { title: '订单获取记录', superadminOnly: true } },
       { path: 'ltShop/wjMerchantGoods', name: 'pending-products', component: ProductWorkflowView, props: { status: 'pending', title: '待审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '待审核商品', permission: 'products.manage' } },
       { path: 'ltShop/wjMerchantGoodsTrue', name: 'approved-products', component: ProductWorkflowView, props: { status: 'approved', title: '已审核商品', eyebrow: 'Rakuten Shop' }, meta: { title: '已审核商品', permission: 'products.manage' } },

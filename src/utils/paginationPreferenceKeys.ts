@@ -14,6 +14,8 @@ export const PAGINATION_PREFERENCE_KEYS = {
   sensitiveWords: 'sensitive-words',
   stores: 'stores',
   syncTasks: 'sync-tasks',
+  titleOptimizationTasks: 'title-optimization-tasks',
+  imageCleanupTasks: 'image-cleanup-tasks',
   userManagedStores: 'user-managed-stores',
   users: 'users',
 } as const

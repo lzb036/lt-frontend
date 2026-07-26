@@ -921,7 +921,9 @@ export function useCollectorApi() {
     return response.data.syncTasks
   }
 
-  async function listSyncTasksPage(params: PageParams) {
+  async function listSyncTasksPage(params: PageParams & {
+    taskGroup?: 'sync' | 'title_optimization' | 'image_cleanup'
+  }) {
     const response = await apiClient.get<ApiPageResponse<'syncTasks', SyncTask>>('/crawler/sync-tasks', { params })
     return toPageResult(response.data, 'syncTasks')
   }

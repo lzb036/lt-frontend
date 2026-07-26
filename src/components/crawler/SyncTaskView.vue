@@ -11,12 +11,29 @@ import { toApiErrorMessage } from '../../utils/api'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import CopyableTableText from './CopyableTableText.vue'
 
+type TaskGroup = 'sync' | 'title_optimization' | 'image_cleanup'
+
+const props = withDefaults(defineProps<{
+  taskGroup?: TaskGroup
+  title?: string
+  eyebrow?: string
+  emptyText?: string
+  actionLabel?: string
+}>(), {
+  taskGroup: 'sync',
+  title: '同步任务',
+  eyebrow: 'Sync Jobs',
+  emptyText: '暂无同步任务',
+  actionLabel: '同步',
+})
+
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const tasks = shallowRef<SyncTask[]>([])
 const selectedTasks = shallowRef<SyncTask[]>([])
 let progressTimer: number | undefined
+let loadRequestId = 0
 const {
   currentPage,
   pageSize,
@@ -25,7 +42,13 @@ const {
   total,
   resetPage,
   setPageResult,
-} = useServerPagination(PAGINATION_PREFERENCE_KEYS.syncTasks)
+} = useServerPagination(
+  () => ({
+    sync: PAGINATION_PREFERENCE_KEYS.syncTasks,
+    title_optimization: PAGINATION_PREFERENCE_KEYS.titleOptimizationTasks,
+    image_cleanup: PAGINATION_PREFERENCE_KEYS.imageCleanupTasks,
+  })[props.taskGroup],
+)
 
 onMounted(() => {
   void loadTasks()
@@ -36,21 +59,41 @@ onBeforeUnmount(() => {
 })
 
 watch(tasks, syncProgressPolling)
+watch(
+  () => props.taskGroup,
+  () => {
+    loadRequestId += 1
+    stopProgressPolling()
+    tasks.value = []
+    selectedTasks.value = []
+    resetPage()
+    void loadTasks()
+  },
+)
 
 async function loadTasks(options: { silent?: boolean } = {}) {
+  const requestId = ++loadRequestId
+  const taskGroup = props.taskGroup
   if (!options.silent) {
     loading.value = true
   }
   try {
-    const result = await api.listSyncTasksPage({ page: currentPage.value, pageSize: pageSize.value })
+    const result = await api.listSyncTasksPage({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      taskGroup,
+    })
+    if (requestId !== loadRequestId || taskGroup !== props.taskGroup) {
+      return
+    }
     tasks.value = result.items
     setPageResult(result)
   } catch (error) {
-    if (!options.silent) {
-      ElMessage.error(toApiErrorMessage(error, '加载同步任务失败'))
+    if (!options.silent && requestId === loadRequestId) {
+      ElMessage.error(toApiErrorMessage(error, `加载${props.title}失败`))
     }
   } finally {
-    if (!options.silent) {
+    if (!options.silent && requestId === loadRequestId) {
       loading.value = false
     }
   }
@@ -101,8 +144,8 @@ function handleSelectionChange(rows: SyncTask[]) {
 async function cancelTask(row: SyncTask) {
   try {
     await ElMessageBox.confirm(
-      `确认终止同步任务「${row.taskName || row.id}」？已完成同步的数据不会回滚。`,
-      '终止同步任务',
+      `确认终止${props.actionLabel}任务「${row.taskName || row.id}」？已完成的数据不会回滚。`,
+      `终止${props.actionLabel}任务`,
       {
         confirmButtonText: '终止',
         cancelButtonText: '取消',
@@ -114,7 +157,7 @@ async function cancelTask(row: SyncTask) {
     ElMessage.success('已请求终止任务')
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '终止同步任务失败'))
+      ElMessage.error(toApiErrorMessage(error, `终止${props.actionLabel}任务失败`))
     }
   }
 }
@@ -122,8 +165,8 @@ async function cancelTask(row: SyncTask) {
 async function retryTask(row: SyncTask) {
   try {
     await ElMessageBox.confirm(
-      `确认重试同步任务「${row.taskName || row.id}」？`,
-      '重试同步任务',
+      `确认重试${props.actionLabel}任务「${row.taskName || row.id}」？`,
+      `重试${props.actionLabel}任务`,
       {
         confirmButtonText: '重试',
         cancelButtonText: '取消',
@@ -132,10 +175,10 @@ async function retryTask(row: SyncTask) {
     )
     const result = await api.retrySyncTask(row.id)
     tasks.value = tasks.value.map((task) => (task.id === row.id ? result.syncTask : task))
-    ElMessage.success('同步任务已加入队列等待重试')
+    ElMessage.success(`${props.actionLabel}任务已加入队列等待重试`)
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '重试同步任务失败'))
+      ElMessage.error(toApiErrorMessage(error, `重试${props.actionLabel}任务失败`))
     }
   }
 }
@@ -147,7 +190,7 @@ async function deleteSelectedTasks() {
   }
   try {
     await ElMessageBox.confirm(
-      `确认删除选中的 ${selectedTasks.value.length} 条同步任务？该操作只删除任务记录，不会删除店铺商品数据。`,
+      `确认删除选中的 ${selectedTasks.value.length} 条${props.actionLabel}任务？该操作只删除任务记录，不会删除业务数据。`,
       '批量删除',
       {
         confirmButtonText: '删除',
@@ -176,7 +219,7 @@ async function deleteSelectedTasks() {
 function statusLabel(status: string) {
   const labels: Record<string, string> = {
     queued: '待执行',
-    running: '同步中',
+    running: `${props.actionLabel}中`,
     success: '成功',
     partial: '部分成功',
     failed: '失败',
@@ -262,8 +305,8 @@ function handlePageSizeChange() {
   <section class="page-stack">
     <div class="page-head">
       <div>
-        <p class="eyebrow">Sync Jobs</p>
-        <h1>同步任务</h1>
+        <p class="eyebrow">{{ eyebrow }}</p>
+        <h1>{{ title }}</h1>
       </div>
       <div class="page-actions">
         <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
@@ -279,7 +322,7 @@ function handlePageSizeChange() {
       <el-table
         v-loading="loading"
         :data="tasks"
-        empty-text="暂无同步任务"
+        :empty-text="emptyText"
         height="max(650px, calc(100vh - 230px))"
         row-key="id"
         @selection-change="handleSelectionChange"
@@ -290,7 +333,7 @@ function handlePageSizeChange() {
             <CopyableTableText :value="row.taskName" />
           </template>
         </el-table-column>
-        <el-table-column label="任务类型" width="120">
+        <el-table-column v-if="taskGroup === 'sync'" label="任务类型" width="120">
           <template #default="{ row }">
             {{ taskTypeLabel(row) }}
           </template>
