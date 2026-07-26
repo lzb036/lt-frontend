@@ -246,7 +246,9 @@ function stopCountdown() {
 async function loadSettings() {
   loading.value = true
   try {
-    const result = await api.getTimeSettings()
+    const result = isSuperadmin.value
+      ? await api.getTimeSettings()
+      : await api.getDeletedProductImageCleanupSettings()
     applySettings(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载时间设置失败'))
@@ -335,6 +337,10 @@ function refreshProxyUsageAfterReset(currentNow: number) {
 }
 
 async function saveSettings() {
+  if (!isSuperadmin.value) {
+    await saveDeletedImageCleanupSettings()
+    return
+  }
   if (!form.cleanupTime) {
     ElMessage.warning('请选择清理时间')
     return
@@ -361,6 +367,27 @@ async function saveSettings() {
     ElMessage.success('资源管理设置已保存')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '保存时间设置失败'))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveDeletedImageCleanupSettings() {
+  if (!form.deletedImageCleanupTime) {
+    ElMessage.warning('请选择图片清理时间')
+    return
+  }
+  saving.value = true
+  try {
+    const result = await api.updateDeletedProductImageCleanupSettings({
+      deletedImageCleanupEnabled: form.deletedImageCleanupEnabled,
+      deletedImageCleanupWeekday: form.deletedImageCleanupWeekday,
+      deletedImageCleanupTime: form.deletedImageCleanupTime,
+    })
+    applySettings(result)
+    ElMessage.success('图片清理设置已保存')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '保存图片清理设置失败'))
   } finally {
     saving.value = false
   }
@@ -512,7 +539,7 @@ function formatBytes(value?: number | null) {
 
 <template>
   <section class="page-stack">
-    <section v-loading="loading" class="time-panel">
+    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>定时采集记录清理</h2>
@@ -579,7 +606,7 @@ function formatBytes(value?: number | null) {
       </div>
     </section>
 
-    <section v-loading="loading" class="time-panel">
+    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>商品自动同步</h2>
@@ -647,7 +674,7 @@ function formatBytes(value?: number | null) {
       </div>
     </section>
 
-    <section v-loading="loading" class="time-panel">
+    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>未上架商品月度删除</h2>
@@ -695,7 +722,7 @@ function formatBytes(value?: number | null) {
       </div>
     </section>
 
-    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
+    <section v-loading="loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>已删除商品图片清理</h2>

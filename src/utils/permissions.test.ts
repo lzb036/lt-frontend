@@ -69,20 +69,20 @@ if (!canAccessRouteMeta(ordinaryStoreSession, { title: '主题管理' })) {
   throw new Error('expected ordinary users to access personal theme settings')
 }
 
-if (canAccessRouteMeta(ordinaryStoreSession, { title: '资源管理', superadminOnly: true })) {
-  throw new Error('expected ordinary users to be denied global resource settings')
+if (!canAccessRouteMeta(ordinaryStoreSession, { title: '资源管理' })) {
+  throw new Error('expected ordinary users to access personal resource settings')
 }
 
-if (canAccessRouteMeta(ordinaryStoreSession, { title: '待清理图片', superadminOnly: true })) {
-  throw new Error('expected ordinary users to be denied deleted image cleanup records')
+if (!canAccessRouteMeta(ordinaryStoreSession, { title: '待清理图片' })) {
+  throw new Error('expected ordinary users to access their deleted image cleanup records')
 }
 
 for (const requiredContract of [
   "meta: { title: '主题管理' }",
-  "meta: { title: '资源管理', superadminOnly: true }",
-  "meta: { title: '待清理图片', superadminOnly: true }",
-  "{ path: '/system/time', superadminOnly: true }",
-  "{ path: '/system/deleted-product-images', superadminOnly: true }",
+  "meta: { title: '资源管理' }",
+  "meta: { title: '待清理图片' }",
+  "{ path: '/system/time' }",
+  "{ path: '/system/deleted-product-images' }",
   "{ path: '/system/deleted-product-images', label: '待清理图片'",
 ]) {
   const sources = [permissionsSource, routerSource, appShellSource]

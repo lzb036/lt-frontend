@@ -140,6 +140,24 @@ export function useCollectorApi() {
     return response.data.settings
   }
 
+  async function getDeletedProductImageCleanupSettings() {
+    const response = await apiClient.get<{ settings: TimeSettings }>(
+      '/crawler/settings/time/deleted-product-images/config',
+    )
+    return response.data.settings
+  }
+
+  async function updateDeletedProductImageCleanupSettings(payload: Pick<
+    TimeSettingsPayload,
+    'deletedImageCleanupEnabled' | 'deletedImageCleanupWeekday' | 'deletedImageCleanupTime'
+  >) {
+    const response = await apiClient.put<{ settings: TimeSettings }>(
+      '/crawler/settings/time/deleted-product-images/config',
+      payload,
+    )
+    return response.data.settings
+  }
+
   async function runScheduledTaskCleanup() {
     const response = await apiClient.post<{ settings: TimeSettings }>('/crawler/settings/time/scheduled-task-cleanup/run')
     return response.data.settings
@@ -986,6 +1004,8 @@ export function useCollectorApi() {
     updateCrawlSettings,
     getTimeSettings,
     updateTimeSettings,
+    getDeletedProductImageCleanupSettings,
+    updateDeletedProductImageCleanupSettings,
     runScheduledTaskCleanup,
     runUnlistedProductCleanup,
     listDeletedProductImageCleanupsPage,

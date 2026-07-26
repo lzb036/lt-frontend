@@ -26,8 +26,8 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ai/title-optimization', permission: 'ai.manage' },
   { path: '/ltJobs/orderSyncHistory', superadminOnly: true },
   { path: '/system/theme' },
-  { path: '/system/time', superadminOnly: true },
-  { path: '/system/deleted-product-images', superadminOnly: true },
+  { path: '/system/time' },
+  { path: '/system/deleted-product-images' },
   { path: '/system/order-sync', superadminOnly: true },
 ]
 
