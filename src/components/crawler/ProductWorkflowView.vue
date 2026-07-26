@@ -366,7 +366,9 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       salesMax: props.status === 'listed'
         ? (salesRangeDisabled.value ? null : filters.salesMax)
         : null,
-      zeroFilter: props.status === 'listed' ? filters.zeroFilter : '',
+      zeroFilter: props.status === 'listed'
+        ? (filters.zeroFilter || undefined)
+        : undefined,
       listedAtFrom: props.status === 'listed' ? listedAtFromValue() : '',
       listedAtTo: props.status === 'listed' ? listedAtToValue() : '',
       priceMin: props.status !== 'listed' ? filters.priceMin : null,

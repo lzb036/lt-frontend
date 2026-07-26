@@ -17,7 +17,7 @@ for (const expectedText of [
   'label="销量为0" value="sales"',
   'label="优化次数为0" value="optimization"',
   'label="销量和优化次数为0" value="sales_and_optimization"',
-  "zeroFilter: props.status === 'listed' ? filters.zeroFilter : ''",
+  '? (filters.zeroFilter || undefined)',
 ]) {
   if (!workflowSource.includes(expectedText)) {
     throw new Error(`expected zero-value filter workflow markup: ${expectedText}`)
