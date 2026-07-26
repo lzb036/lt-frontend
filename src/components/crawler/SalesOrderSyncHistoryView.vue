@@ -15,6 +15,7 @@ import {
 import {
   useCollectorApi,
 } from '../../composables/useCollectorApi'
+import { usePaginationPreference } from '../../composables/usePaginationPreference'
 import type {
   SalesOrderSyncStore,
   SalesOrderSyncGlobalSettings,
@@ -24,6 +25,7 @@ import type {
   SalesOrderSyncTriggerType,
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 
 const POLL_INTERVAL_MS = 2_000
 const DEFAULT_SETTINGS: SalesOrderSyncGlobalSettings = {
@@ -44,13 +46,19 @@ const deleting = shallowRef(false)
 const selectedRuns = shallowRef<SalesOrderSyncRun[]>([])
 const total = shallowRef(0)
 const lastRefreshedAt = shallowRef<string | null>(null)
+const historyPageSizes = [20, 30, 50, 100] as const
+const persistedPageSize = usePaginationPreference(
+  PAGINATION_PREFERENCE_KEYS.salesOrderSyncHistory,
+  historyPageSizes,
+  30,
+)
 const filters = reactive({
   storeId: initialStoreId(),
   triggerType: '' as SalesOrderSyncTriggerType | '',
   status: '' as SalesOrderSyncRunStatus | '',
   createdAtRange: [] as string[],
   page: 1,
-  pageSize: 30,
+  pageSize: persistedPageSize.value,
 })
 
 let pollTimer: number | null = null
@@ -225,6 +233,7 @@ function handlePageChange(page: number) {
 }
 
 function handlePageSizeChange(pageSize: number) {
+  persistedPageSize.value = pageSize
   filters.pageSize = pageSize
   filters.page = 1
   void loadRuns()
@@ -420,7 +429,7 @@ function formatDateTime(value?: string | null) {
           :total="total"
           :current-page="filters.page"
           :page-size="filters.pageSize"
-          :page-sizes="[20, 30, 50, 100]"
+          :page-sizes="historyPageSizes"
           @current-change="handlePageChange"
           @size-change="handlePageSizeChange"
         />

@@ -1,12 +1,18 @@
-import { ref } from 'vue'
+import { ref, type MaybeRefOrGetter } from 'vue'
+
+import { usePaginationPreference } from './usePaginationPreference'
 
 export const DEFAULT_PAGE_SIZE = 30
 export const DEFAULT_PAGE_SIZES = [30, 60, 90, 180, 300]
 export const DEFAULT_PAGINATION_LAYOUT = 'total, sizes, prev, pager, next, jumper'
 
-export function useServerPagination() {
+export function useServerPagination(
+  listKey: MaybeRefOrGetter<string>,
+  pageSizes: readonly number[] = DEFAULT_PAGE_SIZES,
+  defaultPageSize = DEFAULT_PAGE_SIZE,
+) {
   const currentPage = ref(1)
-  const pageSize = ref(DEFAULT_PAGE_SIZE)
+  const pageSize = usePaginationPreference(listKey, pageSizes, defaultPageSize)
   const total = ref(0)
 
   function resetPage() {
@@ -30,7 +36,7 @@ export function useServerPagination() {
   return {
     currentPage,
     pageSize,
-    pageSizes: DEFAULT_PAGE_SIZES,
+    pageSizes,
     paginationLayout: DEFAULT_PAGINATION_LAYOUT,
     total,
     resetPage,

@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { AuthSession, RoleDefinition, RolePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 
 const props = defineProps<{
   session: AuthSession | null
@@ -26,7 +27,7 @@ const {
   total,
   resetPage,
   setPageResult,
-} = useServerPagination()
+} = useServerPagination(PAGINATION_PREFERENCE_KEYS.roles)
 
 const canManageRoles = computed(() => props.session?.role === 'superadmin')
 

@@ -8,6 +8,7 @@ import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlTask } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
@@ -31,7 +32,7 @@ const {
   total,
   resetPage,
   setPageResult,
-} = useServerPagination()
+} = useServerPagination(PAGINATION_PREFERENCE_KEYS.scheduledCrawls)
 
 onMounted(() => {
   void loadTasks()

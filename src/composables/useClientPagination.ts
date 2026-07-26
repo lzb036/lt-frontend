@@ -1,12 +1,26 @@
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
+import {
+  computed,
+  ref,
+  watch,
+  type ComputedRef,
+  type MaybeRefOrGetter,
+  type Ref,
+} from 'vue'
+
+import { usePaginationPreference } from './usePaginationPreference'
 
 export const DEFAULT_PAGE_SIZE = 30
 export const DEFAULT_PAGE_SIZES = [30, 60, 90, 180, 300]
 export const DEFAULT_PAGINATION_LAYOUT = 'total, sizes, prev, pager, next, jumper'
 
-export function useClientPagination<T>(items: Ref<readonly T[]> | ComputedRef<readonly T[]>) {
+export function useClientPagination<T>(
+  items: Ref<readonly T[]> | ComputedRef<readonly T[]>,
+  listKey: MaybeRefOrGetter<string>,
+  pageSizes: readonly number[] = DEFAULT_PAGE_SIZES,
+  defaultPageSize = DEFAULT_PAGE_SIZE,
+) {
   const currentPage = ref(1)
-  const pageSize = ref(DEFAULT_PAGE_SIZE)
+  const pageSize = usePaginationPreference(listKey, pageSizes, defaultPageSize)
 
   const total = computed(() => items.value.length)
 
@@ -32,7 +46,7 @@ export function useClientPagination<T>(items: Ref<readonly T[]> | ComputedRef<re
   return {
     currentPage,
     pageSize,
-    pageSizes: DEFAULT_PAGE_SIZES,
+    pageSizes,
     paginationLayout: DEFAULT_PAGINATION_LAYOUT,
     total,
     pagedItems,

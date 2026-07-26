@@ -8,6 +8,7 @@ import { useServerPagination } from '../../composables/useServerPagination'
 import type { AuthSession, AvailabilityStatus, StoreAccount, StoreEmptyCabinetFoldersResult, StorePayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { confirmStoreDeletion } from '../../utils/confirmStoreDeletion'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import CopyableTableText from './CopyableTableText.vue'
 
 const props = defineProps<{
@@ -36,7 +37,7 @@ const {
   total,
   resetPage,
   setPageResult,
-} = useServerPagination()
+} = useServerPagination(PAGINATION_PREFERENCE_KEYS.stores)
 
 const form = reactive<StorePayload>({
   ownerUsername: '',

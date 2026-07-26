@@ -7,6 +7,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { AuthSession, SensitiveWord, SensitiveWordImportResult, SensitiveWordPayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import CopyableTableText from './CopyableTableText.vue'
 
 defineProps<{
@@ -32,7 +33,7 @@ const {
   total,
   resetPage,
   setPageResult,
-} = useServerPagination()
+} = useServerPagination(PAGINATION_PREFERENCE_KEYS.sensitiveWords)
 
 const filters = reactive({
   keyword: '',

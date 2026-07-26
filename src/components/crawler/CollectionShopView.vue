@@ -16,6 +16,7 @@ import type {
   ScheduleStatus,
 } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import { toApiErrorMessage } from '../../utils/api'
 import CopyableTableText from './CopyableTableText.vue'
 
@@ -97,7 +98,7 @@ const {
   total,
   resetPage,
   setPageResult,
-} = useServerPagination()
+} = useServerPagination(PAGINATION_PREFERENCE_KEYS.collectionShops)
 
 onMounted(() => {
   void loadSchedules()

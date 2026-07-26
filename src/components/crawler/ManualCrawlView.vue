@@ -8,6 +8,7 @@ import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlLimit, CrawlTask, CreateTaskPayload, ManualCrawlImportResult, SourceType } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import CopyableTableText from './CopyableTableText.vue'
 import ManualCrawlResultDialog from './ManualCrawlResultDialog.vue'
 
@@ -50,7 +51,7 @@ const {
   total,
   resetPage,
   setPageResult,
-} = useServerPagination()
+} = useServerPagination(PAGINATION_PREFERENCE_KEYS.manualCrawlTasks)
 
 const sourceTypeOptions: Array<{ label: string; value: SourceType }> = [
   { label: '店铺采集', value: 'shop' },

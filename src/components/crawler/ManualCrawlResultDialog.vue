@@ -8,6 +8,7 @@ import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlTask, ProductDetail, ProductDetailEditPayload, ProductItem, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
+import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 
 const props = defineProps<{
   modelValue: boolean
@@ -18,6 +19,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
+const resultPageSizes = [30, 60, 90] as const
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const listing = shallowRef(false)
@@ -35,13 +37,14 @@ const listingForm = reactive({
 const {
   currentPage,
   pageSize,
-  pageSizes,
   paginationLayout,
   total,
   resetPage,
   setPageResult,
-} = useServerPagination()
-const resultPageSizes = pageSizes.filter((size) => size <= 90)
+} = useServerPagination(
+  PAGINATION_PREFERENCE_KEYS.manualCrawlResults,
+  resultPageSizes,
+)
 
 const dialogVisible = computed({
   get: () => props.modelValue,

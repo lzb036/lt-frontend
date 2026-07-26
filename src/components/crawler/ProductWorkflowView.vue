@@ -8,6 +8,7 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import { productWorkflowPaginationKey } from '../../utils/paginationPreferenceKeys'
 import {
   canEditProductDetailGenre,
   hasValidProductGenre,
@@ -88,7 +89,9 @@ const detailForm = reactive({
   variants: [] as ProductVariantEditPayload[],
 })
 const replacingImageIndex = shallowRef<number | null>(null)
-const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, setPageResult, reduceTotal } = useServerPagination()
+const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, setPageResult, reduceTotal } = useServerPagination(
+  () => productWorkflowPaginationKey(props.status),
+)
 
 const filters = reactive({
   keyword: '',

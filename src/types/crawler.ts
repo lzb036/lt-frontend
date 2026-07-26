@@ -51,6 +51,7 @@ export interface AuthSession {
   enabled: boolean
   crawlMinPrice: 0 | 2500 | 3800
   crawlPriceRule?: CrawlPriceRule
+  paginationPreferences?: Record<string, number>
   permissionCodes: string[]
   permissions: UserPermissions
   createdAt?: string | null
