@@ -65,6 +65,8 @@ const selectedPendingImages = shallowRef<Map<number, Set<string>>>(new Map())
 const hiddenProducts = shallowRef<Map<number, ProductItem>>(new Map())
 const detailVisible = shallowRef(false)
 const selectedProductDetail = shallowRef<ProductDetail | null>(null)
+const listedStorePageDialogVisible = shallowRef(false)
+const selectedListedStorePageUrl = shallowRef('')
 const listingProductIds = shallowRef<Set<number>>(new Set())
 const listedSyncProductIds = shallowRef<Set<number>>(new Set())
 const titleOptimizationProductIds = shallowRef<Set<number>>(new Set())
@@ -1830,9 +1832,35 @@ function listedStorePageLinks(product: ProductDetail | null) {
       continue
     }
     seen.add(url)
-    links.push({ label: listedStoreLabel(store), url })
+    const productCode = listedStoreProductCode(store)
+    links.push({
+      label: productCode ? `${listedStoreLabel(store)}（${productCode}）` : listedStoreLabel(store),
+      url,
+    })
   }
   return links
+}
+
+const detailListedStorePageLinks = computed(() => listedStorePageLinks(selectedProductDetail.value))
+
+function openListedStorePageDialog() {
+  const links = detailListedStorePageLinks.value
+  if (links.length < 1) {
+    ElMessage.warning('当前商品没有可查看的店铺商品页')
+    return
+  }
+  selectedListedStorePageUrl.value = links.length === 1 ? links[0].url : ''
+  listedStorePageDialogVisible.value = true
+}
+
+function openSelectedListedStorePage() {
+  const url = selectedListedStorePageUrl.value
+  if (!url) {
+    ElMessage.warning('请选择要查看的店铺')
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
+  listedStorePageDialogVisible.value = false
 }
 
 function currentStoreProductPageUrl(product: ProductDetail) {
@@ -3273,7 +3301,30 @@ function sanitizedDescriptionHtml(value: string) {
                 <span v-if="status === 'listed'">上架时间：{{ compactText(selectedProductDetail.listedAt) }}</span>
                 <span v-if="status === 'listed'">更新时间：{{ compactText(selectedProductDetail.updatedAt) }}</span>
               </div>
-              <div v-if="status !== 'listed_master'" class="detail-link-actions">
+              <div v-if="status === 'listed_master'" class="detail-link-actions">
+                <el-button
+                  v-if="sourceProductPageUrl(selectedProductDetail)"
+                  :icon="View"
+                  link
+                  type="primary"
+                  tag="a"
+                  :href="sourceProductPageUrl(selectedProductDetail)"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  查看源店铺商品
+                </el-button>
+                <el-button
+                  v-if="detailListedStorePageLinks.length"
+                  :icon="View"
+                  link
+                  type="success"
+                  @click="openListedStorePageDialog"
+                >
+                  查看店铺商品页
+                </el-button>
+              </div>
+              <div v-else class="detail-link-actions">
                 <el-button
                   v-if="primaryProductPageUrl(selectedProductDetail)"
                   :icon="View"
@@ -3389,6 +3440,42 @@ function sanitizedDescriptionHtml(value: string) {
         <el-button @click="detailVisible = false">关闭</el-button>
         <el-button v-if="selectedProductDetail && detailEditable()" type="primary" :loading="detailSaving" @click="submitDetailChange">
           {{ detailSaveButtonText() }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="listedStorePageDialogVisible"
+      title="选择店铺商品页"
+      width="480px"
+      append-to-body
+      destroy-on-close
+    >
+      <el-form label-position="top">
+        <el-form-item label="店铺">
+          <el-select
+            v-model="selectedListedStorePageUrl"
+            class="full-control"
+            filterable
+            placeholder="请选择要查看的店铺"
+          >
+            <el-option
+              v-for="link in detailListedStorePageLinks"
+              :key="link.url"
+              :label="link.label"
+              :value="link.url"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="listedStorePageDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :disabled="!selectedListedStorePageUrl"
+          @click="openSelectedListedStorePage"
+        >
+          查看商品页
         </el-button>
       </template>
     </el-dialog>
