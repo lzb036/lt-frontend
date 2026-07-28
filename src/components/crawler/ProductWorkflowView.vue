@@ -4073,16 +4073,18 @@ function sanitizedDescriptionHtml(value: string) {
 :deep(.product-selection-column .el-checkbox__inner::after) {
   width: 6px;
   height: 11px;
-  top: 2px;
-  left: 7px;
+  top: 50%;
+  left: 50%;
   border-width: 0 2px 2px 0;
 }
 
 :deep(.product-selection-column .el-checkbox__input.is-indeterminate .el-checkbox__inner::before) {
   width: 12px;
   height: 3px;
-  top: 8px;
-  left: 3px;
+  top: 50%;
+  right: auto;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .listed-store-tags {

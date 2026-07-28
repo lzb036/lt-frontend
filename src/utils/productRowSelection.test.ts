@@ -27,6 +27,10 @@ if (!/\.product-selection-column \.el-checkbox__inner\)\s*\{[^}]*width:\s*22px;[
   throw new Error('product selection checkbox must use the enlarged 22px control')
 }
 
+if (!/\.product-selection-column \.el-checkbox__inner::after\)\s*\{[^}]*top:\s*50%;[^}]*left:\s*50%;/s.test(workflowSource)) {
+  throw new Error('product selection checkmark must stay centered in the enlarged control')
+}
+
 if (!/if \(!isProductSelectable\(row\) \|\| shouldIgnoreProductRowClick\(event\.target\)\)/.test(workflowSource)) {
   throw new Error('row selection must ignore busy rows and clicks on interactive controls')
 }
