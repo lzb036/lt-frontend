@@ -3100,8 +3100,9 @@ function sanitizedDescriptionHtml(value: string) {
         <el-table-column v-if="status === 'listed'" prop="updatedAt" label="更新时间" min-width="170" />
         <el-table-column
           :class-name="status === 'pending' ? 'table-action-column pending-action-column' : 'table-action-column'"
+          label-class-name="table-action-header"
           label="操作"
-          width="150"
+          width="176"
           fixed="right"
         >
           <template #default="{ row }">
@@ -4019,21 +4020,34 @@ function sanitizedDescriptionHtml(value: string) {
 .row-action-stack {
   display: grid;
   justify-items: start;
-  gap: 4px;
+  gap: 8px;
 }
 
 .row-action-stack :deep(.el-button) {
+  min-height: 26px;
   margin-left: 0;
   padding: 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.row-action-stack :deep(.el-button .el-icon) {
+  font-size: 18px;
 }
 
 .pending-action-price {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: var(--text-main);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+:deep(.table-action-header .cell) {
   font-size: 16px;
   font-weight: 800;
-  white-space: nowrap;
 }
 
 :deep(.pending-action-column) {
