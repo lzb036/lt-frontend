@@ -221,19 +221,6 @@ export interface CollectionGenreNode extends RakutenGenreNode {
   policySourceType: 'rule' | 'default' | 'unknown'
 }
 
-export interface CollectionGenrePendingImpact {
-  totalPendingCount: number
-  deniedCount: number
-  unknownGenreCount: number
-  samples: Array<{
-    productId: number
-    title: string
-    genreId: string
-    genrePath: string
-    genrePathZh: string
-  }>
-}
-
 export interface ProductVariant {
   variantId: string
   merchantDefinedSkuId: string

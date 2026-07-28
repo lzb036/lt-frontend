@@ -45,7 +45,6 @@ import type {
   SensitiveWordPayload,
   CollectionGenreConfig,
   CollectionGenreNode,
-  CollectionGenrePendingImpact,
   CollectionGenrePolicy,
   SourceType,
   StoreAccount,
@@ -236,13 +235,6 @@ export function useCollectorApi() {
     await apiClient.delete<{ deleted: boolean }>(
       `/crawler/settings/collection-genres/rules/${ruleId}`,
     )
-  }
-
-  async function getCollectionGenrePendingImpact() {
-    const response = await apiClient.get<{ impact: CollectionGenrePendingImpact }>(
-      '/crawler/settings/collection-genres/pending-impact',
-    )
-    return response.data.impact
   }
 
   async function listSensitiveWordsPage(params: PageParams & { keyword?: string }) {
@@ -1080,7 +1072,6 @@ export function useCollectorApi() {
     searchCollectionGenres,
     saveCollectionGenreRule,
     deleteCollectionGenreRule,
-    getCollectionGenrePendingImpact,
     listSensitiveWordsPage,
     createSensitiveWord,
     updateSensitiveWord,

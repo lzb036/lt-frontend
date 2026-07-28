@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type {
@@ -9,7 +9,6 @@ import type {
   CollectionGenreConfig,
   CollectionGenreExplicitPolicy,
   CollectionGenreNode,
-  CollectionGenrePendingImpact,
   CollectionGenrePolicy,
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
@@ -30,12 +29,14 @@ const api = useCollectorApi()
 const loadingConfig = shallowRef(false)
 const savingConfig = shallowRef(false)
 const searching = shallowRef(false)
-const impactLoading = shallowRef(false)
 const searchKeyword = shallowRef('')
 const searchResults = shallowRef<CollectionGenreNode[]>([])
 const savingPaths = shallowRef<Set<string>>(new Set())
 const treeRevision = shallowRef(0)
-const impact = shallowRef<CollectionGenrePendingImpact | null>(null)
+const persistedConfig = shallowRef<Pick<CollectionGenreConfig, 'defaultPolicy' | 'unknownGenrePolicy'>>({
+  defaultPolicy: 'allow',
+  unknownGenrePolicy: 'allow',
+})
 
 const config = reactive<CollectionGenreConfig>({
   defaultPolicy: 'allow',
@@ -60,7 +61,12 @@ onMounted(() => {
 async function loadConfig() {
   loadingConfig.value = true
   try {
-    Object.assign(config, await api.getCollectionGenreConfig())
+    const loadedConfig = await api.getCollectionGenreConfig()
+    Object.assign(config, loadedConfig)
+    persistedConfig.value = {
+      defaultPolicy: loadedConfig.defaultPolicy,
+      unknownGenrePolicy: loadedConfig.unknownGenrePolicy,
+    }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载采集品类设置失败'))
   } finally {
@@ -68,16 +74,26 @@ async function loadConfig() {
   }
 }
 
-async function saveConfig() {
+async function saveConfig(
+  field: 'defaultPolicy' | 'unknownGenrePolicy',
+  value: CollectionGenrePolicy,
+) {
+  config[field] = value
   savingConfig.value = true
   try {
-    Object.assign(config, await api.updateCollectionGenreConfig({
+    const savedConfig = await api.updateCollectionGenreConfig({
       defaultPolicy: config.defaultPolicy,
       unknownGenrePolicy: config.unknownGenrePolicy,
-    }))
+    })
+    Object.assign(config, savedConfig)
+    persistedConfig.value = {
+      defaultPolicy: savedConfig.defaultPolicy,
+      unknownGenrePolicy: savedConfig.unknownGenrePolicy,
+    }
     refreshGenreViews()
-    ElMessage.success('采集品类默认策略已保存')
+    ElMessage.success(field === 'defaultPolicy' ? '默认品类策略已保存' : '未识别品类策略已保存')
   } catch (error) {
+    Object.assign(config, persistedConfig.value)
     ElMessage.error(toApiErrorMessage(error, '保存采集品类设置失败'))
   } finally {
     savingConfig.value = false
@@ -158,20 +174,8 @@ async function changeGenrePolicy(
 
 function refreshGenreViews() {
   treeRevision.value += 1
-  impact.value = null
   if (searchKeyword.value.trim()) {
     void searchGenres()
-  }
-}
-
-async function scanPendingImpact() {
-  impactLoading.value = true
-  try {
-    impact.value = await api.getCollectionGenrePendingImpact()
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '扫描待审核商品影响失败'))
-  } finally {
-    impactLoading.value = false
   }
 }
 
@@ -202,28 +206,26 @@ function inheritedRuleText(genre: CollectionGenreNode) {
     <div v-loading="loadingConfig" class="settings-band">
       <div class="setting-field">
         <span class="setting-label">默认品类策略</span>
-        <el-segmented v-model="config.defaultPolicy" :options="policyOptions" />
+        <el-segmented
+          v-model="config.defaultPolicy"
+          :options="policyOptions"
+          :disabled="savingConfig"
+          @change="saveConfig('defaultPolicy', $event)"
+        />
       </div>
       <div class="setting-field">
         <span class="setting-label">未识别品类</span>
-        <el-segmented v-model="config.unknownGenrePolicy" :options="policyOptions" />
+        <el-segmented
+          v-model="config.unknownGenrePolicy"
+          :options="policyOptions"
+          :disabled="savingConfig"
+          @change="saveConfig('unknownGenrePolicy', $event)"
+        />
       </div>
       <div class="settings-actions">
         <span>已设置 {{ config.ruleCount }} 条规则</span>
-        <el-button type="primary" :loading="savingConfig" @click="saveConfig">
-          保存默认策略
-        </el-button>
-        <el-button :icon="Refresh" :loading="impactLoading" @click="scanPendingImpact">
-          扫描待审核影响
-        </el-button>
+        <span v-if="savingConfig">保存中...</span>
       </div>
-    </div>
-
-    <div v-if="impact" class="impact-band">
-      <strong>当前用户待审核商品 {{ impact.totalPendingCount }} 条</strong>
-      <span>命中禁止规则 {{ impact.deniedCount }} 条</span>
-      <span>未识别品类 {{ impact.unknownGenreCount }} 条</span>
-      <span>这里只统计影响，不会删除已有商品。</span>
     </div>
 
     <div class="genre-workspace">
@@ -313,7 +315,7 @@ function inheritedRuleText(genre: CollectionGenreNode) {
 .genre-settings-page {
   display: grid;
   min-height: 100%;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -364,21 +366,6 @@ function inheritedRuleText(genre: CollectionGenreNode) {
   gap: 12px;
   color: var(--text-muted);
   font-size: 13px;
-}
-
-.impact-band {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 24px;
-  border-left: 3px solid var(--el-color-warning);
-  background: var(--panel-muted);
-  padding: 12px 16px;
-  color: var(--text-muted);
-}
-
-.impact-band strong {
-  color: var(--text-main);
 }
 
 .genre-workspace {
