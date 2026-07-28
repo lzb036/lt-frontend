@@ -203,6 +203,37 @@ export interface RakutenGenreNode extends RakutenGenreOption {
   leaf: boolean
 }
 
+export type CollectionGenrePolicy = 'allow' | 'deny'
+export type CollectionGenreExplicitPolicy = CollectionGenrePolicy | 'inherit'
+
+export interface CollectionGenreConfig {
+  defaultPolicy: CollectionGenrePolicy
+  unknownGenrePolicy: CollectionGenrePolicy
+  ruleCount: number
+}
+
+export interface CollectionGenreNode extends RakutenGenreNode {
+  ruleId?: number | null
+  explicitPolicy: CollectionGenreExplicitPolicy
+  effectivePolicy: CollectionGenrePolicy
+  inheritedFromPath: string
+  inheritedFromPathZh: string
+  policySourceType: 'rule' | 'default' | 'unknown'
+}
+
+export interface CollectionGenrePendingImpact {
+  totalPendingCount: number
+  deniedCount: number
+  unknownGenreCount: number
+  samples: Array<{
+    productId: number
+    title: string
+    genreId: string
+    genrePath: string
+    genrePathZh: string
+  }>
+}
+
 export interface ProductVariant {
   variantId: string
   merchantDefinedSkuId: string

@@ -43,6 +43,10 @@ import type {
   SensitiveWord,
   SensitiveWordImportResult,
   SensitiveWordPayload,
+  CollectionGenreConfig,
+  CollectionGenreNode,
+  CollectionGenrePendingImpact,
+  CollectionGenrePolicy,
   SourceType,
   StoreAccount,
   StoreEmptyCabinetFoldersResult,
@@ -180,6 +184,65 @@ export function useCollectorApi() {
       { params: { refresh } },
     )
     return response.data.proxyUsage
+  }
+
+  async function getCollectionGenreConfig() {
+    const response = await apiClient.get<{ config: CollectionGenreConfig }>(
+      '/crawler/settings/collection-genres/config',
+    )
+    return response.data.config
+  }
+
+  async function updateCollectionGenreConfig(payload: {
+    defaultPolicy: CollectionGenrePolicy
+    unknownGenrePolicy: CollectionGenrePolicy
+  }) {
+    const response = await apiClient.put<{ config: CollectionGenreConfig }>(
+      '/crawler/settings/collection-genres/config',
+      payload,
+    )
+    return response.data.config
+  }
+
+  async function listCollectionGenreChildren(parentPath = '') {
+    const response = await apiClient.get<{ genres: CollectionGenreNode[] }>(
+      '/crawler/settings/collection-genres/children',
+      { params: { parentPath } },
+    )
+    return response.data.genres
+  }
+
+  async function searchCollectionGenres(keyword: string, limit = 50) {
+    const response = await apiClient.get<{ genres: CollectionGenreNode[] }>(
+      '/crawler/settings/collection-genres/search',
+      { params: { keyword, limit } },
+    )
+    return response.data.genres
+  }
+
+  async function saveCollectionGenreRule(payload: {
+    genrePath: string
+    genreId?: string
+    policy: CollectionGenrePolicy
+  }) {
+    const response = await apiClient.put<{ genre: CollectionGenreNode }>(
+      '/crawler/settings/collection-genres/rules',
+      payload,
+    )
+    return response.data.genre
+  }
+
+  async function deleteCollectionGenreRule(ruleId: number) {
+    await apiClient.delete<{ deleted: boolean }>(
+      `/crawler/settings/collection-genres/rules/${ruleId}`,
+    )
+  }
+
+  async function getCollectionGenrePendingImpact() {
+    const response = await apiClient.get<{ impact: CollectionGenrePendingImpact }>(
+      '/crawler/settings/collection-genres/pending-impact',
+    )
+    return response.data.impact
   }
 
   async function listSensitiveWordsPage(params: PageParams & { keyword?: string }) {
@@ -1011,6 +1074,13 @@ export function useCollectorApi() {
     listDeletedProductImageCleanupsPage,
     runDeletedProductImageCleanup,
     getProxyResourceUsage,
+    getCollectionGenreConfig,
+    updateCollectionGenreConfig,
+    listCollectionGenreChildren,
+    searchCollectionGenres,
+    saveCollectionGenreRule,
+    deleteCollectionGenreRule,
+    getCollectionGenrePendingImpact,
     listSensitiveWordsPage,
     createSensitiveWord,
     updateSensitiveWord,

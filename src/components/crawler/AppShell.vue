@@ -145,6 +145,11 @@ const menuGroups = computed(() => {
     { path: '/system/time', label: '资源管理', icon: AlarmClock },
     { path: '/system/deleted-product-images', label: '待清理图片', icon: Delete },
   ]
+  if (hasPermission(props.session, 'crawler.manage')) {
+    settingsChildren.push(
+      { path: '/system/collection-genres', label: '采集品类', icon: Aim },
+    )
+  }
   if (isSuperadmin.value) {
     settingsChildren.push(
       { path: '/system/sensitive-words', label: '敏感词管理', icon: Warning },
