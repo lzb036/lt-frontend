@@ -55,7 +55,10 @@ const operating = shallowRef(false)
 const detailLoading = shallowRef(false)
 const detailSaving = shallowRef(false)
 const imageOperating = shallowRef(false)
-const productTableRef = ref<{ clearSelection: () => void } | null>(null)
+const productTableRef = ref<{
+  clearSelection: () => void
+  toggleRowSelection: (row: ProductItem, selected?: boolean, ignoreSelectable?: boolean) => void
+} | null>(null)
 const imageFileInputRef = ref<HTMLInputElement | null>(null)
 const inlineImageFileInputRef = ref<HTMLInputElement | null>(null)
 const products = shallowRef<ProductItem[]>([])
@@ -714,6 +717,35 @@ function handleSelectionChange(rows: ProductItem[]) {
   selectedIds.value = rows.map((row) => row.id)
 }
 
+function shouldIgnoreProductRowClick(target: EventTarget | null) {
+  if (!(target instanceof Element)) {
+    return false
+  }
+  return Boolean(target.closest([
+    'button',
+    'a',
+    'input',
+    'textarea',
+    'select',
+    'label',
+    '[role="button"]',
+    '.el-checkbox',
+    '.el-input',
+    '.el-input-number',
+    '.el-select',
+    '.el-date-editor',
+    '.el-switch',
+    '.el-tag',
+  ].join(',')))
+}
+
+function handleProductRowClick(row: ProductItem, _column: unknown, event: MouseEvent) {
+  if (!isProductSelectable(row) || shouldIgnoreProductRowClick(event.target)) {
+    return
+  }
+  productTableRef.value?.toggleRowSelection(row, !selectedIds.value.includes(row.id))
+}
+
 function clearSelection() {
   selectedIds.value = []
   productTableRef.value?.clearSelection()
@@ -1274,7 +1306,7 @@ function isProductSelectable(product: ProductItem) {
 }
 
 function productRowClassName({ row }: { row: ProductItem }) {
-  return isProductBusy(row) ? 'product-row-disabled' : ''
+  return isProductBusy(row) ? 'product-row-disabled' : 'product-row-selectable'
 }
 
 function taskOutcomeIds(task: Pick<ListingTask | SyncTask, 'status' | 'successIds' | 'failedIds'>, productIds: number[]) {
@@ -2840,8 +2872,15 @@ function sanitizedDescriptionHtml(value: string) {
         row-key="id"
         :row-class-name="productRowClassName"
         @selection-change="handleSelectionChange"
+        @row-click="handleProductRowClick"
       >
-        <el-table-column type="selection" width="46" :selectable="isProductSelectable" />
+        <el-table-column
+          type="selection"
+          width="58"
+          class-name="product-selection-column"
+          label-class-name="product-selection-column"
+          :selectable="isProductSelectable"
+        />
         <el-table-column :label="status === 'pending' ? '商品信息' : '图片'" :min-width="status === 'pending' ? 1100 : 86">
           <template #default="{ row }">
             <div v-if="status === 'pending'" class="pending-product-content">
@@ -4011,6 +4050,39 @@ function sanitizedDescriptionHtml(value: string) {
 :deep(.product-row-disabled) {
   opacity: 0.55;
   background: var(--panel-muted);
+}
+
+:deep(.product-row-selectable > td) {
+  cursor: pointer;
+}
+
+:deep(.product-selection-column .el-checkbox) {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+}
+
+:deep(.product-selection-column .el-checkbox__inner) {
+  width: 22px;
+  height: 22px;
+  border-width: 2px;
+}
+
+:deep(.product-selection-column .el-checkbox__inner::after) {
+  width: 6px;
+  height: 11px;
+  top: 2px;
+  left: 7px;
+  border-width: 0 2px 2px 0;
+}
+
+:deep(.product-selection-column .el-checkbox__input.is-indeterminate .el-checkbox__inner::before) {
+  width: 12px;
+  height: 3px;
+  top: 8px;
+  left: 3px;
 }
 
 .listed-store-tags {
