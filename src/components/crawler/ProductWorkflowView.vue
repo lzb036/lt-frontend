@@ -1020,17 +1020,19 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     return
   }
   try {
-    const deleteTaskCount = Math.ceil(productIds.length / BATCH_TASK_PRODUCT_LIMIT)
-    const deleteMessage = props.status === 'listed'
-      ? `确认删除选中的 ${productIds.length} 个店铺商品？将创建 ${deleteTaskCount} 个同步任务，每个任务最多 ${BATCH_TASK_PRODUCT_LIMIT} 个商品；任务只删除乐天商品和本地商品记录，关联图片会进入每周图片清理队列。`
-      : product
-        ? `确认删除商品「${productDisplayName(product)}」？该操作会直接删除本地数据库记录和本地图片文件，不会创建同步任务。`
-        : `确认直接删除选中的 ${productIds.length} 个商品？该操作会删除本地数据库记录和本地图片文件，不会创建同步任务。`
-    await ElMessageBox.confirm(deleteMessage, '删除商品', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
+    if (props.status !== 'pending') {
+      const deleteTaskCount = Math.ceil(productIds.length / BATCH_TASK_PRODUCT_LIMIT)
+      const deleteMessage = props.status === 'listed'
+        ? `确认删除选中的 ${productIds.length} 个店铺商品？将创建 ${deleteTaskCount} 个同步任务，每个任务最多 ${BATCH_TASK_PRODUCT_LIMIT} 个商品；任务只删除乐天商品和本地商品记录，关联图片会进入每周图片清理队列。`
+        : product
+          ? `确认删除商品「${productDisplayName(product)}」？该操作会直接删除本地数据库记录和本地图片文件，不会创建同步任务。`
+          : `确认直接删除选中的 ${productIds.length} 个商品？该操作会删除本地数据库记录和本地图片文件，不会创建同步任务。`
+      await ElMessageBox.confirm(deleteMessage, '删除商品', {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+    }
     if (shouldLockListedSync) {
       setListedSyncProductsBusy(productIds, true)
       clearSelection()
@@ -2283,15 +2285,6 @@ async function deleteSelectedPendingImages(product: ProductItem) {
     return
   }
   try {
-    await ElMessageBox.confirm(
-      `确认删除商品「${productDisplayName(product)}」中选中的 ${selectedImages.size} 张图片？`,
-      '删除图片',
-      {
-        confirmButtonText: '删除图片',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
     const detail = await api.getProductDetail(product.id)
     const currentImages = detailImageUrlsFromProduct(detail)
     const removeUrls = currentImages.filter((image) => selectedImages.has(image))
@@ -2316,9 +2309,7 @@ async function deleteSelectedPendingImages(product: ProductItem) {
       clearPendingImageSelection(product.id)
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '批量删除商品图片失败'))
-    }
+    ElMessage.error(toApiErrorMessage(error, '批量删除商品图片失败'))
   }
 }
 
@@ -2466,26 +2457,14 @@ async function deleteDetailImage(index: number) {
   if (!selectedProductDetail.value || !imageEditable()) {
     return
   }
-  try {
-    await ElMessageBox.confirm('确认删除这张商品图片？点击保存后才会生效。', '删除图片', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-    })
-    const image = detailImageDraft.value[index]
-    if (!image) {
-      ElMessage.warning('图片不存在')
-      return
-    }
-    appendPendingImageOperation({ type: 'delete', sourceUrl: image.sourceUrl })
-    detailImageDraft.value = detailImageDraft.value.filter((_, itemIndex) => itemIndex !== index)
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '删除图片失败'))
-    }
-  } finally {
-    imageOperating.value = false
+  const image = detailImageDraft.value[index]
+  if (!image) {
+    ElMessage.warning('图片不存在')
+    return
   }
+  appendPendingImageOperation({ type: 'delete', sourceUrl: image.sourceUrl })
+  detailImageDraft.value = detailImageDraft.value.filter((_, itemIndex) => itemIndex !== index)
+  imageOperating.value = false
 }
 
 async function editDetailImageWithMeitu(index: number) {
