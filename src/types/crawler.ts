@@ -775,21 +775,6 @@ export interface DeletedProductImageCleanupRecord {
   updatedAt?: string | null
 }
 
-export interface ProxyResourceUsage {
-  uploadBytes: number
-  downloadBytes: number
-  usedBytes: number
-  totalBytes: number
-  remainingBytes: number
-  usagePercent: number
-  resetDay: number
-  resetAt?: string | null
-  resetRemainingSeconds: number
-  checkedAt?: string | null
-  source: 'subscription' | 'mihomo_config'
-  stale: boolean
-}
-
 export interface TaskQueueRedisInfo {
   usedMemory: number
   usedMemoryHuman: string

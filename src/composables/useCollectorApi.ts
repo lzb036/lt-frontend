@@ -24,7 +24,6 @@ import type {
   RakutenGenreNode,
   ProductTitleVersion,
   ProductTitleVersionList,
-  ProxyResourceUsage,
   ReviewStatus,
   RoleDefinition,
   RolePayload,
@@ -175,14 +174,6 @@ export function useCollectorApi() {
       }
     }>('/crawler/settings/time/unlisted-products/run')
     return response.data
-  }
-
-  async function getProxyResourceUsage(refresh = false) {
-    const response = await apiClient.get<{ proxyUsage: ProxyResourceUsage }>(
-      '/crawler/settings/resources/proxy-usage',
-      { params: { refresh } },
-    )
-    return response.data.proxyUsage
   }
 
   async function getCollectionGenreConfig() {
@@ -1065,7 +1056,6 @@ export function useCollectorApi() {
     runUnlistedProductCleanup,
     listDeletedProductImageCleanupsPage,
     runDeletedProductImageCleanup,
-    getProxyResourceUsage,
     getCollectionGenreConfig,
     updateCollectionGenreConfig,
     listCollectionGenreChildren,
