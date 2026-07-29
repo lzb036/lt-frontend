@@ -54,6 +54,8 @@ import type {
   TimeSettings,
   TimeSettingsPayload,
   UserAccount,
+  WholeShopFilter,
+  WholeShopPreview,
 } from '../types/crawler'
 import { apiClient, resolveApiBaseUrl } from '../utils/api'
 
@@ -304,6 +306,15 @@ export function useCollectorApi() {
   async function createTask(payload: CreateTaskPayload) {
     const response = await apiClient.post<{ task: CrawlTask }>('/crawler/tasks', payload)
     return response.data
+  }
+
+  async function previewWholeShopTask(payload: {
+    sourceType: 'whole_shop'
+    target: string
+    wholeShopFilter: WholeShopFilter
+  }) {
+    const response = await apiClient.post<{ preview: WholeShopPreview }>('/crawler/tasks/preview', payload)
+    return response.data.preview
   }
 
   async function restartTask(taskId: string) {
@@ -1075,6 +1086,7 @@ export function useCollectorApi() {
     listTasks,
     listTasksPage,
     createTask,
+    previewWholeShopTask,
     restartTask,
     cancelTask,
     deleteTasks,

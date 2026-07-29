@@ -5,7 +5,15 @@ import { CircleClose, Delete, Download, Plus, QuestionFilled, Refresh, Search, U
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { CrawlLimit, CrawlTask, CreateTaskPayload, ManualCrawlImportResult, SourceType } from '../../types/crawler'
+import type {
+  CrawlLimit,
+  CrawlTask,
+  CreateTaskPayload,
+  ManualCrawlImportResult,
+  SourceType,
+  WholeShopFilter,
+  WholeShopPreview,
+} from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
@@ -16,6 +24,8 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const creating = shallowRef(false)
+const previewing = shallowRef(false)
+const wholeShopPreview = shallowRef<WholeShopPreview | null>(null)
 const downloadingTemplate = shallowRef(false)
 const importing = shallowRef(false)
 const importInputRef = shallowRef<HTMLInputElement | null>(null)
@@ -41,6 +51,7 @@ const form = reactive({
   crawlLimit: 'all' as CrawlLimit,
   crawlLimitMode: 'all' as 'all' | 'custom',
   crawlLimitCount: 30,
+  wholeShopFilter: 'all' as WholeShopFilter,
 })
 
 const {
@@ -55,11 +66,13 @@ const {
 
 const sourceTypeOptions: Array<{ label: string; value: SourceType }> = [
   { label: '店铺采集', value: 'shop' },
+  { label: '整店采集', value: 'whole_shop' },
   { label: '单个商品采集', value: 'product_url' },
 ]
 
 const sourceTypeLabels: Record<string, string> = {
   shop: '店铺采集',
+  whole_shop: '整店采集',
   product_url: '单个商品采集',
   product_replace: '商品替换采集',
   ranking: '排行榜采集',
@@ -76,10 +89,16 @@ const rankingPeriodOptions: Array<{ label: string; value: RankingPeriod }> = [
   { label: '周榜', value: 'weekly' },
   { label: '月榜', value: 'monthly' },
 ]
+const wholeShopFilterOptions: Array<{ label: string; value: WholeShopFilter }> = [
+  { label: '全店采集', value: 'all' },
+  { label: '评论采集', value: 'reviewed' },
+]
 
 const productTargetError = '单个商品采集支持普通乐天商品链接、Rakuten Fashion 商品链接、带参数链接、店铺编码/商品编号。'
 const shopTargetError = '店铺采集请输入店铺展示名称、店铺url代码、店铺url或sid。'
 const shopTargetPlaceholder = '请输入店铺展示名称、url代码、url或sid'
+const wholeShopTargetError = '整店采集请输入店铺url代码、店铺url、商品url或sid，不能只填写店铺展示名称。'
+const wholeShopTargetPlaceholder = '请输入店铺url代码、店铺url、商品url或sid'
 
 onMounted(() => {
   void loadTasks()
@@ -90,6 +109,12 @@ onBeforeUnmount(() => {
 })
 
 watch(tasks, syncProgressPolling)
+watch(
+  () => [form.sourceType, form.target, form.wholeShopFilter],
+  () => {
+    wholeShopPreview.value = null
+  },
+)
 
 async function loadTasks(options: { silent?: boolean } = {}) {
   if (!options.silent) {
@@ -243,6 +268,10 @@ async function createTask() {
     ElMessage.error(shopTargetError)
     return
   }
+  if (form.sourceType === 'whole_shop' && !normalizeRakutenShopTarget(normalizedTarget)) {
+    ElMessage.error(wholeShopTargetError)
+    return
+  }
   creating.value = true
   try {
     const payload: CreateTaskPayload = {
@@ -250,6 +279,7 @@ async function createTask() {
       target: buildCreateTarget(normalizedTarget),
       rankingPeriod: form.sourceType === 'shop' ? form.rankingPeriod : null,
       crawlLimit: form.sourceType === 'shop' ? currentCrawlLimit() : null,
+      wholeShopFilter: form.sourceType === 'whole_shop' ? form.wholeShopFilter : null,
       mode: 'manual',
     }
     await api.createTask(payload)
@@ -262,6 +292,32 @@ async function createTask() {
     ElMessage.error(toApiErrorMessage(error, '创建采集任务失败'))
   } finally {
     creating.value = false
+  }
+}
+
+async function previewWholeShopTask() {
+  const normalizedTarget = normalizeCreateTarget()
+  if (!normalizedTarget) {
+    ElMessage.warning('采集内容不能为空')
+    return
+  }
+  if (!normalizeRakutenShopTarget(normalizedTarget)) {
+    ElMessage.error(wholeShopTargetError)
+    return
+  }
+  previewing.value = true
+  wholeShopPreview.value = null
+  try {
+    wholeShopPreview.value = await api.previewWholeShopTask({
+      sourceType: 'whole_shop',
+      target: normalizedTarget,
+      wholeShopFilter: form.wholeShopFilter,
+    })
+    ElMessage.success(wholeShopPreview.value.message)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '预采集失败'))
+  } finally {
+    previewing.value = false
   }
 }
 
@@ -318,6 +374,8 @@ function resetCreateForm() {
   form.crawlLimit = 'all'
   form.crawlLimitMode = 'all'
   form.crawlLimitCount = 30
+  form.wholeShopFilter = 'all'
+  wholeShopPreview.value = null
 }
 
 function handleSourceTypeChange() {
@@ -327,6 +385,8 @@ function handleSourceTypeChange() {
   form.crawlLimit = 'all'
   form.crawlLimitMode = 'all'
   form.crawlLimitCount = 30
+  form.wholeShopFilter = 'all'
+  wholeShopPreview.value = null
 }
 
 function addProductInput() {
@@ -619,6 +679,10 @@ function taskRestartable(row: CrawlTask) {
   return taskFinished(row) && row.sourceType !== 'product_replace'
 }
 
+function taskDetailsVisible(row: CrawlTask) {
+  return row.sourceType !== 'whole_shop' && Number(row.savedCount || 0) > 0 && taskFinished(row)
+}
+
 function taskCancelable(row: CrawlTask) {
   return (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
 }
@@ -787,7 +851,7 @@ function statusType(row: CrawlTask) {
               重新采集
             </el-button>
             <el-button
-              v-if="Number(row.savedCount || 0) > 0 && taskFinished(row)"
+              v-if="taskDetailsVisible(row)"
               :icon="View"
               link
               type="success"
@@ -832,14 +896,20 @@ function statusType(row: CrawlTask) {
           <template #label>
             <span class="label-with-tip">
               <span>采集内容</span>
-              <el-tooltip v-if="form.sourceType === 'shop'" placement="top" effect="dark" :hide-after="0">
+              <el-tooltip
+                v-if="form.sourceType === 'shop' || form.sourceType === 'whole_shop'"
+                placement="top"
+                effect="dark"
+                :hide-after="0"
+              >
                 <template #content>
                   <div class="format-tooltip">
                     <div>支持格式：</div>
-                    <code>店铺展示名：オネストワン</code>
+                    <code v-if="form.sourceType === 'shop'">店铺展示名：オネストワン</code>
                     <code>店铺url代码：honestone</code>
                     <code>店铺sid：441608</code>
                     <code>店铺url：https://search.rakuten.co.jp/search/mall/?...&sid=441608</code>
+                    <code v-if="form.sourceType === 'whole_shop'">商品url：https://item.rakuten.co.jp/honestone/chen159/</code>
                   </div>
                 </template>
                 <el-icon class="hint-icon"><QuestionFilled /></el-icon>
@@ -849,7 +919,7 @@ function statusType(row: CrawlTask) {
           <el-input
             v-model="form.target"
             :prefix-icon="Search"
-            :placeholder="shopTargetPlaceholder"
+            :placeholder="form.sourceType === 'whole_shop' ? wholeShopTargetPlaceholder : shopTargetPlaceholder"
             @keydown.enter="createTask"
           />
         </el-form-item>
@@ -875,6 +945,24 @@ function statusType(row: CrawlTask) {
             />
           </div>
         </el-form-item>
+        <el-form-item v-if="form.sourceType === 'whole_shop'" label="过滤方式">
+          <el-select v-model="form.wholeShopFilter" class="full-control" placeholder="选择过滤方式">
+            <el-option
+              v-for="item in wholeShopFilterOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <div v-if="wholeShopPreview" class="whole-shop-preview">
+          <div class="whole-shop-preview-title">{{ wholeShopPreview.message }}</div>
+          <div class="whole-shop-preview-meta">
+            <span>店铺：{{ wholeShopPreview.shopName }}</span>
+            <span>全店商品：{{ wholeShopPreview.totalFound }}</span>
+            <span>预计分页：{{ wholeShopPreview.pageCount }}</span>
+          </div>
+        </div>
         <el-form-item v-if="form.sourceType === 'product_url'">
           <template #label>
             <span class="label-with-tip">
@@ -915,6 +1003,14 @@ function statusType(row: CrawlTask) {
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button
+          v-if="form.sourceType === 'whole_shop'"
+          :loading="previewing"
+          :disabled="creating"
+          @click="previewWholeShopTask"
+        >
+          预采集
+        </el-button>
         <el-button type="primary" :loading="creating" @click="createTask">
           新增采集任务
         </el-button>
@@ -1025,6 +1121,29 @@ function statusType(row: CrawlTask) {
 
 .crawl-limit-input {
   width: 180px;
+}
+
+.whole-shop-preview {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel-bg);
+  padding: 12px 14px;
+}
+
+.whole-shop-preview-title {
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.whole-shop-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: var(--text-soft);
+  font-size: 13px;
 }
 
 .product-input-stack {

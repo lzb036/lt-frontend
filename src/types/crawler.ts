@@ -1,5 +1,5 @@
 export type UserRole = 'superadmin' | 'operator'
-export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url' | 'product_replace'
+export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url' | 'product_replace' | 'whole_shop'
 export type TaskStatus = 'preview_ready' | 'queued' | 'running' | 'success' | 'partial' | 'failed' | 'cancelled'
 export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'listed_master' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
@@ -8,6 +8,7 @@ export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
 export type RankingPeriod = 'daily' | 'weekly' | 'monthly'
 export type CrawlLimit = 'all' | number
+export type WholeShopFilter = 'all' | 'reviewed'
 export type CrawlPriceOperator = 'all' | 'gt' | 'gte' | 'lt' | 'lte' | 'range'
 
 export interface CrawlPriceRule {
@@ -627,7 +628,20 @@ export interface CreateTaskPayload {
   target?: string | null
   rankingPeriod?: RankingPeriod | null
   crawlLimit?: CrawlLimit | null
+  wholeShopFilter?: WholeShopFilter | null
   mode?: string
+}
+
+export interface WholeShopPreview {
+  valid: boolean
+  shopName: string
+  sid: string
+  filter: WholeShopFilter
+  totalFound: number
+  collectableCount: number
+  reviewedCount: number
+  pageCount: number
+  message: string
 }
 
 export interface StorePayload {
