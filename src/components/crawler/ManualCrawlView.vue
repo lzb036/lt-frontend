@@ -517,6 +517,13 @@ function crawlPriceRuleLabel(rule: CrawlPriceRule | null | undefined) {
   return `${operatorLabels[rule.operator]} ${Number(rule.value || 0)} 日元`
 }
 
+function wholeShopFilterLabel(row: CrawlTask) {
+  if (row.sourceType !== 'whole_shop') {
+    return '无'
+  }
+  return row.target.includes('评论采集') ? '评论采集' : '全店采集'
+}
+
 function wholeShopExpectedCount() {
   const totalCount = Number(wholeShopPreview.value?.collectableCount || 0)
   const limit = currentCrawlLimit()
@@ -916,6 +923,11 @@ function statusType(row: CrawlTask) {
         <el-table-column label="采集方式" width="140">
           <template #default="{ row }">
             {{ sourceTypeLabel(row.sourceType) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="过滤方式" width="120">
+          <template #default="{ row }">
+            {{ wholeShopFilterLabel(row) }}
           </template>
         </el-table-column>
         <el-table-column label="价格选择" min-width="170">

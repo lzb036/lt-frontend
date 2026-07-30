@@ -20,6 +20,8 @@ for (const expectedText of [
   'label="过滤方式"',
   `v-if="form.sourceType === 'shop' || form.sourceType === 'whole_shop'" label="采集数量"`,
   `v-if="form.sourceType !== 'product_url'" label="采集价格"`,
+  '<el-table-column label="过滤方式" width="120">',
+  'wholeShopFilterLabel(row)',
   'label="价格选择"',
   'crawlPriceRule',
   '预采集',
