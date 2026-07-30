@@ -120,6 +120,7 @@ export interface CrawlTask {
   sourceId?: number | null
   sourceType: SourceType
   target: string
+  crawlPriceRule?: CrawlPriceRule | null
   mode: string
   status: TaskStatus
   totalCount: number
@@ -629,6 +630,7 @@ export interface CreateTaskPayload {
   rankingPeriod?: RankingPeriod | null
   crawlLimit?: CrawlLimit | null
   wholeShopFilter?: WholeShopFilter | null
+  crawlPriceRule?: CrawlPriceRule | null
   mode?: string
 }
 

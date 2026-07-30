@@ -7,6 +7,8 @@ import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type {
   CrawlLimit,
+  CrawlPriceOperator,
+  CrawlPriceRule,
   CrawlTask,
   CreateTaskPayload,
   ManualCrawlImportResult,
@@ -52,7 +54,21 @@ const form = reactive({
   crawlLimitMode: 'all' as 'all' | 'custom',
   crawlLimitCount: 30,
   wholeShopFilter: 'all' as WholeShopFilter,
+  crawlPricePreset: 'all' as 'all' | 'gte2500' | 'gte3800' | 'custom',
 })
+
+const customCrawlPrice = reactive<{
+  operator: Exclude<CrawlPriceOperator, 'all'>
+  value: number
+  minPrice: number
+  maxPrice: number
+}>({
+  operator: 'gte',
+  value: 2500,
+  minPrice: 2500,
+  maxPrice: 5000,
+})
+const crawlPriceMaxValue = 10_000_000
 
 const {
   currentPage,
@@ -272,14 +288,19 @@ async function createTask() {
     ElMessage.error(wholeShopTargetError)
     return
   }
+  const crawlPriceRule = currentCrawlPriceRule()
+  if (!crawlPriceRule) {
+    return
+  }
   creating.value = true
   try {
     const payload: CreateTaskPayload = {
       sourceType: form.sourceType,
       target: buildCreateTarget(normalizedTarget),
       rankingPeriod: form.sourceType === 'shop' ? form.rankingPeriod : null,
-      crawlLimit: form.sourceType === 'shop' ? currentCrawlLimit() : null,
+      crawlLimit: form.sourceType === 'shop' || form.sourceType === 'whole_shop' ? currentCrawlLimit() : null,
       wholeShopFilter: form.sourceType === 'whole_shop' ? form.wholeShopFilter : null,
+      crawlPriceRule,
       mode: 'manual',
     }
     await api.createTask(payload)
@@ -375,6 +396,7 @@ function resetCreateForm() {
   form.crawlLimitMode = 'all'
   form.crawlLimitCount = 30
   form.wholeShopFilter = 'all'
+  resetCrawlPrice()
   wholeShopPreview.value = null
 }
 
@@ -386,6 +408,7 @@ function handleSourceTypeChange() {
   form.crawlLimitMode = 'all'
   form.crawlLimitCount = 30
   form.wholeShopFilter = 'all'
+  resetCrawlPrice()
   wholeShopPreview.value = null
 }
 
@@ -423,6 +446,81 @@ function crawlLimitLabel(value: CrawlLimit | null | undefined) {
 
 function currentCrawlLimit(): CrawlLimit {
   return form.crawlLimitMode === 'all' ? 'all' : Math.max(1, Math.floor(Number(form.crawlLimitCount || 1)))
+}
+
+function resetCrawlPrice() {
+  form.crawlPricePreset = 'all'
+  customCrawlPrice.operator = 'gte'
+  customCrawlPrice.value = 2500
+  customCrawlPrice.minPrice = 2500
+  customCrawlPrice.maxPrice = 5000
+}
+
+function validCrawlPriceValue(value: number) {
+  return Number.isInteger(value) && value >= 1 && value <= crawlPriceMaxValue
+}
+
+function currentCrawlPriceRule(): CrawlPriceRule | null {
+  if (form.crawlPricePreset === 'all') {
+    return { operator: 'all' }
+  }
+  if (form.crawlPricePreset === 'gte2500') {
+    return { operator: 'gte', value: 2500 }
+  }
+  if (form.crawlPricePreset === 'gte3800') {
+    return { operator: 'gte', value: 3800 }
+  }
+  if (customCrawlPrice.operator === 'range') {
+    if (
+      !validCrawlPriceValue(customCrawlPrice.minPrice)
+      || !validCrawlPriceValue(customCrawlPrice.maxPrice)
+    ) {
+      ElMessage.warning('价格上下限必须是 1 至 10,000,000 之间的整数')
+      return null
+    }
+    if (customCrawlPrice.minPrice >= customCrawlPrice.maxPrice) {
+      ElMessage.warning('价格区间下限必须小于上限')
+      return null
+    }
+    return {
+      operator: 'range',
+      minPrice: customCrawlPrice.minPrice,
+      maxPrice: customCrawlPrice.maxPrice,
+    }
+  }
+  if (!validCrawlPriceValue(customCrawlPrice.value)) {
+    ElMessage.warning('价格必须是 1 至 10,000,000 之间的整数')
+    return null
+  }
+  return {
+    operator: customCrawlPrice.operator,
+    value: customCrawlPrice.value,
+  }
+}
+
+function crawlPriceRuleLabel(rule: CrawlPriceRule | null | undefined) {
+  if (!rule) {
+    return '按用户设置'
+  }
+  if (rule.operator === 'all') {
+    return '全部商品'
+  }
+  if (rule.operator === 'range') {
+    return `${Number(rule.minPrice || 0)} - ${Number(rule.maxPrice || 0)} 日元`
+  }
+  const operatorLabels: Record<Exclude<CrawlPriceOperator, 'all' | 'range'>, string> = {
+    gt: '>',
+    gte: '≥',
+    lt: '<',
+    lte: '≤',
+  }
+  return `${operatorLabels[rule.operator]} ${Number(rule.value || 0)} 日元`
+}
+
+function wholeShopExpectedCount() {
+  const totalCount = Number(wholeShopPreview.value?.collectableCount || 0)
+  const limit = currentCrawlLimit()
+  return limit === 'all' ? totalCount : Math.min(totalCount, limit)
 }
 
 function parseRakutenShopTarget(value: string) {
@@ -820,6 +918,11 @@ function statusType(row: CrawlTask) {
             {{ sourceTypeLabel(row.sourceType) }}
           </template>
         </el-table-column>
+        <el-table-column label="价格选择" min-width="170">
+          <template #default="{ row }">
+            {{ crawlPriceRuleLabel(row.crawlPriceRule) }}
+          </template>
+        </el-table-column>
         <el-table-column label="采集状态" width="120">
           <template #default="{ row }">
             <el-tag :type="statusType(row)">
@@ -885,7 +988,7 @@ function statusType(row: CrawlTask) {
       </div>
     </section>
 
-    <el-dialog v-model="createDialogVisible" title="新增采集任务" width="560px" append-to-body>
+    <el-dialog v-model="createDialogVisible" title="新增采集任务" width="640px" append-to-body>
       <el-form label-position="top">
         <el-form-item label="采集方式">
           <el-select v-model="form.sourceType" class="full-control" placeholder="选择采集方式" @change="handleSourceTypeChange">
@@ -928,7 +1031,7 @@ function statusType(row: CrawlTask) {
             <el-option v-for="item in rankingPeriodOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.sourceType === 'shop'" label="采集数量">
+        <el-form-item v-if="form.sourceType === 'shop' || form.sourceType === 'whole_shop'" label="采集数量">
           <div class="crawl-limit-control">
             <el-radio-group v-model="form.crawlLimitMode">
               <el-radio-button label="all">全部</el-radio-button>
@@ -945,6 +1048,57 @@ function statusType(row: CrawlTask) {
             />
           </div>
         </el-form-item>
+        <el-form-item v-if="form.sourceType !== 'product_url'" label="采集价格">
+          <div class="crawl-price-control">
+            <el-select v-model="form.crawlPricePreset" class="crawl-price-select">
+              <el-option label="全部商品" value="all" />
+              <el-option label="≥ 2500 日元" value="gte2500" />
+              <el-option label="≥ 3800 日元" value="gte3800" />
+              <el-option label="自定义" value="custom" />
+            </el-select>
+            <div v-if="form.crawlPricePreset === 'custom'" class="custom-price-controls">
+              <el-select v-model="customCrawlPrice.operator" class="custom-price-operator">
+                <el-option label="大于" value="gt" />
+                <el-option label="大于等于" value="gte" />
+                <el-option label="小于" value="lt" />
+                <el-option label="小于等于" value="lte" />
+                <el-option label="价格区间" value="range" />
+              </el-select>
+              <template v-if="customCrawlPrice.operator === 'range'">
+                <el-input-number
+                  v-model="customCrawlPrice.minPrice"
+                  class="custom-price-input"
+                  :min="1"
+                  :max="crawlPriceMaxValue"
+                  :precision="0"
+                  :step="100"
+                  controls-position="right"
+                />
+                <span class="custom-price-separator">至</span>
+                <el-input-number
+                  v-model="customCrawlPrice.maxPrice"
+                  class="custom-price-input"
+                  :min="1"
+                  :max="crawlPriceMaxValue"
+                  :precision="0"
+                  :step="100"
+                  controls-position="right"
+                />
+              </template>
+              <el-input-number
+                v-else
+                v-model="customCrawlPrice.value"
+                class="custom-price-input"
+                :min="1"
+                :max="crawlPriceMaxValue"
+                :precision="0"
+                :step="100"
+                controls-position="right"
+              />
+              <span class="custom-price-unit">日元</span>
+            </div>
+          </div>
+        </el-form-item>
         <el-form-item v-if="form.sourceType === 'whole_shop'" label="过滤方式">
           <el-select v-model="form.wholeShopFilter" class="full-control" placeholder="选择过滤方式">
             <el-option
@@ -956,10 +1110,11 @@ function statusType(row: CrawlTask) {
           </el-select>
         </el-form-item>
         <div v-if="wholeShopPreview" class="whole-shop-preview">
-          <div class="whole-shop-preview-title">{{ wholeShopPreview.message }}</div>
+          <div class="whole-shop-preview-title">本次预计采集 {{ wholeShopExpectedCount() }} 个商品</div>
           <div class="whole-shop-preview-meta">
             <span>店铺：{{ wholeShopPreview.shopName }}</span>
             <span>全店商品：{{ wholeShopPreview.totalFound }}</span>
+            <span>符合过滤：{{ wholeShopPreview.collectableCount }}</span>
             <span>预计分页：{{ wholeShopPreview.pageCount }}</span>
           </div>
         </div>
@@ -1123,6 +1278,38 @@ function statusType(row: CrawlTask) {
   width: 180px;
 }
 
+.crawl-price-control {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.crawl-price-select {
+  width: 180px;
+}
+
+.custom-price-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.custom-price-operator {
+  width: 120px;
+}
+
+.custom-price-input {
+  width: 145px;
+}
+
+.custom-price-separator,
+.custom-price-unit {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .whole-shop-preview {
   display: grid;
   gap: 8px;
@@ -1230,6 +1417,13 @@ function statusType(row: CrawlTask) {
 
   .filter-actions .el-button {
     flex: 1;
+  }
+
+  .crawl-price-select,
+  .custom-price-controls,
+  .custom-price-operator,
+  .custom-price-input {
+    width: 100%;
   }
 
   .page-head {

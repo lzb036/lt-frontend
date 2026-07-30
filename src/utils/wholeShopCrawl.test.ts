@@ -18,6 +18,10 @@ for (const expectedText of [
   "{ label: '全店采集', value: 'all' }",
   "{ label: '评论采集', value: 'reviewed' }",
   'label="过滤方式"',
+  `v-if="form.sourceType === 'shop' || form.sourceType === 'whole_shop'" label="采集数量"`,
+  `v-if="form.sourceType !== 'product_url'" label="采集价格"`,
+  'label="价格选择"',
+  'crawlPriceRule',
   '预采集',
   "row.sourceType !== 'whole_shop'",
 ]) {
@@ -36,6 +40,7 @@ for (const expectedText of [
   "'whole_shop'",
   "export type WholeShopFilter = 'all' | 'reviewed'",
   'wholeShopFilter?: WholeShopFilter | null',
+  'crawlPriceRule?: CrawlPriceRule | null',
   'export interface WholeShopPreview',
 ]) {
   if (!typeSource.includes(expectedText)) {
