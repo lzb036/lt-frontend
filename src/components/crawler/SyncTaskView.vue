@@ -11,7 +11,7 @@ import { toApiErrorMessage } from '../../utils/api'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import CopyableTableText from './CopyableTableText.vue'
 
-type TaskGroup = 'sync' | 'title_optimization' | 'image_cleanup'
+type TaskGroup = 'sync' | 'title_optimization' | 'image_cleanup' | 'listing_image_upload'
 
 const props = withDefaults(defineProps<{
   taskGroup?: TaskGroup
@@ -47,6 +47,7 @@ const {
     sync: PAGINATION_PREFERENCE_KEYS.syncTasks,
     title_optimization: PAGINATION_PREFERENCE_KEYS.titleOptimizationTasks,
     image_cleanup: PAGINATION_PREFERENCE_KEYS.imageCleanupTasks,
+    listing_image_upload: PAGINATION_PREFERENCE_KEYS.listingImageUploadTasks,
   })[props.taskGroup],
 )
 
@@ -288,6 +289,9 @@ function taskTypeLabel(task: SyncTask) {
   }
   if (task.taskType === 'deleted_product_image_cleanup') {
     return '删除商品图片'
+  }
+  if (task.taskType === 'listing_image_upload') {
+    return '上架商品图片上传'
   }
   if (task.taskType === 'product_replace') {
     return '商品替换'

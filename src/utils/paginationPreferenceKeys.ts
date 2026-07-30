@@ -16,6 +16,7 @@ export const PAGINATION_PREFERENCE_KEYS = {
   syncTasks: 'sync-tasks',
   titleOptimizationTasks: 'title-optimization-tasks',
   imageCleanupTasks: 'image-cleanup-tasks',
+  listingImageUploadTasks: 'listing-image-upload-tasks',
   userManagedStores: 'user-managed-stores',
   users: 'users',
 } as const

@@ -21,6 +21,7 @@ import {
   ShoppingCartFull,
   SwitchButton,
   Tickets,
+  UploadFilled,
   UserFilled,
   Warning,
 } from '@element-plus/icons-vue'
@@ -73,6 +74,7 @@ const menuGroups = computed(() => {
   }
   if (hasPermission(props.session, 'products.manage')) {
     jobChildren.push({ path: '/ltJobs/upGoodsJob', label: '上架任务', icon: ShoppingCartFull })
+    jobChildren.push({ path: '/ltJobs/listingImageUploadJob', label: '图片上传任务', icon: UploadFilled })
   }
   if (hasAnyPermission(props.session, ['products.manage', 'stores.manage'])) {
     jobChildren.push({ path: '/ltJobs/syncJob', label: '同步任务', icon: Refresh })

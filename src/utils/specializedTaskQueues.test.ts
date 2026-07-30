@@ -27,6 +27,10 @@ for (const requiredContract of [
   "name: 'image-cleanup-jobs'",
   "taskGroup: 'image_cleanup'",
   "meta: { title: '图片清理任务', superadminOnly: true }",
+  "path: 'ltJobs/listingImageUploadJob'",
+  "name: 'listing-image-upload-jobs'",
+  "taskGroup: 'listing_image_upload'",
+  "meta: { title: '图片上传任务', permission: 'products.manage' }",
 ]) {
   if (!routerSource.includes(requiredContract)) {
     throw new Error(`missing specialized task route contract: ${requiredContract}`)
@@ -36,6 +40,7 @@ for (const requiredContract of [
 for (const requiredContract of [
   "{ path: '/ltJobs/titleOptimizationJob', label: '标题优化任务'",
   "{ path: '/ltJobs/imageCleanupJob', label: '图片清理任务'",
+  "{ path: '/ltJobs/listingImageUploadJob', label: '图片上传任务'",
 ]) {
   if (!appShellSource.includes(requiredContract)) {
     throw new Error(`missing specialized task menu contract: ${requiredContract}`)
@@ -43,7 +48,7 @@ for (const requiredContract of [
 }
 
 for (const requiredContract of [
-  "type TaskGroup = 'sync' | 'title_optimization' | 'image_cleanup'",
+  "type TaskGroup = 'sync' | 'title_optimization' | 'image_cleanup' | 'listing_image_upload'",
   'taskGroup?: TaskGroup',
   'title?: string',
   'emptyText?: string',
@@ -58,7 +63,7 @@ for (const requiredContract of [
   }
 }
 
-if (!apiSource.includes("taskGroup?: 'sync' | 'title_optimization' | 'image_cleanup'")) {
+if (!apiSource.includes("taskGroup?: 'sync' | 'title_optimization' | 'image_cleanup' | 'listing_image_upload'")) {
   throw new Error('expected taskGroup to be sent by the task list API')
 }
 
@@ -66,7 +71,8 @@ const paginationKeys = new Set<string>([
   PAGINATION_PREFERENCE_KEYS.syncTasks,
   PAGINATION_PREFERENCE_KEYS.titleOptimizationTasks,
   PAGINATION_PREFERENCE_KEYS.imageCleanupTasks,
+  PAGINATION_PREFERENCE_KEYS.listingImageUploadTasks,
 ])
-if (paginationKeys.size !== 3) {
+if (paginationKeys.size !== 4) {
   throw new Error('expected all task pages to persist pagination independently')
 }
