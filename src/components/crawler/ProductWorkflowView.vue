@@ -287,6 +287,14 @@ const statusCopy = computed(() => {
   return map[props.status]
 })
 
+const collectionSourceColumnVisible = computed(
+  () => ['approved', 'listed_master', 'error'].includes(props.status),
+)
+
+function collectionSourceLabel(product: ProductItem) {
+  return product.collectionSource === 'scheduled' ? '定时采集' : '手动采集'
+}
+
 const visibleProducts = computed(() => {
   if (!['approved', 'listed', 'listed_master'].includes(props.status) || hiddenProducts.value.size < 1) {
     return products.value
@@ -3003,6 +3011,11 @@ function sanitizedDescriptionHtml(value: string) {
         <el-table-column v-if="status !== 'pending'" label="商品标题" min-width="300">
           <template #default="{ row }">
             <CopyableTableText :value="row.title" />
+          </template>
+        </el-table-column>
+        <el-table-column v-if="collectionSourceColumnVisible" label="采集来源" width="120">
+          <template #default="{ row }">
+            {{ collectionSourceLabel(row) }}
           </template>
         </el-table-column>
         <el-table-column v-if="status === 'listed'" label="商品编号" min-width="170">
