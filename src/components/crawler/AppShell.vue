@@ -100,7 +100,8 @@ const menuGroups = computed(() => {
       label: '商品管理',
       icon: ShoppingBag,
       children: [
-        { path: '/ltShop/wjMerchantGoods', label: '待审核商品', icon: Document },
+        { path: '/ltShop/wjMerchantGoods', label: '手动采集待审核', icon: Document },
+        { path: '/ltShop/wjMerchantGoodsScheduled', label: '定时采集待审核', icon: Document },
         { path: '/ltShop/wjMerchantGoodsTrue', label: '已审核商品', icon: Finished },
         { path: '/ltShop/wjListedGoods', label: '已上架商品', icon: Sell },
         { path: '/ltShop/wjMerchantGoodsError', label: '异常商品', icon: Warning },

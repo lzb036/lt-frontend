@@ -17,6 +17,7 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltJobs/upGoodsJob', permission: 'products.manage' },
   { path: '/ltJobs/syncJob', anyPermission: ['products.manage', 'stores.manage'] },
   { path: '/ltShop/wjMerchantGoods', permission: 'products.manage' },
+  { path: '/ltShop/wjMerchantGoodsScheduled', permission: 'products.manage' },
   { path: '/ltShop/wjMerchantGoodsTrue', permission: 'products.manage' },
   { path: '/ltShop/wjListedGoods', permission: 'products.manage' },
   { path: '/ltShop/wjMerchantGoodsError', permission: 'products.manage' },

@@ -18,6 +18,7 @@ import type {
   PageResult,
   ProductDetailEditPayload,
   ProductDetail,
+  ProductCollectionSource,
   ProductItem,
   ProductReplacement,
   RakutenGenreOption,
@@ -350,6 +351,7 @@ export function useCollectorApi() {
 
   async function listProducts(params: {
     status?: ReviewStatus | ''
+    collectionSource?: ProductCollectionSource
     keyword?: string
     taskId?: string
     storeId?: number | null
@@ -383,6 +385,7 @@ export function useCollectorApi() {
 
   async function listProductsPage(params: {
     status?: ReviewStatus | ''
+    collectionSource?: ProductCollectionSource
     keyword?: string
     taskId?: string
     storeId?: number | null

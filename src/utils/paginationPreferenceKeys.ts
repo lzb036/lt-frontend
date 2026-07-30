@@ -1,4 +1,4 @@
-import type { ReviewStatus } from '../types/crawler'
+import type { ProductCollectionSource, ReviewStatus } from '../types/crawler'
 
 export const PAGINATION_PREFERENCE_KEYS = {
   collectionShops: 'collection-shops',
@@ -21,8 +21,13 @@ export const PAGINATION_PREFERENCE_KEYS = {
   users: 'users',
 } as const
 
-export function productWorkflowPaginationKey(status: ReviewStatus) {
-  return `products:${status}`
+export function productWorkflowPaginationKey(
+  status: ReviewStatus,
+  collectionSource?: ProductCollectionSource,
+) {
+  return collectionSource
+    ? `products:${status}:${collectionSource}`
+    : `products:${status}`
 }
 
 export function resolvePaginationPageSize(

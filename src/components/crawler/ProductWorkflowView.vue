@@ -6,7 +6,7 @@ import DOMPurify from 'dompurify'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
+import type { ListingTask, ProductCollectionSource, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { productWorkflowPaginationKey } from '../../utils/paginationPreferenceKeys'
 import {
@@ -42,6 +42,7 @@ const props = defineProps<{
   status: ReviewStatus
   title: string
   eyebrow: string
+  collectionSource?: ProductCollectionSource
 }>()
 
 const LISTED_STORE_NONE_FILTER = '__none__'
@@ -96,7 +97,7 @@ const detailForm = reactive({
 })
 const replacingImageIndex = shallowRef<number | null>(null)
 const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, setPageResult, reduceTotal } = useServerPagination(
-  () => productWorkflowPaginationKey(props.status),
+  () => productWorkflowPaginationKey(props.status, props.collectionSource),
 )
 
 const filters = reactive({
@@ -298,7 +299,7 @@ onMounted(() => {
 })
 
 watch(
-  () => props.status,
+  () => [props.status, props.collectionSource],
   () => {
     closeImageViewer()
     clearSelection()
@@ -351,6 +352,7 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
     }
     const result = await api.listProductsPage({
       status: props.status,
+      collectionSource: props.status === 'pending' ? props.collectionSource : undefined,
       keyword: filters.keyword.trim(),
       storeId: props.status === 'listed' ? filters.storeId : null,
       listedStoreId: props.status === 'listed_master' ? filters.listedStoreId : '',

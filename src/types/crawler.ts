@@ -9,6 +9,7 @@ export type RakutenListingStatus = '' | 'listed' | 'unlisted'
 export type RankingPeriod = 'daily' | 'weekly' | 'monthly'
 export type CrawlLimit = 'all' | number
 export type WholeShopFilter = 'all' | 'reviewed'
+export type ProductCollectionSource = 'manual' | 'scheduled'
 export type CrawlPriceOperator = 'all' | 'gt' | 'gte' | 'lt' | 'lte' | 'range'
 
 export interface CrawlPriceRule {
@@ -142,6 +143,7 @@ export interface ProductItem {
   id: number
   ownerUsername: string
   taskId?: string | null
+  collectionSource?: ProductCollectionSource
   parentProductId?: number | null
   listingTaskId?: string | null
   storeId?: number | null
