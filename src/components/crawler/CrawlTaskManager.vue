@@ -256,7 +256,7 @@ function handlePageSizeChange() {
             <CopyableTableText :value="row.message" />
           </template>
         </el-table-column>
-        <el-table-column label="错误" min-width="180">
+        <el-table-column label="失败原因" min-width="220">
           <template #default="{ row }">
             <CopyableTableText :value="row.errorDetail" />
           </template>

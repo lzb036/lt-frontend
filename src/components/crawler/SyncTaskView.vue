@@ -357,7 +357,7 @@ function handlePageSizeChange() {
         <el-table-column prop="totalCount" label="总数量" width="90" />
         <el-table-column prop="successCount" label="成功数量" width="100" />
         <el-table-column prop="failedCount" label="失败数量" width="100" />
-        <el-table-column label="错误信息" min-width="180">
+        <el-table-column label="失败原因" min-width="220">
           <template #default="{ row }">
             <CopyableTableText :value="row.errorDetail" />
           </template>

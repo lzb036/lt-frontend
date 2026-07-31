@@ -420,12 +420,12 @@ function handlePageSizeChange() {
             </el-button>
           </template>
         </el-table-column>
-        <el-table-column label="错误信息" min-width="280">
+        <el-table-column label="失败原因" min-width="280">
           <template #default="{ row }">
             <CopyableTableText :value="row.errorDetail" />
           </template>
         </el-table-column>
-        <el-table-column label="警告信息" min-width="280">
+        <el-table-column label="注意事项" min-width="280">
           <template #default="{ row }">
             <CopyableTableText :value="row.warningDetail" />
           </template>
