@@ -214,7 +214,7 @@ function createdAtToValue() {
 
 function taskResultText(row: CrawlTask) {
   const pending = row.status === 'queued' || row.status === 'running'
-  return `总 ${taskTotalText(row, pending)} / 入库 ${row.savedCount || 0} / 跳过 ${row.skippedCount || 0} / 失败 ${row.failedCount || 0} / 警告 ${row.warningCount || 0}`
+  return `总 ${taskTotalText(row, pending)} / 入库 ${row.savedCount || 0} / 跳过 ${row.skippedCount || 0} / 失败 ${row.failedCount || 0}`
 }
 
 function taskTotalText(row: CrawlTask, pending = false) {
@@ -425,7 +425,7 @@ function handlePageSizeChange() {
             <CopyableTableText :value="row.errorDetail" />
           </template>
         </el-table-column>
-        <el-table-column label="注意事项" min-width="280">
+        <el-table-column label="跳过原因" min-width="280">
           <template #default="{ row }">
             <CopyableTableText :value="row.warningDetail" />
           </template>
