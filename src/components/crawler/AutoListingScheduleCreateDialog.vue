@@ -164,7 +164,7 @@ async function submit() {
         <el-input-number
           v-model="form.quantity"
           :min="1"
-          :max="1000"
+          :max="10000"
           controls-position="right"
         />
         <span class="field-hint">商品不足时按实际可用数量上架</span>
