@@ -365,7 +365,8 @@ export function useCollectorApi() {
     priceMax?: number | null
     collectedAtFrom?: string
     collectedAtTo?: string
-    genreStatus?: 'missing' | ''
+    genreStatus?: 'missing' | 'present' | ''
+    genrePath?: string
     salesPeriodDays?: number | null
     salesPeriodFrom?: string
     salesPeriodTo?: string
@@ -399,7 +400,8 @@ export function useCollectorApi() {
     priceMax?: number | null
     collectedAtFrom?: string
     collectedAtTo?: string
-    genreStatus?: 'missing' | ''
+    genreStatus?: 'missing' | 'present' | ''
+    genrePath?: string
     salesPeriodDays?: number | null
     salesPeriodFrom?: string
     salesPeriodTo?: string

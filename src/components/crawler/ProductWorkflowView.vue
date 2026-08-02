@@ -6,7 +6,7 @@ import DOMPurify from 'dompurify'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductCollectionSource, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
+import type { ListingTask, ProductCollectionSource, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreNode, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { productWorkflowPaginationKey } from '../../utils/paginationPreferenceKeys'
 import {
@@ -50,6 +50,10 @@ const LISTED_STORE_NONE_FILTER = '__none__'
 const BATCH_TASK_PRODUCT_LIMIT = 50
 type ListedStoreFilterValue = number | typeof LISTED_STORE_NONE_FILTER | ''
 type ZeroValueFilter = '' | 'sales' | 'optimization' | 'sales_and_optimization'
+interface GenreFilterLazyNode {
+  root: boolean
+  data?: RakutenGenreOption
+}
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
@@ -107,7 +111,8 @@ const filters = reactive({
   priceMin: null as number | null,
   priceMax: null as number | null,
   collectedAtRange: [] as string[] | null,
-  genreStatus: '' as '' | 'missing',
+  genreStatus: '' as '' | 'missing' | 'present',
+  genrePath: '',
   storeId: null as number | null,
   listedStoreId: '' as ListedStoreFilterValue,
   listingStatus: '' as '' | 'listed' | 'unlisted',
@@ -138,6 +143,15 @@ const salesRangeDisabled = computed(
   () => filters.zeroFilter === 'sales'
     || filters.zeroFilter === 'sales_and_optimization',
 )
+const genreFilterProps = {
+  lazy: true,
+  checkStrictly: true,
+  emitPath: false,
+  value: 'genrePath',
+  label: 'labelZh',
+  leaf: 'leaf',
+  lazyLoad: loadGenreFilterChildren,
+}
 
 const listingForm = reactive({
   storeIds: [] as number[],
@@ -396,6 +410,7 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       collectedAtFrom: props.status !== 'listed' ? collectedAtFromValue() : '',
       collectedAtTo: props.status !== 'listed' ? collectedAtToValue() : '',
       genreStatus: props.status === 'pending' ? filters.genreStatus : '',
+      genrePath: props.status === 'pending' ? filters.genrePath : '',
       page: currentPage.value,
       pageSize: pageSize.value,
     })
@@ -610,6 +625,7 @@ function resetFilters() {
   filters.priceMax = null
   filters.collectedAtRange = []
   filters.genreStatus = ''
+  filters.genrePath = ''
   filters.storeId = props.status === 'listed' ? (stores.value[0]?.id ?? null) : null
   filters.listedStoreId = ''
   filters.listingStatus = ''
@@ -628,6 +644,33 @@ function searchProducts() {
   resetPage()
   clearSelection()
   void refreshAll({ loadStores: false })
+}
+
+async function loadGenreFilterChildren(
+  node: GenreFilterLazyNode,
+  resolve: (nodes: RakutenGenreNode[]) => void,
+) {
+  try {
+    const parentPath = node.root ? '' : String(node.data?.genrePath || '')
+    resolve(await api.listRakutenGenreChildren(parentPath))
+  } catch (error) {
+    resolve([])
+    ElMessage.error(toApiErrorMessage(error, '加载品类筛选失败'))
+  }
+}
+
+function handleGenreStatusChange(value: '' | 'missing' | 'present') {
+  if (value === 'missing') {
+    filters.genrePath = ''
+  }
+  searchProducts()
+}
+
+function handleGenrePathChange(value: string) {
+  if (value) {
+    filters.genreStatus = 'present'
+  }
+  searchProducts()
 }
 
 function reloadProducts() {
@@ -2829,10 +2872,23 @@ function sanitizedDescriptionHtml(value: string) {
             class="full-control"
             clearable
             placeholder="品类状态"
-            @change="searchProducts"
+            @change="handleGenreStatusChange"
           >
             <el-option label="没有品类" value="missing" />
+            <el-option label="有品类" value="present" />
           </el-select>
+        </div>
+        <div v-if="status === 'pending'" class="filter-field filter-genre-tree-field">
+          <el-cascader
+            v-model="filters.genrePath"
+            class="full-control"
+            clearable
+            filterable
+            :props="genreFilterProps"
+            :show-all-levels="false"
+            placeholder="选择品类"
+            @change="handleGenrePathChange"
+          />
         </div>
         <div v-if="status !== 'listed'" class="filter-field filter-price-field">
           <el-input-number
@@ -3743,6 +3799,10 @@ function sanitizedDescriptionHtml(value: string) {
 
 .filter-genre-field {
   flex: 0 1 150px;
+}
+
+.filter-genre-tree-field {
+  flex: 0 1 240px;
 }
 
 .title-optimization-count {
