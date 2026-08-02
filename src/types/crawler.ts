@@ -3,6 +3,7 @@ export type SourceType = 'keyword' | 'shop' | 'ranking' | 'product_url' | 'produ
 export type TaskStatus = 'preview_ready' | 'queued' | 'running' | 'success' | 'partial' | 'failed' | 'cancelled'
 export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'listed_master' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
+export type AutoListingScheduleType = 'daily' | 'weekly' | 'monthly'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
@@ -636,6 +637,28 @@ export interface CreateTaskPayload {
   mode?: string
 }
 
+export interface AutoListingSchedule {
+  id: number
+  ownerUsername: string
+  storeId: number
+  storeName: string
+  storeAliasName: string
+  scheduleType: AutoListingScheduleType
+  scheduleTime: string
+  weekday?: number | null
+  monthDay?: number | null
+  quantity: number
+  enabled: boolean
+  status: ScheduleStatus
+  lastRunAt?: string | null
+  nextRunAt?: string | null
+  lastTaskIds: string[]
+  lastMessage: string
+  lastError?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 export interface WholeShopPreview {
   valid: boolean
   shopName: string
@@ -774,6 +797,15 @@ export interface TimeSettingsPayload {
   deletedImageCleanupEnabled: boolean
   deletedImageCleanupWeekday: number
   deletedImageCleanupTime: string
+}
+
+export interface AutoListingSchedulePayload {
+  storeId: number
+  scheduleType: AutoListingScheduleType
+  scheduleTime: string
+  weekday?: number | null
+  monthDay?: number | null
+  quantity: number
 }
 
 export interface DeletedProductImageCleanupRecord {

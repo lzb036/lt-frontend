@@ -3,6 +3,8 @@ import type {
   AiTitleSettingsPayload,
   AiProviderOption,
   AuthSession,
+  AutoListingSchedule,
+  AutoListingSchedulePayload,
   CrawlPriceRule,
   CrawlPriceSettings,
   CrawlSource,
@@ -943,6 +945,35 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function listAutoListingSchedules() {
+    const response = await apiClient.get<{ schedules: AutoListingSchedule[] }>(
+      '/crawler/auto-listing-schedules',
+    )
+    return response.data.schedules
+  }
+
+  async function createAutoListingSchedule(payload: AutoListingSchedulePayload) {
+    const response = await apiClient.post<{ schedule: AutoListingSchedule }>(
+      '/crawler/auto-listing-schedules',
+      payload,
+    )
+    return response.data.schedule
+  }
+
+  async function updateAutoListingScheduleStatus(scheduleId: number, enabled: boolean) {
+    const response = await apiClient.put<{ schedule: AutoListingSchedule }>(
+      `/crawler/auto-listing-schedules/${scheduleId}/status`,
+      { enabled },
+    )
+    return response.data.schedule
+  }
+
+  async function deleteAutoListingSchedule(scheduleId: number) {
+    await apiClient.delete<{ deleted: boolean }>(
+      `/crawler/auto-listing-schedules/${scheduleId}`,
+    )
+  }
+
   async function listListingTasks(taskIds: string[] = []) {
     const response = await apiClient.get<{ listingTasks: ListingTask[] }>('/crawler/listing-tasks', {
       params: { taskIds: taskIds.length > 0 ? taskIds.join(',') : undefined },
@@ -1154,6 +1185,10 @@ export function useCollectorApi() {
     updateScheduleStatuses,
     runSchedule,
     runAllSchedules,
+    listAutoListingSchedules,
+    createAutoListingSchedule,
+    updateAutoListingScheduleStatus,
+    deleteAutoListingSchedule,
     listListingTasks,
     listListingTasksPage,
     preflightListingTask,
