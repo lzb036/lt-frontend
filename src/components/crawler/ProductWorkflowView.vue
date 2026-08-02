@@ -103,6 +103,7 @@ const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, se
 
 const filters = reactive({
   keyword: '',
+  collectionSource: '' as '' | ProductCollectionSource,
   priceMin: null as number | null,
   priceMax: null as number | null,
   collectedAtRange: [] as string[] | null,
@@ -362,7 +363,9 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
     }
     const result = await api.listProductsPage({
       status: props.status,
-      collectionSource: props.status === 'pending' ? props.collectionSource : undefined,
+      collectionSource: props.status === 'pending'
+        ? props.collectionSource
+        : (props.status === 'approved' ? filters.collectionSource || undefined : undefined),
       keyword: filters.keyword.trim(),
       storeId: props.status === 'listed' ? filters.storeId : null,
       listedStoreId: props.status === 'listed_master' ? filters.listedStoreId : '',
@@ -602,6 +605,7 @@ function mergeUpdatedProduct(product: ProductItem) {
 function resetFilters() {
   clearSelection()
   filters.keyword = ''
+  filters.collectionSource = ''
   filters.priceMin = null
   filters.priceMax = null
   filters.collectedAtRange = []
@@ -2797,6 +2801,18 @@ function sanitizedDescriptionHtml(value: string) {
             />
           </el-select>
         </div>
+        <div v-if="status === 'approved'" class="filter-field filter-collection-source-field">
+          <el-select
+            v-model="filters.collectionSource"
+            class="full-control"
+            clearable
+            placeholder="采集来源"
+            @change="searchProducts"
+          >
+            <el-option label="手动采集" value="manual" />
+            <el-option label="定时采集" value="scheduled" />
+          </el-select>
+        </div>
         <div class="filter-field filter-keyword-field">
           <el-input
             v-model="filters.keyword"
@@ -3673,6 +3689,10 @@ function sanitizedDescriptionHtml(value: string) {
 
 .filter-listed-store-field {
   flex: 0 1 232px;
+}
+
+.filter-collection-source-field {
+  flex: 0 1 160px;
 }
 
 .filter-range-field {
