@@ -26,9 +26,25 @@ for (const expectedText of [
   'crawlPriceRule',
   '预采集',
   "row.sourceType !== 'whole_shop'",
+  '.split(/[,，\\r\\n]+/)',
+  '多个内容请使用中英文逗号隔开',
+  'createTasksWithConcurrency(payloads)',
+  'concurrency = 3',
+  'wholeShopPreviews.length',
 ]) {
   if (!viewSource.replace(/\s+/g, ' ').includes(expectedText.replace(/\s+/g, ' '))) {
     throw new Error(`missing whole-shop crawl view contract: ${expectedText}`)
+  }
+}
+
+for (const removedText of [
+  '新增输入框',
+  'form.targets',
+  'addProductInput',
+  'removeProductInput',
+]) {
+  if (viewSource.includes(removedText)) {
+    throw new Error(`obsolete manual-crawl multi-input contract remains: ${removedText}`)
   }
 }
 

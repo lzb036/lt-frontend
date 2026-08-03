@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleClose, Delete, Download, Plus, QuestionFilled, Refresh, Search, Upload, View, VideoPlay } from '@element-plus/icons-vue'
 
@@ -27,7 +27,7 @@ const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const creating = shallowRef(false)
 const previewing = shallowRef(false)
-const wholeShopPreview = shallowRef<WholeShopPreview | null>(null)
+const wholeShopPreviews = shallowRef<Array<{ target: string; preview: WholeShopPreview }>>([])
 const downloadingTemplate = shallowRef(false)
 const importing = shallowRef(false)
 const importInputRef = shallowRef<HTMLInputElement | null>(null)
@@ -48,7 +48,6 @@ const filters = reactive({
 const form = reactive({
   sourceType: 'product_url' as SourceType,
   target: '',
-  targets: [''],
   rankingPeriod: 'daily' as RankingPeriod,
   crawlLimit: 'all' as CrawlLimit,
   crawlLimitMode: 'all' as 'all' | 'custom',
@@ -115,6 +114,20 @@ const shopTargetError = '店铺采集请输入店铺展示名称、店铺url代�
 const shopTargetPlaceholder = '请输入店铺展示名称、url代码、url或sid'
 const wholeShopTargetError = '整店采集请输入店铺url代码、店铺url、商品url或sid，不能只填写店铺展示名称。'
 const wholeShopTargetPlaceholder = '请输入店铺url代码、店铺url、商品url或sid'
+const createTargetPlaceholder = computed(() => {
+  const placeholder = form.sourceType === 'product_url'
+    ? '请输入商品url信息'
+    : form.sourceType === 'whole_shop'
+      ? wholeShopTargetPlaceholder
+      : shopTargetPlaceholder
+  return `${placeholder}，多个内容请使用中英文逗号隔开`
+})
+const wholeShopPreviewExpectedTotal = computed(() => (
+  wholeShopPreviews.value.reduce(
+    (totalCount, item) => totalCount + wholeShopExpectedCount(item.preview),
+    0,
+  )
+))
 
 onMounted(() => {
   void loadTasks()
@@ -128,7 +141,7 @@ watch(tasks, syncProgressPolling)
 watch(
   () => [form.sourceType, form.target, form.wholeShopFilter],
   () => {
-    wholeShopPreview.value = null
+    wholeShopPreviews.value = []
   },
 )
 
@@ -271,97 +284,23 @@ function showImportResult(result: ManualCrawlImportResult) {
 }
 
 async function createTask() {
-  if (form.sourceType === 'product_url') {
-    await createProductTasks()
-    return
-  }
-  const normalizedTarget = normalizeCreateTarget()
-  if (!normalizedTarget) {
-    ElMessage.warning('采集内容不能为空')
-    return
-  }
-  if (form.sourceType === 'shop' && !normalizeRakutenShopTarget(normalizedTarget)) {
-    ElMessage.error(shopTargetError)
-    return
-  }
-  if (form.sourceType === 'whole_shop' && !normalizeRakutenShopTarget(normalizedTarget)) {
-    ElMessage.error(wholeShopTargetError)
-    return
-  }
-  const crawlPriceRule = currentCrawlPriceRule()
-  if (!crawlPriceRule) {
-    return
-  }
-  creating.value = true
-  try {
-    const payload: CreateTaskPayload = {
-      sourceType: form.sourceType,
-      target: buildCreateTarget(normalizedTarget),
-      rankingPeriod: form.sourceType === 'shop' ? form.rankingPeriod : null,
-      crawlLimit: form.sourceType === 'shop' || form.sourceType === 'whole_shop' ? currentCrawlLimit() : null,
-      wholeShopFilter: form.sourceType === 'whole_shop' ? form.wholeShopFilter : null,
-      crawlPriceRule,
-      mode: 'manual',
-    }
-    await api.createTask(payload)
-    resetPage()
-    await loadTasks()
-    form.target = ''
-    createDialogVisible.value = false
-    ElMessage.success('采集任务已创建')
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '创建采集任务失败'))
-  } finally {
-    creating.value = false
-  }
-}
-
-async function previewWholeShopTask() {
-  const normalizedTarget = normalizeCreateTarget()
-  if (!normalizedTarget) {
-    ElMessage.warning('采集内容不能为空')
-    return
-  }
-  if (!normalizeRakutenShopTarget(normalizedTarget)) {
-    ElMessage.error(wholeShopTargetError)
-    return
-  }
-  previewing.value = true
-  wholeShopPreview.value = null
-  try {
-    wholeShopPreview.value = await api.previewWholeShopTask({
-      sourceType: 'whole_shop',
-      target: normalizedTarget,
-      wholeShopFilter: form.wholeShopFilter,
-    })
-    ElMessage.success(wholeShopPreview.value.message)
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '预采集失败'))
-  } finally {
-    previewing.value = false
-  }
-}
-
-async function createProductTasks() {
-  const targets = form.targets.map((target) => target.trim()).filter(Boolean)
+  const targets = normalizedCreateTargets()
   if (targets.length === 0) {
-    ElMessage.warning('商品URL信息不能为空')
+    ElMessage.warning('采集内容不能为空')
     return
   }
-  const invalidIndex = targets.findIndex((target) => !isValidRakutenProductTarget(target))
-  if (invalidIndex >= 0) {
-    ElMessage.error(`第 ${invalidIndex + 1} 个商品URL格式不正确，${productTargetError}`)
+  const normalizedTargets = validateCreateTargets(targets)
+  if (!normalizedTargets) {
     return
   }
+  const crawlPriceRule = form.sourceType === 'product_url' ? null : currentCrawlPriceRule()
+  if (form.sourceType !== 'product_url' && !crawlPriceRule) {
+    return
+  }
+  const payloads = normalizedTargets.map((target) => buildCreateTaskPayload(target, crawlPriceRule))
   creating.value = true
   try {
-    const results = await Promise.allSettled(
-      targets.map((target) => api.createTask({
-        sourceType: 'product_url',
-        target: normalizeRakutenProductTarget(target),
-        mode: 'manual',
-      })),
-    )
+    const results = await createTasksWithConcurrency(payloads)
     const successCount = results.filter((result) => result.status === 'fulfilled').length
     const failedCount = results.length - successCount
     if (successCount > 0) {
@@ -382,6 +321,45 @@ async function createProductTasks() {
   }
 }
 
+async function previewWholeShopTask() {
+  const targets = normalizedCreateTargets()
+  if (targets.length === 0) {
+    ElMessage.warning('采集内容不能为空')
+    return
+  }
+  const normalizedTargets = validateCreateTargets(targets)
+  if (!normalizedTargets) {
+    return
+  }
+  previewing.value = true
+  wholeShopPreviews.value = []
+  try {
+    const results = await runWithConcurrency(
+      normalizedTargets,
+      (target) => api.previewWholeShopTask({
+        sourceType: 'whole_shop',
+        target,
+        wholeShopFilter: form.wholeShopFilter,
+      }),
+    )
+    wholeShopPreviews.value = results.flatMap((result, index) => (
+      result.status === 'fulfilled'
+        ? [{ target: normalizedTargets[index], preview: result.value }]
+        : []
+    ))
+    const failedCount = results.length - wholeShopPreviews.value.length
+    if (failedCount > 0) {
+      ElMessage.error(`已完成 ${wholeShopPreviews.value.length} 个店铺预采集，${failedCount} 个失败`)
+      return
+    }
+    ElMessage.success(`已完成 ${wholeShopPreviews.value.length} 个店铺预采集`)
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '预采集失败'))
+  } finally {
+    previewing.value = false
+  }
+}
+
 function openCreateDialog() {
   resetCreateForm()
   createDialogVisible.value = true
@@ -390,42 +368,103 @@ function openCreateDialog() {
 function resetCreateForm() {
   form.sourceType = 'product_url'
   form.target = ''
-  form.targets = ['']
   form.rankingPeriod = 'daily'
   form.crawlLimit = 'all'
   form.crawlLimitMode = 'all'
   form.crawlLimitCount = 30
   form.wholeShopFilter = 'all'
   resetCrawlPrice()
-  wholeShopPreview.value = null
+  wholeShopPreviews.value = []
 }
 
 function handleSourceTypeChange() {
   form.target = ''
-  form.targets = ['']
   form.rankingPeriod = 'daily'
   form.crawlLimit = 'all'
   form.crawlLimitMode = 'all'
   form.crawlLimitCount = 30
   form.wholeShopFilter = 'all'
   resetCrawlPrice()
-  wholeShopPreview.value = null
+  wholeShopPreviews.value = []
 }
 
-function addProductInput() {
-  form.targets.push('')
+function normalizedCreateTargets() {
+  return Array.from(new Set(
+    form.target
+      .split(/[,，\r\n]+/)
+      .map((target) => target.trim())
+      .filter(Boolean),
+  ))
 }
 
-function removeProductInput(index: number) {
-  if (form.targets.length <= 1) {
-    form.targets[0] = ''
-    return
+function validateCreateTargets(targets: string[]) {
+  const normalizedTargets: string[] = []
+  for (const [index, target] of targets.entries()) {
+    let normalizedTarget = target
+    if (form.sourceType === 'product_url') {
+      if (!isValidRakutenProductTarget(target)) {
+        ElMessage.error(`第 ${index + 1} 个商品URL格式不正确，${productTargetError}`)
+        return null
+      }
+      normalizedTarget = normalizeRakutenProductTarget(target)
+    } else {
+      normalizedTarget = normalizeRakutenShopTarget(target)
+      if (!normalizedTarget) {
+        ElMessage.error(`第 ${index + 1} 个采集内容格式不正确，${form.sourceType === 'whole_shop' ? wholeShopTargetError : shopTargetError}`)
+        return null
+      }
+    }
+    if (!normalizedTargets.includes(normalizedTarget)) {
+      normalizedTargets.push(normalizedTarget)
+    }
   }
-  form.targets.splice(index, 1)
+  return normalizedTargets
 }
 
-function normalizeCreateTarget() {
-  return form.target.trim()
+function buildCreateTaskPayload(
+  target: string,
+  crawlPriceRule: CrawlPriceRule | null,
+): CreateTaskPayload {
+  return {
+    sourceType: form.sourceType,
+    target: buildCreateTarget(target),
+    rankingPeriod: form.sourceType === 'shop' ? form.rankingPeriod : null,
+    crawlLimit: form.sourceType === 'shop' || form.sourceType === 'whole_shop' ? currentCrawlLimit() : null,
+    wholeShopFilter: form.sourceType === 'whole_shop' ? form.wholeShopFilter : null,
+    crawlPriceRule,
+    mode: 'manual',
+  }
+}
+
+async function createTasksWithConcurrency(payloads: CreateTaskPayload[]) {
+  return runWithConcurrency(payloads, (payload) => api.createTask(payload))
+}
+
+async function runWithConcurrency<T, R>(
+  items: T[],
+  worker: (item: T) => Promise<R>,
+  concurrency = 3,
+): Promise<Array<PromiseSettledResult<R>>> {
+  const results = new Array<PromiseSettledResult<R>>(items.length)
+  let nextIndex = 0
+  async function consume() {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      try {
+        results[index] = { status: 'fulfilled', value: await worker(items[index]) }
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason }
+      }
+    }
+  }
+  await Promise.all(
+    Array.from(
+      { length: Math.min(Math.max(1, concurrency), items.length) },
+      () => consume(),
+    ),
+  )
+  return results
 }
 
 function buildShopTarget(keyword: string) {
@@ -524,8 +563,8 @@ function wholeShopFilterLabel(row: CrawlTask) {
   return row.target.includes('评论采集') ? '评论采集' : '全店采集'
 }
 
-function wholeShopExpectedCount() {
-  const totalCount = Number(wholeShopPreview.value?.collectableCount || 0)
+function wholeShopExpectedCount(preview: WholeShopPreview) {
+  const totalCount = Number(preview.collectableCount || 0)
   const limit = currentCrawlLimit()
   return limit === 'all' ? totalCount : Math.min(totalCount, limit)
 }
@@ -1007,12 +1046,11 @@ function statusType(row: CrawlTask) {
             <el-option v-for="item in sourceTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.sourceType !== 'product_url'">
+        <el-form-item>
           <template #label>
             <span class="label-with-tip">
               <span>采集内容</span>
               <el-tooltip
-                v-if="form.sourceType === 'shop' || form.sourceType === 'whole_shop'"
                 placement="top"
                 effect="dark"
                 :hide-after="0"
@@ -1020,11 +1058,19 @@ function statusType(row: CrawlTask) {
                 <template #content>
                   <div class="format-tooltip">
                     <div>支持格式：</div>
-                    <code v-if="form.sourceType === 'shop'">店铺展示名：オネストワン</code>
-                    <code>店铺url代码：honestone</code>
-                    <code>店铺sid：441608</code>
-                    <code>店铺url：https://search.rakuten.co.jp/search/mall/?...&sid=441608</code>
-                    <code v-if="form.sourceType === 'whole_shop'">商品url：https://item.rakuten.co.jp/honestone/chen159/</code>
+                    <template v-if="form.sourceType === 'product_url'">
+                      <code>https://item.rakuten.co.jp/honestone/chen159/</code>
+                      <code>https://brandavenue.rakuten.co.jp/item/NP3688/</code>
+                      <code>honestone/chen159</code>
+                    </template>
+                    <template v-else>
+                      <code v-if="form.sourceType === 'shop'">店铺展示名：オネストワン</code>
+                      <code>店铺url代码：honestone</code>
+                      <code>店铺sid：441608</code>
+                      <code>店铺url：https://search.rakuten.co.jp/search/mall/?...&sid=441608</code>
+                      <code v-if="form.sourceType === 'whole_shop'">商品url：https://item.rakuten.co.jp/honestone/chen159/</code>
+                    </template>
+                    <div>多个采集内容使用中文逗号或英文逗号隔开。</div>
                   </div>
                 </template>
                 <el-icon class="hint-icon"><QuestionFilled /></el-icon>
@@ -1033,9 +1079,10 @@ function statusType(row: CrawlTask) {
           </template>
           <el-input
             v-model="form.target"
-            :prefix-icon="Search"
-            :placeholder="form.sourceType === 'whole_shop' ? wholeShopTargetPlaceholder : shopTargetPlaceholder"
-            @keydown.enter="createTask"
+            type="textarea"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            resize="vertical"
+            :placeholder="createTargetPlaceholder"
           />
         </el-form-item>
         <el-form-item v-if="form.sourceType === 'shop'" label="榜单时间">
@@ -1121,52 +1168,22 @@ function statusType(row: CrawlTask) {
             />
           </el-select>
         </el-form-item>
-        <div v-if="wholeShopPreview" class="whole-shop-preview">
-          <div class="whole-shop-preview-title">本次预计采集 {{ wholeShopExpectedCount() }} 个商品</div>
-          <div class="whole-shop-preview-meta">
-            <span>店铺：{{ wholeShopPreview.shopName }}</span>
-            <span>全店商品：{{ wholeShopPreview.totalFound }}</span>
-            <span>符合过滤：{{ wholeShopPreview.collectableCount }}</span>
-            <span>预计分页：{{ wholeShopPreview.pageCount }}</span>
+        <div v-if="wholeShopPreviews.length > 0" class="whole-shop-preview">
+          <div class="whole-shop-preview-title">
+            {{ wholeShopPreviews.length }} 个店铺预计采集 {{ wholeShopPreviewExpectedTotal }} 个商品
+          </div>
+          <div
+            v-for="item in wholeShopPreviews"
+            :key="item.target"
+            class="whole-shop-preview-meta"
+          >
+            <span>店铺：{{ item.preview.shopName }}</span>
+            <span>全店商品：{{ item.preview.totalFound }}</span>
+            <span>符合过滤：{{ item.preview.collectableCount }}</span>
+            <span>预计采集：{{ wholeShopExpectedCount(item.preview) }}</span>
+            <span>预计分页：{{ item.preview.pageCount }}</span>
           </div>
         </div>
-        <el-form-item v-if="form.sourceType === 'product_url'">
-          <template #label>
-            <span class="label-with-tip">
-              <span>采集内容</span>
-              <el-tooltip placement="top" effect="dark" :hide-after="0">
-                <template #content>
-                  <div class="format-tooltip">
-                    <div>支持格式：</div>
-                    <code>https://item.rakuten.co.jp/honestone/chen159/</code>
-                    <code>https://item.rakuten.co.jp/honestone/chen159/?s-id=...</code>
-                    <code>https://brandavenue.rakuten.co.jp/item/NP3688/?s-id=...</code>
-                    <code>honestone/chen159</code>
-                  </div>
-                </template>
-                <el-icon class="hint-icon"><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </span>
-          </template>
-          <div class="product-input-stack">
-            <div v-for="(_, index) in form.targets" :key="index" class="product-input-row">
-              <el-input
-                v-model="form.targets[index]"
-                :prefix-icon="Search"
-                placeholder="请输入商品url信息"
-                @keydown.enter="createTask"
-              />
-              <el-button v-if="form.targets.length > 1" :icon="Delete" link type="danger" @click="removeProductInput(index)">
-                删除
-              </el-button>
-            </div>
-            <div class="add-input-row">
-              <el-button :icon="Plus" @click="addProductInput">
-                新增输入框
-              </el-button>
-            </div>
-          </div>
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
@@ -1343,28 +1360,6 @@ function statusType(row: CrawlTask) {
   gap: 6px 18px;
   color: var(--text-soft);
   font-size: 13px;
-}
-
-.product-input-stack {
-  display: grid;
-  gap: 10px;
-  width: 100%;
-}
-
-.product-input-row {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) max-content;
-}
-
-.product-input-row .el-button {
-  align-self: center;
-}
-
-.add-input-row {
-  display: flex;
-  justify-content: center;
-  padding-top: 2px;
 }
 
 .label-with-tip {
