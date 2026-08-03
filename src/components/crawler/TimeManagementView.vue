@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Refresh, RefreshLeft, VideoPlay } from '@element-plus/icons-vue'
+import { Check, RefreshLeft, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type {
@@ -24,7 +24,6 @@ const saving = shallowRef(false)
 const runningTaskCleanup = shallowRef(false)
 const runningUnlistedCleanup = shallowRef(false)
 const runningDeletedImageCleanup = shallowRef(false)
-const queueLoading = shallowRef(false)
 const settings = shallowRef<TimeSettings | null>(null)
 const nowTick = shallowRef(Date.now())
 const serverTimeOffsetMs = shallowRef(0)
@@ -86,34 +85,6 @@ const unlistedCleanupTimeText = computed(() => {
 })
 const unlistedNextCleanupAtText = computed(() => settings.value?.unlistedNextCleanupAt || '-')
 const deletedImageCleanupNextAtText = computed(() => settings.value?.deletedImageCleanupNextAt || '-')
-const queueHealth = computed(() => settings.value?.queueHealth || null)
-const queueHealthTagType = computed(() => {
-  if (!queueHealth.value) {
-    return 'info'
-  }
-  if (queueHealth.value.status === 'ok' || queueHealth.value.status === 'disabled') {
-    return 'success'
-  }
-  if (queueHealth.value.status === 'degraded') {
-    return 'warning'
-  }
-  return 'danger'
-})
-const queueHealthStatusText = computed(() => {
-  if (!queueHealth.value) {
-    return '未获取'
-  }
-  if (queueHealth.value.status === 'ok') {
-    return '正常'
-  }
-  if (queueHealth.value.status === 'disabled') {
-    return '未启用'
-  }
-  if (queueHealth.value.status === 'degraded') {
-    return '异常'
-  }
-  return '连接失败'
-})
 const cleanupCountdownText = computed(() => {
   if (!settings.value?.cleanupEnabled) {
     return '已关闭'
@@ -252,25 +223,6 @@ async function loadOrderSettings() {
     ElMessage.error(orderState.error)
   } finally {
     orderState.loading = false
-  }
-}
-
-async function refreshQueueHealth() {
-  queueLoading.value = true
-  try {
-    const result = await api.getTimeSettings()
-    settings.value = settings.value
-      ? {
-          ...settings.value,
-          queueHealth: result.queueHealth,
-          serverNow: result.serverNow,
-        }
-      : result
-    applyServerTime(result.serverNow)
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '刷新后台队列状态失败'))
-  } finally {
-    queueLoading.value = false
   }
 }
 
@@ -460,10 +412,6 @@ async function runDeletedImageCleanupNow() {
 
 function formatValue(value: string | null | undefined) {
   return value || '-'
-}
-
-function queuePendingText(row: { queued: number; started: number; deferred: number; scheduled: number }) {
-  return row.queued + row.started + row.deferred + row.scheduled
 }
 
 function parseDateTimeMs(value: string | null | undefined) {
@@ -835,75 +783,6 @@ function formatCountdown(remainingMs: number) {
       </div>
     </section>
 
-    <section v-if="isSuperadmin" v-loading="loading || queueLoading" class="time-panel">
-      <div class="time-panel-head">
-        <h2>后台队列状态</h2>
-        <div class="panel-head-actions">
-          <el-tag :type="queueHealthTagType">
-            {{ queueHealthStatusText }}
-          </el-tag>
-          <el-button
-            :icon="Refresh"
-            :loading="loading || queueLoading"
-            @click="refreshQueueHealth"
-          >
-            刷新队列
-          </el-button>
-        </div>
-      </div>
-
-      <el-alert
-        v-if="queueHealth && !queueHealth.ok"
-        :title="queueHealth.summary || '后台队列异常'"
-        :description="queueHealth.error || undefined"
-        type="error"
-        show-icon
-        :closable="false"
-      />
-
-      <el-descriptions class="time-summary" :column="3" border>
-        <el-descriptions-item label="队列模式">
-          {{ queueHealth?.mode || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="Worker 数">
-          {{ queueHealth?.workerCount ?? 0 }}
-        </el-descriptions-item>
-        <el-descriptions-item label="检测时间">
-          {{ formatValue(queueHealth?.checkedAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="Redis 内存">
-          {{ queueHealth?.redis?.usedMemoryHuman || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="Redis 上限">
-          {{ queueHealth?.redis && queueHealth.redis.maxMemory > 0 ? queueHealth.redis.maxMemoryHuman : '未限制' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="状态说明">
-          {{ queueHealth?.summary || '-' }}
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <el-table :data="queueHealth?.queues || []" size="small" class="queue-health-table">
-        <el-table-column prop="kind" label="类型" width="90" />
-        <el-table-column prop="name" label="队列" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="workerCount" label="Worker" width="90" />
-        <el-table-column label="待处理" width="90">
-          <template #default="{ row }">
-            {{ queuePendingText(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="queued" label="排队" width="80" />
-        <el-table-column prop="started" label="执行" width="80" />
-        <el-table-column prop="scheduled" label="定时" width="80" />
-        <el-table-column prop="failed" label="失败" width="80" />
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.ok ? 'success' : 'danger'">
-              {{ row.ok ? '正常' : '异常' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-    </section>
   </section>
 </template>
 
@@ -1019,10 +898,6 @@ function formatCountdown(remainingMs: number) {
 
 .status-item-primary em {
   color: var(--text-soft);
-}
-
-.queue-health-table {
-  width: 100%;
 }
 
 .panel-head-actions {
