@@ -816,6 +816,8 @@ export interface ManualListingTaskPayload {
   quantity: number
 }
 
+export interface AutoDeletionTask extends AutoListingSchedule {}
+
 export interface DeletedProductImageCleanupRecord {
   id: number
   ownerUsername: string

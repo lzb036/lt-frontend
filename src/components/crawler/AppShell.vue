@@ -139,6 +139,7 @@ const menuGroups = computed(() => {
     if (hasPermission(props.session, 'products.manage')) {
       automationChildren.push(
         { path: '/automation/auto-listing', label: '自动上架管理', icon: Timer },
+        { path: '/automation/auto-deletion', label: '自动删除管理', icon: Delete },
       )
     }
     if (hasPermission(props.session, 'ai.manage')) {

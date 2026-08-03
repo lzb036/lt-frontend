@@ -6,6 +6,7 @@ import type {
   AutoListingSchedule,
   AutoListingSchedulePayload,
   AutoListingTaskType,
+  AutoDeletionTask,
   CrawlPriceRule,
   CrawlPriceSettings,
   CrawlSource,
@@ -997,6 +998,25 @@ export function useCollectorApi() {
     )
   }
 
+  async function listAutoDeletionTasks(params?: { storeId?: number | null; taskType?: AutoListingTaskType | '' }) {
+    const response = await apiClient.get<{ tasks: AutoDeletionTask[] }>('/crawler/auto-deletion-tasks', { params })
+    return response.data.tasks
+  }
+
+  async function createAutoDeletionTask(payload: AutoListingSchedulePayload) {
+    const response = await apiClient.post<{ task: AutoDeletionTask }>('/crawler/auto-deletion-tasks', payload)
+    return response.data.task
+  }
+
+  async function createManualDeletionTask(payload: ManualListingTaskPayload) {
+    const response = await apiClient.post<{ task: AutoDeletionTask }>('/crawler/auto-deletion-tasks/manual', payload)
+    return response.data.task
+  }
+
+  async function deleteAutoDeletionTask(taskId: number) {
+    await apiClient.delete(`/crawler/auto-deletion-tasks/${taskId}`)
+  }
+
   async function listListingTasks(taskIds: string[] = []) {
     const response = await apiClient.get<{ listingTasks: ListingTask[] }>('/crawler/listing-tasks', {
       params: { taskIds: taskIds.length > 0 ? taskIds.join(',') : undefined },
@@ -1214,6 +1234,10 @@ export function useCollectorApi() {
     updateAutoListingScheduleStatus,
     runAutoListingSchedule,
     deleteAutoListingSchedule,
+    listAutoDeletionTasks,
+    createAutoDeletionTask,
+    createManualDeletionTask,
+    deleteAutoDeletionTask,
     listListingTasks,
     listListingTasksPage,
     preflightListingTask,
