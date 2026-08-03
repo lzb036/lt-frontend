@@ -65,7 +65,7 @@ if (canAccessRouteMeta(ordinaryStoreSession, { superadminOnly: true })) {
   throw new Error('expected ordinary users to be denied order administration pages')
 }
 
-if (!canAccessRouteMeta(ordinaryStoreSession, { title: '主题管理' })) {
+if (!canAccessRouteMeta(ordinaryStoreSession, { title: '主题设置' })) {
   throw new Error('expected ordinary users to access personal theme settings')
 }
 
@@ -78,7 +78,7 @@ if (!canAccessRouteMeta(ordinaryStoreSession, { title: '待清理图片' })) {
 }
 
 for (const requiredContract of [
-  "meta: { title: '主题管理' }",
+  "meta: { title: '主题设置' }",
   "meta: { title: '其他定时管理' }",
   "meta: { title: '待清理图片' }",
   "{ path: '/system/time' }",

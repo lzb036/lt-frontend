@@ -54,7 +54,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
       { path: 'automation/auto-listing', name: 'auto-listing-management', component: AutoListingScheduleView, meta: { title: '自动上架管理', permission: 'products.manage' } },
       { path: 'automation/auto-deletion', name: 'auto-deletion-management', component: AutoDeletionManagementView, meta: { title: '自动删除管理', permission: 'products.manage' } },
-      { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理' } },
+      { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题设置' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '其他定时管理' } },
       { path: 'system/deleted-product-images', name: 'system-deleted-product-images', component: DeletedProductImageCleanupView, meta: { title: '待清理图片' } },
       { path: 'system/collection-genres', name: 'system-collection-genres', component: CollectionGenreManagementView, meta: { title: '采集品类', permission: 'crawler.manage' } },

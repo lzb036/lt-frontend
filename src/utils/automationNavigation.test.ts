@@ -17,6 +17,7 @@ for (const contract of [
   "label: '自动化管理'",
   "{ path: '/automation/auto-listing', label: '自动上架管理'",
   "{ path: '/system/time', label: '其他定时管理', icon: AlarmClock }",
+  "{ path: '/system/deleted-product-images', label: '待清理图片', icon: Delete }",
   "path: 'automation/auto-listing'",
   "name: 'auto-listing-management'",
   "meta: { title: '自动上架管理', permission: 'products.manage' }",
@@ -29,9 +30,23 @@ for (const contract of [
 for (const removedText of [
   "{ path: '/system/time', label: '资源管理'",
   "meta: { title: '资源管理' }",
+  "key: 'settings'",
+  "label: '系统设置'",
+  "{ path: '/system/theme', label: '主题管理'",
 ]) {
   if (appShellSource.includes(removedText) || routerSource.includes(removedText)) {
     throw new Error(`stale resource management navigation remains: ${removedText}`)
+  }
+}
+
+for (const expectedText of [
+  "label: '任务日志'",
+  "path: '/system/theme'",
+  "label: '主题设置'",
+  "meta: { title: '主题设置' }",
+]) {
+  if (!appShellSource.includes(expectedText) && !routerSource.includes(expectedText)) {
+    throw new Error(`missing reorganized navigation contract: ${expectedText}`)
   }
 }
 

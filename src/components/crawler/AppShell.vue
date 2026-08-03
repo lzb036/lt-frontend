@@ -105,7 +105,7 @@ const menuGroups = computed(() => {
   if (jobChildren.length > 0) {
     groups.push({
       key: 'jobs',
-      label: '任务管理',
+      label: '任务日志',
       icon: Tickets,
       children: jobChildren,
     })
@@ -161,6 +161,7 @@ const menuGroups = computed(() => {
   }
   automationChildren.push(
     { path: '/system/time', label: '其他定时管理', icon: AlarmClock },
+    { path: '/system/deleted-product-images', label: '待清理图片', icon: Delete },
   )
   groups.push({
     key: 'automation-management',
@@ -168,15 +169,10 @@ const menuGroups = computed(() => {
     icon: Timer,
     children: automationChildren,
   })
-  const settingsChildren: MenuEntry[] = [
-    { path: '/system/theme', label: '主题管理', icon: Setting },
-    { path: '/system/deleted-product-images', label: '待清理图片', icon: Delete },
-  ]
   groups.push({
-    key: 'settings',
-    label: '系统设置',
+    path: '/system/theme',
+    label: '主题设置',
     icon: Setting,
-    children: settingsChildren,
   })
   return groups
 })
