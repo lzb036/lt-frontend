@@ -12,11 +12,11 @@ const manualSource = readFileSync(resolve(sourceRoot, 'utils/operatorManual.ts')
 for (const expectedText of [
   "key: 'collection-management'",
   "label: '采集管理'",
-  "{ path: '/ltJobs/wjJobs', label: '手动采集', icon: Aim }",
+  "{ path: '/ltJobs/wjJobs', label: '手动采集', icon: Pointer }",
   "{ path: '/ltJobs/wjProductJob', label: '定时采集', icon: AlarmClock }",
-  "{ path: '/ltHj/collectionShops', label: '采集店铺', icon: Shop }",
-  "{ path: '/system/collection-genres', label: '采集品类', icon: Aim }",
-  "{ path: '/system/sensitive-words', label: '敏感词管理', icon: Warning }",
+  "{ path: '/ltHj/collectionShops', label: '采集店铺', icon: MapLocation }",
+  "{ path: '/system/collection-genres', label: '采集品类', icon: CollectionTag }",
+  "{ path: '/system/sensitive-words', label: '敏感词管理', icon: NoSmoking }",
 ]) {
   if (!shellSource.includes(expectedText)) {
     throw new Error(`missing collection management navigation contract: ${expectedText}`)

@@ -27,7 +27,7 @@ for (const expectedText of [
   }
 }
 
-if (!shellSource.includes("{ path: '/system/collection-genres', label: '采集品类', icon: Aim }")) {
+if (!shellSource.includes("{ path: '/system/collection-genres', label: '采集品类', icon: CollectionTag }")) {
   throw new Error('crawler users must see the collection genre settings navigation item')
 }
 

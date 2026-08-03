@@ -51,7 +51,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltHj/wjMerchant', name: 'store-manager', component: StoreManagerView, meta: { title: '店铺管理', permission: 'stores.manage' } },
       { path: 'ltHj/collectionShops', name: 'collection-shops', component: CollectionShopView, meta: { title: '采集店铺', permission: 'crawler.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
-      { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
+      { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化配置', permission: 'ai.manage' } },
       { path: 'automation/auto-listing', name: 'auto-listing-management', component: AutoListingScheduleView, meta: { title: '自动上架管理', permission: 'products.manage' } },
       { path: 'automation/auto-deletion', name: 'auto-deletion-management', component: AutoDeletionManagementView, meta: { title: '自动删除管理', permission: 'products.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题设置' } },

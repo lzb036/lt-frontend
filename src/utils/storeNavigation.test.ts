@@ -15,7 +15,7 @@ const storeViewSource = readFileSync(
 const manualSource = readFileSync(resolve(sourceRoot, 'utils/operatorManual.ts'), 'utf8')
 
 for (const expectedText of [
-  "{ path: '/ltShop/GoodsUp', label: '店铺商品', icon: Sell }",
+  "{ path: '/ltShop/GoodsUp', label: '店铺商品', icon: Shop }",
   "path: '/ltHj/wjMerchant'",
   "label: '店铺管理'",
   "name: 'store-manager'",
@@ -50,4 +50,13 @@ for (const removedText of [
   ) {
     throw new Error(`stale store navigation contract remains: ${removedText}`)
   }
+}
+
+const productGroupStart = shellSource.indexOf('const productChildren')
+const productGroupEnd = shellSource.indexOf("key: 'rakuten-shop'", productGroupStart)
+const productGroupSource = shellSource.slice(productGroupStart, productGroupEnd)
+const storeProductIndex = productGroupSource.indexOf("label: '店铺商品'")
+const errorProductIndex = productGroupSource.indexOf("label: '异常商品'")
+if (storeProductIndex < 0 || errorProductIndex < 0 || storeProductIndex >= errorProductIndex) {
+  throw new Error('store products must appear immediately before error products')
 }

@@ -89,7 +89,7 @@ function handleProviderChange(providerValue: string) {
     <div class="page-head">
       <div>
         <p class="eyebrow">Automation Management</p>
-        <h1>标题优化</h1>
+        <h1>标题优化配置</h1>
       </div>
       <div class="head-actions">
         <el-tag :type="verified ? 'success' : 'warning'">{{ verified ? '已验证' : '未验证' }}</el-tag>
