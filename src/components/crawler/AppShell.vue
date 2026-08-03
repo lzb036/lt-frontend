@@ -11,7 +11,6 @@ import {
   Expand,
   Finished,
   Fold,
-  OfficeBuilding,
   Reading,
   Refresh,
   Sell,
@@ -66,13 +65,29 @@ const sessionDisplayName = computed(() => props.session?.displayName || props.se
 
 const menuGroups = computed(() => {
   const groups: Array<MenuEntry | MenuGroup> = []
-  const jobChildren: MenuEntry[] = []
+  const collectionChildren: MenuEntry[] = []
   if (hasPermission(props.session, 'crawler.manage')) {
-    jobChildren.push(
+    collectionChildren.push(
       { path: '/ltJobs/wjJobs', label: '手动采集', icon: Aim },
       { path: '/ltJobs/wjProductJob', label: '定时采集', icon: AlarmClock },
+      { path: '/ltHj/collectionShops', label: '采集店铺', icon: Shop },
+      { path: '/system/collection-genres', label: '采集品类', icon: Aim },
     )
   }
+  if (isSuperadmin.value) {
+    collectionChildren.push(
+      { path: '/system/sensitive-words', label: '敏感词管理', icon: Warning },
+    )
+  }
+  if (collectionChildren.length > 0) {
+    groups.push({
+      key: 'collection-management',
+      label: '采集管理',
+      icon: Aim,
+      children: collectionChildren,
+    })
+  }
+  const jobChildren: MenuEntry[] = []
   if (hasPermission(props.session, 'products.manage')) {
     jobChildren.push({ path: '/ltJobs/upGoodsJob', label: '上架任务', icon: ShoppingCartFull })
     jobChildren.push({ path: '/ltJobs/listingImageUploadJob', label: '图片上传任务', icon: UploadFilled })
@@ -95,36 +110,34 @@ const menuGroups = computed(() => {
       children: jobChildren,
     })
   }
+  const productChildren: MenuEntry[] = []
   if (hasPermission(props.session, 'products.manage')) {
+    productChildren.push(
+      { path: '/ltShop/wjMerchantGoods', label: '手动采集待审核', icon: Document },
+      { path: '/ltShop/wjMerchantGoodsScheduled', label: '定时采集待审核', icon: Document },
+      { path: '/ltShop/wjMerchantGoodsTrue', label: '已审核商品', icon: Finished },
+      { path: '/ltShop/wjListedGoods', label: '已上架商品', icon: Sell },
+      { path: '/ltShop/wjMerchantGoodsError', label: '异常商品', icon: Warning },
+    )
+  }
+  if (hasPermission(props.session, 'stores.manage')) {
+    productChildren.push(
+      { path: '/ltShop/GoodsUp', label: '店铺商品', icon: Sell },
+    )
+  }
+  if (productChildren.length > 0) {
     groups.push({
       key: 'rakuten-shop',
       label: '商品管理',
       icon: ShoppingBag,
-      children: [
-        { path: '/ltShop/wjMerchantGoods', label: '手动采集待审核', icon: Document },
-        { path: '/ltShop/wjMerchantGoodsScheduled', label: '定时采集待审核', icon: Document },
-        { path: '/ltShop/wjMerchantGoodsTrue', label: '已审核商品', icon: Finished },
-        { path: '/ltShop/wjListedGoods', label: '已上架商品', icon: Sell },
-        { path: '/ltShop/wjMerchantGoodsError', label: '异常商品', icon: Warning },
-      ],
+      children: productChildren,
     })
   }
-  if (hasAnyPermission(props.session, ['stores.manage', 'crawler.manage'])) {
-    const storeChildren: MenuEntry[] = []
-    if (hasPermission(props.session, 'stores.manage')) {
-      storeChildren.push({ path: '/ltHj/wjMerchant', label: '店铺信息', icon: Shop })
-    }
-    if (hasPermission(props.session, 'crawler.manage')) {
-      storeChildren.push({ path: '/ltHj/collectionShops', label: '采集店铺', icon: AlarmClock })
-    }
-    if (hasPermission(props.session, 'stores.manage')) {
-      storeChildren.push({ path: '/ltShop/GoodsUp', label: '店铺商品', icon: Sell })
-    }
+  if (hasPermission(props.session, 'stores.manage')) {
     groups.push({
-      key: 'stores',
+      path: '/ltHj/wjMerchant',
       label: '店铺管理',
-      icon: OfficeBuilding,
-      children: storeChildren,
+      icon: Shop,
     })
   }
   if (isSuperadmin.value) {
@@ -134,41 +147,31 @@ const menuGroups = computed(() => {
       icon: UserFilled,
     })
   }
-  if (hasAnyPermission(props.session, ['ai.manage', 'products.manage'])) {
-    const automationChildren: MenuEntry[] = []
-    if (hasPermission(props.session, 'products.manage')) {
-      automationChildren.push(
-        { path: '/automation/auto-listing', label: '自动上架管理', icon: Timer },
-        { path: '/automation/auto-deletion', label: '自动删除管理', icon: Delete },
-      )
-    }
-    if (hasPermission(props.session, 'ai.manage')) {
-      automationChildren.push(
-        { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
-      )
-    }
-    groups.push({
-      key: 'automation-management',
-      label: '自动化管理',
-      icon: Timer,
-      children: automationChildren,
-    })
+  const automationChildren: MenuEntry[] = []
+  if (hasPermission(props.session, 'products.manage')) {
+    automationChildren.push(
+      { path: '/automation/auto-listing', label: '自动上架管理', icon: Timer },
+      { path: '/automation/auto-deletion', label: '自动删除管理', icon: Delete },
+    )
   }
+  if (hasPermission(props.session, 'ai.manage')) {
+    automationChildren.push(
+      { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
+    )
+  }
+  automationChildren.push(
+    { path: '/system/time', label: '其他定时管理', icon: AlarmClock },
+  )
+  groups.push({
+    key: 'automation-management',
+    label: '自动化管理',
+    icon: Timer,
+    children: automationChildren,
+  })
   const settingsChildren: MenuEntry[] = [
     { path: '/system/theme', label: '主题管理', icon: Setting },
-    { path: '/system/time', label: '资源管理', icon: AlarmClock },
     { path: '/system/deleted-product-images', label: '待清理图片', icon: Delete },
   ]
-  if (hasPermission(props.session, 'crawler.manage')) {
-    settingsChildren.push(
-      { path: '/system/collection-genres', label: '采集品类', icon: Aim },
-    )
-  }
-  if (isSuperadmin.value) {
-    settingsChildren.push(
-      { path: '/system/sensitive-words', label: '敏感词管理', icon: Warning },
-    )
-  }
   groups.push({
     key: 'settings',
     label: '系统设置',

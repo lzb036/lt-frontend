@@ -69,8 +69,8 @@ if (!canAccessRouteMeta(ordinaryStoreSession, { title: '主题管理' })) {
   throw new Error('expected ordinary users to access personal theme settings')
 }
 
-if (!canAccessRouteMeta(ordinaryStoreSession, { title: '资源管理' })) {
-  throw new Error('expected ordinary users to access personal resource settings')
+if (!canAccessRouteMeta(ordinaryStoreSession, { title: '其他定时管理' })) {
+  throw new Error('expected ordinary users to access other scheduled settings')
 }
 
 if (!canAccessRouteMeta(ordinaryStoreSession, { title: '待清理图片' })) {
@@ -79,7 +79,7 @@ if (!canAccessRouteMeta(ordinaryStoreSession, { title: '待清理图片' })) {
 
 for (const requiredContract of [
   "meta: { title: '主题管理' }",
-  "meta: { title: '资源管理' }",
+  "meta: { title: '其他定时管理' }",
   "meta: { title: '待清理图片' }",
   "{ path: '/system/time' }",
   "{ path: '/system/deleted-product-images' }",

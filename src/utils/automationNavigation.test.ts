@@ -16,12 +16,22 @@ const approvedSource = readFileSync(
 for (const contract of [
   "label: '自动化管理'",
   "{ path: '/automation/auto-listing', label: '自动上架管理'",
+  "{ path: '/system/time', label: '其他定时管理', icon: AlarmClock }",
   "path: 'automation/auto-listing'",
   "name: 'auto-listing-management'",
   "meta: { title: '自动上架管理', permission: 'products.manage' }",
 ]) {
   if (!appShellSource.includes(contract) && !routerSource.includes(contract)) {
     throw new Error(`missing automation navigation contract: ${contract}`)
+  }
+}
+
+for (const removedText of [
+  "{ path: '/system/time', label: '资源管理'",
+  "meta: { title: '资源管理' }",
+]) {
+  if (appShellSource.includes(removedText) || routerSource.includes(removedText)) {
+    throw new Error(`stale resource management navigation remains: ${removedText}`)
   }
 }
 

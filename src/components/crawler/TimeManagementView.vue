@@ -274,7 +274,7 @@ async function saveSettings() {
       deletedImageCleanupTime: form.deletedImageCleanupTime,
     })
     applySettings(result)
-    ElMessage.success('资源管理设置已保存')
+    ElMessage.success('其他定时管理设置已保存')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '保存时间设置失败'))
   } finally {

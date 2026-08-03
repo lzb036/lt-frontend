@@ -301,7 +301,7 @@ async function removeStore(row: StoreAccount) {
     <div class="page-head">
       <div>
         <p class="eyebrow">Stores</p>
-        <h1>店铺信息</h1>
+        <h1>店铺管理</h1>
       </div>
       <div class="head-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadStores">
