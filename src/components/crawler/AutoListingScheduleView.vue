@@ -1,19 +1,29 @@
 <script setup lang="ts">
-import { onMounted, shallowRef } from 'vue'
+import { onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Plus, Refresh, VideoPlay } from '@element-plus/icons-vue'
+import { Delete, Plus, Refresh } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
-import type { AutoListingSchedule, StoreAccount } from '../../types/crawler'
+import type {
+  AutoListingSchedule,
+  AutoListingTaskType,
+  StoreAccount,
+} from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import AutoListingScheduleCreateDialog from './AutoListingScheduleCreateDialog.vue'
+import ManualListingTaskCreateDialog from './ManualListingTaskCreateDialog.vue'
 
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const operatingId = shallowRef<number | null>(null)
-const createVisible = shallowRef(false)
+const automaticCreateVisible = shallowRef(false)
+const manualCreateVisible = shallowRef(false)
 const schedules = shallowRef<AutoListingSchedule[]>([])
 const stores = shallowRef<StoreAccount[]>([])
+const filters = reactive({
+  storeId: null as number | null,
+  taskType: '' as '' | AutoListingTaskType,
+})
 
 onMounted(() => {
   void loadData()
@@ -23,7 +33,10 @@ async function loadData() {
   loading.value = true
   try {
     const [scheduleRows, storeRows] = await Promise.all([
-      api.listAutoListingSchedules(),
+      api.listAutoListingSchedules({
+        storeId: filters.storeId,
+        taskType: filters.taskType,
+      }),
       api.listStores(),
     ])
     schedules.value = scheduleRows
@@ -36,6 +49,9 @@ async function loadData() {
 }
 
 function frequencyLabel(schedule: AutoListingSchedule) {
+  if (schedule.taskType === 'manual') {
+    return '立即执行'
+  }
   if (schedule.scheduleType === 'daily') {
     return `每天 ${schedule.scheduleTime}`
   }
@@ -69,6 +85,9 @@ function resultText(schedule: AutoListingSchedule) {
 }
 
 function statusLabel(schedule: AutoListingSchedule) {
+  if (schedule.taskType === 'manual' && schedule.status === 'completed') {
+    return '已完成'
+  }
   if (!schedule.enabled) {
     return '已停用'
   }
@@ -77,10 +96,14 @@ function statusLabel(schedule: AutoListingSchedule) {
     running: '执行中',
     failed: '上次失败',
     disabled: '已停用',
+    completed: '已完成',
   }[schedule.status] || '等待执行'
 }
 
 function statusType(schedule: AutoListingSchedule) {
+  if (schedule.status === 'completed') {
+    return 'success'
+  }
   if (!schedule.enabled || schedule.status === 'disabled') {
     return 'info'
   }
@@ -93,49 +116,11 @@ function statusType(schedule: AutoListingSchedule) {
   return 'success'
 }
 
-async function toggleSchedule(schedule: AutoListingSchedule) {
-  operatingId.value = schedule.id
-  try {
-    const updated = await api.updateAutoListingScheduleStatus(schedule.id, !schedule.enabled)
-    schedules.value = schedules.value.map((item) => item.id === updated.id ? updated : item)
-    ElMessage.success(updated.enabled ? '自动上架任务已启用' : '自动上架任务已停用')
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '更新自动上架任务失败'))
-  } finally {
-    operatingId.value = null
-  }
-}
-
-async function runScheduleNow(schedule: AutoListingSchedule) {
-  try {
-    await ElMessageBox.confirm(
-      `确认立即执行店铺「${schedule.storeAliasName || schedule.storeName}」的自动上架任务？`,
-      '立即执行自动上架',
-      {
-        confirmButtonText: '立即执行',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
-    operatingId.value = schedule.id
-    const updated = await api.runAutoListingSchedule(schedule.id)
-    schedules.value = schedules.value.map((item) => item.id === updated.id ? updated : item)
-    ElMessage.success(updated.lastMessage || '自动上架任务已创建')
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '立即执行自动上架失败'))
-      await loadData()
-    }
-  } finally {
-    operatingId.value = null
-  }
-}
-
 async function removeSchedule(schedule: AutoListingSchedule) {
   try {
     await ElMessageBox.confirm(
-      `确认删除店铺「${schedule.storeAliasName || schedule.storeName}」的自动上架任务？`,
-      '删除自动上架任务',
+      `确认删除店铺「${schedule.storeAliasName || schedule.storeName}」的${schedule.taskType === 'automatic' ? '定时任务' : '手动任务'}？`,
+      '删除上架任务',
       {
         confirmButtonText: '删除',
         cancelButtonText: '取消',
@@ -155,8 +140,8 @@ async function removeSchedule(schedule: AutoListingSchedule) {
   }
 }
 
-function handleCreated(schedule: AutoListingSchedule) {
-  schedules.value = [schedule, ...schedules.value]
+async function handleCreated() {
+  await loadData()
 }
 </script>
 
@@ -171,9 +156,16 @@ function handleCreated(schedule: AutoListingSchedule) {
         <el-button
           type="primary"
           :icon="Plus"
-          @click="createVisible = true"
+          @click="automaticCreateVisible = true"
         >
-          创建自动任务
+          创建定时任务
+        </el-button>
+        <el-button
+          type="success"
+          :icon="Plus"
+          @click="manualCreateVisible = true"
+        >
+          创建任务
         </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadData">
           刷新
@@ -182,6 +174,33 @@ function handleCreated(schedule: AutoListingSchedule) {
     </div>
 
     <section class="work-panel">
+      <div class="filter-row">
+        <el-select
+          v-model="filters.storeId"
+          class="filter-control"
+          clearable
+          filterable
+          placeholder="筛选店铺"
+          @change="loadData"
+        >
+          <el-option
+            v-for="store in stores"
+            :key="store.id"
+            :label="store.aliasName || store.storeName"
+            :value="store.id"
+          />
+        </el-select>
+        <el-select
+          v-model="filters.taskType"
+          class="filter-control"
+          clearable
+          placeholder="任务类型"
+          @change="loadData"
+        >
+          <el-option label="自动任务" value="automatic" />
+          <el-option label="手动任务" value="manual" />
+        </el-select>
+      </div>
       <el-table
         v-loading="loading"
         :data="schedules"
@@ -191,6 +210,13 @@ function handleCreated(schedule: AutoListingSchedule) {
         <el-table-column label="上架店铺" min-width="150">
           <template #default="{ row }">
             {{ row.storeAliasName || row.storeName }}
+          </template>
+        </el-table-column>
+        <el-table-column label="任务类型" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.taskType === 'automatic' ? 'primary' : 'success'" effect="plain">
+              {{ row.taskType === 'automatic' ? '自动任务' : '手动任务' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="执行计划" min-width="170">
@@ -215,26 +241,8 @@ function handleCreated(schedule: AutoListingSchedule) {
             <span :class="{ 'result-error': Boolean(row.lastError) }">{{ resultText(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
-            <el-button
-              link
-              type="success"
-              :icon="VideoPlay"
-              :loading="operatingId === row.id"
-              :disabled="row.status === 'running' || (operatingId !== null && operatingId !== row.id)"
-              @click="runScheduleNow(row)"
-            >
-              立即执行
-            </el-button>
-            <el-button
-              link
-              type="primary"
-              :disabled="operatingId !== null"
-              @click="toggleSchedule(row)"
-            >
-              {{ row.enabled ? '停用' : '启用' }}
-            </el-button>
             <el-button
               link
               type="danger"
@@ -250,9 +258,14 @@ function handleCreated(schedule: AutoListingSchedule) {
     </section>
 
     <AutoListingScheduleCreateDialog
-      v-model="createVisible"
+      v-model="automaticCreateVisible"
       :stores="stores"
       :schedules="schedules"
+      @created="handleCreated"
+    />
+    <ManualListingTaskCreateDialog
+      v-model="manualCreateVisible"
+      :stores="stores"
       @created="handleCreated"
     />
   </section>
@@ -305,6 +318,17 @@ function handleCreated(schedule: AutoListingSchedule) {
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm);
   padding: 18px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.filter-control {
+  width: 220px;
 }
 
 .result-error {

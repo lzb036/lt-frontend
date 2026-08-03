@@ -53,7 +53,11 @@ const weekdayOptions = [
   { label: '星期日', value: 7 },
 ]
 const occupiedStoreIds = computed(
-  () => new Set(props.schedules.map((schedule) => schedule.storeId)),
+  () => new Set(
+    props.schedules
+      .filter((schedule) => schedule.taskType === 'automatic')
+      .map((schedule) => schedule.storeId),
+  ),
 )
 const availableStores = computed(
   () => props.stores.filter((store) => (
@@ -110,7 +114,7 @@ async function submit() {
 <template>
   <el-dialog
     v-model="visible"
-    title="创建自动上架任务"
+    title="创建定时任务"
     width="560px"
     destroy-on-close
     append-to-body
@@ -178,7 +182,7 @@ async function submit() {
         :disabled="availableStores.length < 1"
         @click="submit"
       >
-        创建任务
+        创建定时任务
       </el-button>
     </template>
   </el-dialog>

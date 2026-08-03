@@ -5,6 +5,7 @@ import type {
   AuthSession,
   AutoListingSchedule,
   AutoListingSchedulePayload,
+  AutoListingTaskType,
   CrawlPriceRule,
   CrawlPriceSettings,
   CrawlSource,
@@ -16,6 +17,7 @@ import type {
   ListingTask,
   ListingTaskPayload,
   ManualCrawlImportResult,
+  ManualListingTaskPayload,
   PageParams,
   PageResult,
   ProductDetailEditPayload,
@@ -947,9 +949,13 @@ export function useCollectorApi() {
     return response.data
   }
 
-  async function listAutoListingSchedules() {
+  async function listAutoListingSchedules(params?: {
+    storeId?: number | null
+    taskType?: AutoListingTaskType | ''
+  }) {
     const response = await apiClient.get<{ schedules: AutoListingSchedule[] }>(
       '/crawler/auto-listing-schedules',
+      { params },
     )
     return response.data.schedules
   }
@@ -957,6 +963,14 @@ export function useCollectorApi() {
   async function createAutoListingSchedule(payload: AutoListingSchedulePayload) {
     const response = await apiClient.post<{ schedule: AutoListingSchedule }>(
       '/crawler/auto-listing-schedules',
+      payload,
+    )
+    return response.data.schedule
+  }
+
+  async function createManualListingTask(payload: ManualListingTaskPayload) {
+    const response = await apiClient.post<{ schedule: AutoListingSchedule }>(
+      '/crawler/auto-listing-schedules/manual',
       payload,
     )
     return response.data.schedule
@@ -1196,6 +1210,7 @@ export function useCollectorApi() {
     runAllSchedules,
     listAutoListingSchedules,
     createAutoListingSchedule,
+    createManualListingTask,
     updateAutoListingScheduleStatus,
     runAutoListingSchedule,
     deleteAutoListingSchedule,

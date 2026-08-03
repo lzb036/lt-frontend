@@ -4,6 +4,8 @@ export type TaskStatus = 'preview_ready' | 'queued' | 'running' | 'success' | 'p
 export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'listed' | 'listed_master' | 'rejected'
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AutoListingScheduleType = 'daily' | 'weekly' | 'monthly'
+export type AutoListingTaskType = 'automatic' | 'manual'
+export type AutoListingTaskStatus = ScheduleStatus | 'completed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
 export type RakutenListingStatus = '' | 'listed' | 'unlisted'
@@ -643,13 +645,14 @@ export interface AutoListingSchedule {
   storeId: number
   storeName: string
   storeAliasName: string
+  taskType: AutoListingTaskType
   scheduleType: AutoListingScheduleType
   scheduleTime: string
   weekday?: number | null
   monthDay?: number | null
   quantity: number
   enabled: boolean
-  status: ScheduleStatus
+  status: AutoListingTaskStatus
   lastRunAt?: string | null
   nextRunAt?: string | null
   lastTaskIds: string[]
@@ -805,6 +808,11 @@ export interface AutoListingSchedulePayload {
   scheduleTime: string
   weekday?: number | null
   monthDay?: number | null
+  quantity: number
+}
+
+export interface ManualListingTaskPayload {
+  storeId: number
   quantity: number
 }
 
