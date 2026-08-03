@@ -956,7 +956,12 @@ export function useCollectorApi() {
   }) {
     const response = await apiClient.get<{ schedules: AutoListingSchedule[] }>(
       '/crawler/auto-listing-schedules',
-      { params },
+      {
+        params: {
+          storeId: params?.storeId || undefined,
+          taskType: params?.taskType || undefined,
+        },
+      },
     )
     return response.data.schedules
   }
@@ -999,7 +1004,12 @@ export function useCollectorApi() {
   }
 
   async function listAutoDeletionTasks(params?: { storeId?: number | null; taskType?: AutoListingTaskType | '' }) {
-    const response = await apiClient.get<{ tasks: AutoDeletionTask[] }>('/crawler/auto-deletion-tasks', { params })
+    const response = await apiClient.get<{ tasks: AutoDeletionTask[] }>('/crawler/auto-deletion-tasks', {
+      params: {
+        storeId: params?.storeId || undefined,
+        taskType: params?.taskType || undefined,
+      },
+    })
     return response.data.tasks
   }
 
