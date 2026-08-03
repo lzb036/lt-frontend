@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, shallowRef } from 'vue'
+import { onMounted, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Plus, Refresh } from '@element-plus/icons-vue'
+import { Delete, Plus, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type { AutoListingSchedule, StoreAccount } from '../../types/crawler'
@@ -14,15 +14,6 @@ const operatingId = shallowRef<number | null>(null)
 const createVisible = shallowRef(false)
 const schedules = shallowRef<AutoListingSchedule[]>([])
 const stores = shallowRef<StoreAccount[]>([])
-const hasAvailableStore = computed(() => {
-  const occupied = new Set(schedules.value.map((schedule) => schedule.storeId))
-  return stores.value.some((store) => (
-    store.enabled
-    && Boolean(store.masked.rakutenServiceSecret)
-    && Boolean(store.masked.rakutenLicenseKey)
-    && !occupied.has(store.id)
-  ))
-})
 
 onMounted(() => {
   void loadData()
@@ -115,6 +106,31 @@ async function toggleSchedule(schedule: AutoListingSchedule) {
   }
 }
 
+async function runScheduleNow(schedule: AutoListingSchedule) {
+  try {
+    await ElMessageBox.confirm(
+      `确认立即执行店铺「${schedule.storeAliasName || schedule.storeName}」的自动上架任务？`,
+      '立即执行自动上架',
+      {
+        confirmButtonText: '立即执行',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    operatingId.value = schedule.id
+    const updated = await api.runAutoListingSchedule(schedule.id)
+    schedules.value = schedules.value.map((item) => item.id === updated.id ? updated : item)
+    ElMessage.success(updated.lastMessage || '自动上架任务已创建')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '立即执行自动上架失败'))
+      await loadData()
+    }
+  } finally {
+    operatingId.value = null
+  }
+}
+
 async function removeSchedule(schedule: AutoListingSchedule) {
   try {
     await ElMessageBox.confirm(
@@ -155,7 +171,6 @@ function handleCreated(schedule: AutoListingSchedule) {
         <el-button
           type="primary"
           :icon="Plus"
-          :disabled="!hasAvailableStore"
           @click="createVisible = true"
         >
           创建自动任务
@@ -200,12 +215,22 @@ function handleCreated(schedule: AutoListingSchedule) {
             <span :class="{ 'result-error': Boolean(row.lastError) }">{{ resultText(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <el-button
               link
-              type="primary"
+              type="success"
+              :icon="VideoPlay"
               :loading="operatingId === row.id"
+              :disabled="row.status === 'running' || (operatingId !== null && operatingId !== row.id)"
+              @click="runScheduleNow(row)"
+            >
+              立即执行
+            </el-button>
+            <el-button
+              link
+              type="primary"
+              :disabled="operatingId !== null"
               @click="toggleSchedule(row)"
             >
               {{ row.enabled ? '停用' : '启用' }}
@@ -214,7 +239,7 @@ function handleCreated(schedule: AutoListingSchedule) {
               link
               type="danger"
               :icon="Delete"
-              :disabled="operatingId === row.id"
+              :disabled="operatingId !== null"
               @click="removeSchedule(row)"
             >
               删除

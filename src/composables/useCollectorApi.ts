@@ -970,6 +970,13 @@ export function useCollectorApi() {
     return response.data.schedule
   }
 
+  async function runAutoListingSchedule(scheduleId: number) {
+    const response = await apiClient.post<{ schedule: AutoListingSchedule }>(
+      `/crawler/auto-listing-schedules/${scheduleId}/run`,
+    )
+    return response.data.schedule
+  }
+
   async function deleteAutoListingSchedule(scheduleId: number) {
     await apiClient.delete<{ deleted: boolean }>(
       `/crawler/auto-listing-schedules/${scheduleId}`,
@@ -1190,6 +1197,7 @@ export function useCollectorApi() {
     listAutoListingSchedules,
     createAutoListingSchedule,
     updateAutoListingScheduleStatus,
+    runAutoListingSchedule,
     deleteAutoListingSchedule,
     listListingTasks,
     listListingTasksPage,
