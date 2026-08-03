@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, shallowRef, watch } from 'vue'
+import { computed, onMounted, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus, Refresh } from '@element-plus/icons-vue'
 
@@ -8,7 +8,6 @@ import type { AutoListingSchedule, StoreAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import AutoListingScheduleCreateDialog from './AutoListingScheduleCreateDialog.vue'
 
-const visible = defineModel<boolean>({ required: true })
 const api = useCollectorApi()
 const loading = shallowRef(false)
 const operatingId = shallowRef<number | null>(null)
@@ -25,16 +24,8 @@ const hasAvailableStore = computed(() => {
   ))
 })
 
-watch(visible, (isVisible) => {
-  if (isVisible) {
-    void loadData()
-  }
-})
-
 onMounted(() => {
-  if (visible.value) {
-    void loadData()
-  }
+  void loadData()
 })
 
 async function loadData() {
@@ -154,77 +145,84 @@ function handleCreated(schedule: AutoListingSchedule) {
 </script>
 
 <template>
-  <el-dialog
-    v-model="visible"
-    title="自动上架"
-    width="1120px"
-    destroy-on-close
-    append-to-body
-  >
-    <div class="dialog-toolbar">
-      <el-button
-        type="primary"
-        :icon="Plus"
-        :disabled="!hasAvailableStore"
-        @click="createVisible = true"
-      >
-        创建自动任务
-      </el-button>
-      <el-button :icon="Refresh" :loading="loading" @click="loadData">
-        刷新
-      </el-button>
+  <section class="page-stack">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Automation Management</p>
+        <h1>自动上架管理</h1>
+      </div>
+      <div class="head-actions">
+        <el-button
+          type="primary"
+          :icon="Plus"
+          :disabled="!hasAvailableStore"
+          @click="createVisible = true"
+        >
+          创建自动任务
+        </el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadData">
+          刷新
+        </el-button>
+      </div>
     </div>
 
-    <el-table v-loading="loading" :data="schedules" height="480" empty-text="暂无自动上架任务">
-      <el-table-column label="上架店铺" min-width="150">
-        <template #default="{ row }">
-          {{ row.storeAliasName || row.storeName }}
-        </template>
-      </el-table-column>
-      <el-table-column label="执行计划" min-width="170">
-        <template #default="{ row }">{{ frequencyLabel(row) }}</template>
-      </el-table-column>
-      <el-table-column prop="quantity" label="上架数量" width="100" align="center" />
-      <el-table-column label="状态" width="100" align="center">
-        <template #default="{ row }">
-          <el-tag :type="statusType(row)" effect="plain">
-            {{ statusLabel(row) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="下次执行" min-width="160">
-        <template #default="{ row }">{{ formatDateTime(row.nextRunAt) }}</template>
-      </el-table-column>
-      <el-table-column label="上次执行" min-width="160">
-        <template #default="{ row }">{{ formatDateTime(row.lastRunAt) }}</template>
-      </el-table-column>
-      <el-table-column label="上次结果" min-width="240" show-overflow-tooltip>
-        <template #default="{ row }">
-          <span :class="{ 'result-error': Boolean(row.lastError) }">{{ resultText(row) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
-        <template #default="{ row }">
-          <el-button
-            link
-            type="primary"
-            :loading="operatingId === row.id"
-            @click="toggleSchedule(row)"
-          >
-            {{ row.enabled ? '停用' : '启用' }}
-          </el-button>
-          <el-button
-            link
-            type="danger"
-            :icon="Delete"
-            :disabled="operatingId === row.id"
-            @click="removeSchedule(row)"
-          >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section class="work-panel">
+      <el-table
+        v-loading="loading"
+        :data="schedules"
+        height="100%"
+        empty-text="暂无自动上架任务"
+      >
+        <el-table-column label="上架店铺" min-width="150">
+          <template #default="{ row }">
+            {{ row.storeAliasName || row.storeName }}
+          </template>
+        </el-table-column>
+        <el-table-column label="执行计划" min-width="170">
+          <template #default="{ row }">{{ frequencyLabel(row) }}</template>
+        </el-table-column>
+        <el-table-column prop="quantity" label="上架数量" width="100" align="center" />
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row)" effect="plain">
+              {{ statusLabel(row) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="下次执行" min-width="160">
+          <template #default="{ row }">{{ formatDateTime(row.nextRunAt) }}</template>
+        </el-table-column>
+        <el-table-column label="上次执行" min-width="160">
+          <template #default="{ row }">{{ formatDateTime(row.lastRunAt) }}</template>
+        </el-table-column>
+        <el-table-column label="上次结果" min-width="240" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span :class="{ 'result-error': Boolean(row.lastError) }">{{ resultText(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              link
+              type="primary"
+              :loading="operatingId === row.id"
+              @click="toggleSchedule(row)"
+            >
+              {{ row.enabled ? '停用' : '启用' }}
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              :icon="Delete"
+              :disabled="operatingId === row.id"
+              @click="removeSchedule(row)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
 
     <AutoListingScheduleCreateDialog
       v-model="createVisible"
@@ -232,17 +230,67 @@ function handleCreated(schedule: AutoListingSchedule) {
       :schedules="schedules"
       @created="handleCreated"
     />
-  </el-dialog>
+  </section>
 </template>
 
 <style scoped>
-.dialog-toolbar {
+.page-stack {
   display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
+  min-height: calc(100vh - 132px);
+  flex-direction: column;
+  gap: 18px;
+}
+
+.page-head,
+.head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.page-head {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.head-actions {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.page-head h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.work-panel {
+  flex: 1 1 auto;
+  min-height: 520px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
 }
 
 .result-error {
   color: var(--el-color-danger);
+}
+
+@media (max-width: 760px) {
+  .page-head,
+  .head-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>

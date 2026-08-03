@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   ShoppingCartFull,
   SwitchButton,
+  Timer,
   Tickets,
   UploadFilled,
   UserFilled,
@@ -133,14 +134,23 @@ const menuGroups = computed(() => {
       icon: UserFilled,
     })
   }
-  if (hasPermission(props.session, 'ai.manage')) {
-    groups.push({
-      key: 'ai-management',
-      label: 'AI 管理',
-      icon: Cpu,
-      children: [
+  if (hasAnyPermission(props.session, ['ai.manage', 'products.manage'])) {
+    const automationChildren: MenuEntry[] = []
+    if (hasPermission(props.session, 'products.manage')) {
+      automationChildren.push(
+        { path: '/automation/auto-listing', label: '自动上架管理', icon: Timer },
+      )
+    }
+    if (hasPermission(props.session, 'ai.manage')) {
+      automationChildren.push(
         { path: '/ai/title-optimization', label: '标题优化', icon: Cpu },
-      ],
+      )
+    }
+    groups.push({
+      key: 'automation-management',
+      label: '自动化管理',
+      icon: Timer,
+      children: automationChildren,
     })
   }
   const settingsChildren: MenuEntry[] = [

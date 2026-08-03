@@ -21,6 +21,7 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltShop/wjMerchantGoodsTrue', permission: 'products.manage' },
   { path: '/ltShop/wjListedGoods', permission: 'products.manage' },
   { path: '/ltShop/wjMerchantGoodsError', permission: 'products.manage' },
+  { path: '/automation/auto-listing', permission: 'products.manage' },
   { path: '/ltHj/collectionShops', permission: 'crawler.manage' },
   { path: '/ltShop/GoodsUp', permission: 'stores.manage' },
   { path: '/system/user', superadminOnly: true },

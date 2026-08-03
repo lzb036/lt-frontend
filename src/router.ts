@@ -3,6 +3,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import AppShell from './components/crawler/AppShell.vue'
 
 const AiTitleSettingsView = () => import('./components/crawler/AiTitleSettingsView.vue')
+const AutoListingScheduleView = () => import('./components/crawler/AutoListingScheduleView.vue')
 const CollectionShopView = () => import('./components/crawler/CollectionShopView.vue')
 const CollectionGenreManagementView = () => import('./components/crawler/CollectionGenreManagementView.vue')
 const CrawlTaskManager = () => import('./components/crawler/CrawlTaskManager.vue')
@@ -50,6 +51,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltHj/collectionShops', name: 'collection-shops', component: CollectionShopView, meta: { title: '采集店铺', permission: 'crawler.manage' } },
       { path: 'system/user', name: 'system-users', component: UserManagement, meta: { title: '用户管理', superadminOnly: true } },
       { path: 'ai/title-optimization', name: 'ai-title-optimization', component: AiTitleSettingsView, meta: { title: '标题优化', permission: 'ai.manage' } },
+      { path: 'automation/auto-listing', name: 'auto-listing-management', component: AutoListingScheduleView, meta: { title: '自动上架管理', permission: 'products.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题管理' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '资源管理' } },
       { path: 'system/deleted-product-images', name: 'system-deleted-product-images', component: DeletedProductImageCleanupView, meta: { title: '待清理图片' } },

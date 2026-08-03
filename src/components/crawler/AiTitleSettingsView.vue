@@ -88,7 +88,7 @@ function handleProviderChange(providerValue: string) {
   <section class="page-stack" v-loading="loading">
     <div class="page-head">
       <div>
-        <p class="eyebrow">AI Management</p>
+        <p class="eyebrow">Automation Management</p>
         <h1>标题优化</h1>
       </div>
       <div class="head-actions">

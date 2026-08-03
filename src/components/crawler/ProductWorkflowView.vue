@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElImageViewer, ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Download, EditPen, Finished, MagicStick, Refresh, Search, Timer, Top, Upload, View, Warning } from '@element-plus/icons-vue'
+import { Delete, Download, EditPen, Finished, MagicStick, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
 import DOMPurify from 'dompurify'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
@@ -17,7 +17,6 @@ import {
 } from '../../utils/productGenre'
 import { openMeituImageEditor, type MeituImageSaveResult } from '../../utils/meituImageEditor'
 import CopyableTableText from './CopyableTableText.vue'
-import AutoListingScheduleDialog from './AutoListingScheduleDialog.vue'
 import PendingProductGenreBatchDialog from './PendingProductGenreBatchDialog.vue'
 import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
 import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
@@ -158,7 +157,6 @@ const listingForm = reactive({
   taskName: '',
 })
 const listingDialogVisible = shallowRef(false)
-const autoListingScheduleVisible = shallowRef(false)
 const listingDialogProductIds = shallowRef<number[]>([])
 const listingDialogTitle = shallowRef('上架商品')
 const titleOptimizationVisible = shallowRef(false)
@@ -2683,15 +2681,6 @@ function sanitizedDescriptionHtml(value: string) {
           >
             {{ status === 'listed_master' ? '批量重新上架' : '批量上架' }}
           </el-button>
-          <el-button
-            v-if="status === 'approved'"
-            type="primary"
-            plain
-            :icon="Timer"
-            @click="autoListingScheduleVisible = true"
-          >
-            自动上架
-          </el-button>
           <el-button type="danger" plain :icon="Delete" :disabled="loading || selectedIds.length < 1 || hasSelectedProductBusy()" :loading="operating" @click="removeSelected">
             批量删除（{{ selectedIds.length }}）
           </el-button>
@@ -3312,11 +3301,6 @@ function sanitizedDescriptionHtml(value: string) {
         />
       </div>
     </section>
-
-    <AutoListingScheduleDialog
-      v-if="status === 'approved'"
-      v-model="autoListingScheduleVisible"
-    />
 
     <ProductTitleOptimizationDialog
       v-model="titleOptimizationVisible"
