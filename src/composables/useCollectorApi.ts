@@ -950,6 +950,15 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function updateAllScheduleStatuses(enabled: boolean) {
+    const response = await apiClient.put<{
+      matchedCount: number
+      updatedCount: number
+      enabled: boolean
+    }>('/crawler/schedules/status/all', { enabled })
+    return response.data
+  }
+
   async function listAutoListingSchedules(params?: {
     storeId?: number | null
     taskType?: AutoListingTaskType | ''
@@ -1236,6 +1245,7 @@ export function useCollectorApi() {
     deleteSchedule,
     deleteSchedules,
     updateScheduleStatuses,
+    updateAllScheduleStatuses,
     runSchedule,
     runAllSchedules,
     listAutoListingSchedules,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, CircleClose, Coin, Delete, Download, Edit, Plus, Refresh, Search, Upload, VideoPlay } from '@element-plus/icons-vue'
+import { CircleCheck, CircleCheckFilled, CircleClose, CircleCloseFilled, Coin, Delete, Download, Edit, Plus, Refresh, Search, Upload, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -29,6 +29,7 @@ const downloadingTemplate = shallowRef(false)
 const exporting = shallowRef(false)
 const runningAll = shallowRef(false)
 const batchStatusAction = shallowRef<'enable' | 'disable' | ''>('')
+const allStatusAction = shallowRef<'enable' | 'disable' | ''>('')
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
 const importInputRef = ref<HTMLInputElement | null>(null)
@@ -622,6 +623,41 @@ async function updateSelectedScheduleStatus(enabled: boolean) {
   }
 }
 
+async function updateAllScheduleStatus(enabled: boolean) {
+  const action = enabled ? '启用' : '停用'
+  const impactMessage = enabled
+    ? '该操作会启用当前账号下的全部采集店铺，不受当前筛选条件和分页影响。'
+    : '该操作会停用当前账号下的全部采集店铺，不受当前筛选条件和分页影响；已开始的采集任务不会被终止。'
+  try {
+    await ElMessageBox.confirm(
+      impactMessage,
+      `全部${action}采集店铺`,
+      {
+        confirmButtonText: `全部${action}`,
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    allStatusAction.value = enabled ? 'enable' : 'disable'
+    const result = await api.updateAllScheduleStatuses(enabled)
+    clearSelection()
+    await loadSchedules()
+    if (result.matchedCount < 1) {
+      ElMessage.warning('当前没有采集店铺')
+    } else if (result.updatedCount < 1) {
+      ElMessage.success(`全部采集店铺已经是${enabled ? '启用' : '停用'}状态`)
+    } else {
+      ElMessage.success(`已全部${action}，共变更 ${result.updatedCount} 条采集店铺`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, `全部${action}采集店铺失败`))
+    }
+  } finally {
+    allStatusAction.value = ''
+  }
+}
+
 function deleteSelectedSchedules() {
   if (selectedSchedules.value.length < 1) {
     ElMessage.warning('请选择要删除的采集店铺')
@@ -759,7 +795,7 @@ function handlePageSizeChange() {
         <el-button
           type="success"
           :icon="CircleCheck"
-          :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+          :disabled="selectedSchedules.length < 1 || batchStatusAction !== '' || allStatusAction !== ''"
           :loading="batchStatusAction === 'enable'"
           @click="updateSelectedScheduleStatus(true)"
         >
@@ -768,16 +804,36 @@ function handlePageSizeChange() {
         <el-button
           type="warning"
           :icon="CircleClose"
-          :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+          :disabled="selectedSchedules.length < 1 || batchStatusAction !== '' || allStatusAction !== ''"
           :loading="batchStatusAction === 'disable'"
           @click="updateSelectedScheduleStatus(false)"
         >
           批量停用
         </el-button>
         <el-button
+          type="success"
+          plain
+          :icon="CircleCheckFilled"
+          :disabled="batchStatusAction !== '' || allStatusAction !== ''"
+          :loading="allStatusAction === 'enable'"
+          @click="updateAllScheduleStatus(true)"
+        >
+          全部启用
+        </el-button>
+        <el-button
+          type="warning"
+          plain
+          :icon="CircleCloseFilled"
+          :disabled="batchStatusAction !== '' || allStatusAction !== ''"
+          :loading="allStatusAction === 'disable'"
+          @click="updateAllScheduleStatus(false)"
+        >
+          全部停用
+        </el-button>
+        <el-button
           type="danger"
           :icon="Delete"
-          :disabled="selectedSchedules.length < 1 || batchStatusAction !== ''"
+          :disabled="selectedSchedules.length < 1 || batchStatusAction !== '' || allStatusAction !== ''"
           :loading="loading"
           @click="deleteSelectedSchedules"
         >
