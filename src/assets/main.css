@@ -923,8 +923,7 @@ a {
 .shell-brand em,
 .eyebrow,
 .page-head h1,
-.page-head > .el-button,
-.page-head .head-actions > .el-button:first-child {
+.page-head > .el-button {
   display: none !important;
 }
 

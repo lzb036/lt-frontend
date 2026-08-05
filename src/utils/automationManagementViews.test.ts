@@ -3,6 +3,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const globalStylesSource = readFileSync(
+  resolve(sourceRoot, 'assets/main.css'),
+  'utf8',
+)
 const listingSource = readFileSync(
   resolve(sourceRoot, 'components/crawler/AutoListingScheduleView.vue'),
   'utf8',
@@ -66,4 +70,8 @@ for (const contract of [
 
 if (deletionSource.includes('class="task-toolbar"')) {
   throw new Error('auto deletion creation actions must not remain inside the work panel')
+}
+
+if (globalStylesSource.includes('.page-head .head-actions > .el-button:first-child')) {
+  throw new Error('global styles must not hide the first page action button')
 }
