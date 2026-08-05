@@ -17,9 +17,12 @@ const tasks = shallowRef<AutoDeletionTask[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const filters = reactive({ storeId: null as number | null, taskType: '' as '' | AutoListingTaskType })
 const form = reactive({ storeId: 0, quantity: 50, scheduleType: 'daily' as 'daily' | 'weekly' | 'monthly', scheduleTime: '09:00', weekday: 1, monthDay: 1 })
-const deletionQuantityHint = computed(() => (
+const createDialogTitle = computed(() => (
+  createMode.value === 'automatic' ? '创建定时删除任务' : '创建删除任务'
+))
+const deletionTaskHint = computed(() => (
   createMode.value === 'automatic'
-    ? '每次到达设定时间时，只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。'
+    ? '任务会在设定时间执行，只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。选择每月执行时，如果当月没有所选日期，则在当月最后一天执行。'
     : '创建后立即执行，只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。'
 ))
 
@@ -133,34 +136,25 @@ async function removeTask(task: AutoDeletionTask) {
         <el-table-column label="操作" width="90" fixed="right"><template #default="{ row }"><el-button link type="danger" :icon="Delete" @click="removeTask(row)">删除</el-button></template></el-table-column>
       </el-table>
     </section>
-    <el-dialog v-model="dialogVisible" :title="createMode === 'automatic' ? '创建定时删除任务' : '创建删除任务'" width="540px">
+    <el-dialog v-model="dialogVisible" width="540px">
+      <template #header>
+        <div class="dialog-title-with-help">
+          <span>{{ createDialogTitle }}</span>
+          <FieldHelpTooltip
+            :label="createDialogTitle"
+            :content="deletionTaskHint"
+          />
+        </div>
+      </template>
       <el-form label-width="96px">
         <el-form-item label="店铺"><el-select v-model="form.storeId" class="full" filterable><el-option v-for="store in stores.filter(item => item.enabled)" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" /></el-select></el-form-item>
-        <el-form-item>
-          <template #label>
-            <span class="label-with-help">
-              <span>删除数量</span>
-              <FieldHelpTooltip
-                label="删除数量"
-                :content="deletionQuantityHint"
-              />
-            </span>
-          </template>
+        <el-form-item label="删除数量">
           <el-input-number v-model="form.quantity" :min="1" :max="10000" />
         </el-form-item>
         <template v-if="createMode === 'automatic'">
           <el-form-item label="执行周期"><el-segmented v-model="form.scheduleType" :options="[{ label: '每天', value: 'daily' }, { label: '每周', value: 'weekly' }, { label: '每月', value: 'monthly' }]" /></el-form-item>
           <el-form-item v-if="form.scheduleType === 'weekly'" label="星期"><el-input-number v-model="form.weekday" :min="1" :max="7" /></el-form-item>
-          <el-form-item v-if="form.scheduleType === 'monthly'">
-            <template #label>
-              <span class="label-with-help">
-                <span>日期</span>
-                <FieldHelpTooltip
-                  label="每月日期"
-                  content="当月没有所选日期时，任务会在当月最后一天执行。"
-                />
-              </span>
-            </template>
+          <el-form-item v-if="form.scheduleType === 'monthly'" label="日期">
             <el-input-number v-model="form.monthDay" :min="1" :max="31" />
           </el-form-item>
           <el-form-item label="时间"><el-time-picker v-model="form.scheduleTime" format="HH:mm" value-format="HH:mm" /></el-form-item>
@@ -229,10 +223,13 @@ async function removeTask(task: AutoDeletionTask) {
   width: 100%;
 }
 
-.label-with-help {
+.dialog-title-with-help {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  color: var(--el-text-color-primary);
+  font-size: var(--el-dialog-title-font-size);
+  line-height: var(--el-dialog-font-line-height);
 }
 
 @media (max-width: 760px) {

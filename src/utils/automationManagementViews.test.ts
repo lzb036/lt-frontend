@@ -95,6 +95,7 @@ for (const contract of [
 }
 
 for (const contract of [
+  '<template #header>',
   '<FieldHelpTooltip',
   '可用商品不足时按实际数量上架',
 ]) {
@@ -104,6 +105,7 @@ for (const contract of [
 }
 
 for (const contract of [
+  '<template #header>',
   '<FieldHelpTooltip',
   '近一年有效销量为 0',
   '按上架时间从早到晚处理',
@@ -111,5 +113,11 @@ for (const contract of [
 ]) {
   if (!deletionSource.includes(contract)) {
     throw new Error(`missing auto deletion field help contract: ${contract}`)
+  }
+}
+
+for (const source of [listingDialogSource, manualListingDialogSource, deletionSource]) {
+  if (source.includes('class="label-with-help"')) {
+    throw new Error('automation help icons must be placed beside dialog titles, not field labels')
   }
 }

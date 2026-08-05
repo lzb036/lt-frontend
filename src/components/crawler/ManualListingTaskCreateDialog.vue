@@ -70,11 +70,19 @@ async function submit() {
 <template>
   <el-dialog
     v-model="visible"
-    title="创建任务"
     width="520px"
     destroy-on-close
     append-to-body
   >
+    <template #header>
+      <div class="dialog-title-with-help">
+        <span>创建任务</span>
+        <FieldHelpTooltip
+          label="创建任务"
+          content="创建后立即执行，按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。"
+        />
+      </div>
+    </template>
     <el-form ref="formRef" :model="form" :rules="rules" label-width="96px">
       <el-form-item label="上架店铺" prop="storeId">
         <el-select
@@ -95,16 +103,7 @@ async function submit() {
           暂无可用店铺
         </span>
       </el-form-item>
-      <el-form-item prop="quantity">
-        <template #label>
-          <span class="label-with-help">
-            <span>上架数量</span>
-            <FieldHelpTooltip
-              label="上架数量"
-              content="创建后立即执行，按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。"
-            />
-          </span>
-        </template>
+      <el-form-item label="上架数量" prop="quantity">
         <el-input-number
           v-model="form.quantity"
           :min="1"
@@ -132,10 +131,13 @@ async function submit() {
   width: 100%;
 }
 
-.label-with-help {
+.dialog-title-with-help {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  color: var(--el-text-color-primary);
+  font-size: var(--el-dialog-title-font-size);
+  line-height: var(--el-dialog-font-line-height);
 }
 
 .field-hint {
