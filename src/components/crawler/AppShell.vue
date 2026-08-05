@@ -411,11 +411,14 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 }
 
 .brand-copy {
+  display: block;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   opacity: 1;
-  max-width: 112px;
+  max-width: none;
+  visibility: visible;
   transform: translateX(0);
   transition:
     opacity var(--motion-fast) ease,
@@ -425,7 +428,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 
 .shell-brand strong {
   display: block;
-  color: var(--sidebar-heading);
+  color: var(--sidebar-text);
   font-size: 16px;
   line-height: 1.2;
 }
@@ -531,7 +534,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 .shell-menu :deep(.el-sub-menu__title:hover),
 .shell-menu :deep(.el-menu-item:hover) {
   background: var(--sidebar-hover-bg);
-  color: var(--sidebar-heading);
+  color: var(--sidebar-text);
 }
 
 .shell-menu :deep(.el-sub-menu .el-menu-item) {
@@ -595,7 +598,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 .sidebar-action-button:focus-visible {
   border-color: var(--sidebar-border);
   background: var(--sidebar-hover-bg);
-  color: var(--sidebar-heading);
+  color: var(--sidebar-text);
   outline: none;
 }
 

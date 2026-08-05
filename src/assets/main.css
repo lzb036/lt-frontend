@@ -62,7 +62,6 @@
   --sidebar-active-bg: var(--accent-soft);
   --sidebar-active-text: var(--accent);
   --sidebar-hover-bg: var(--panel-muted);
-  --sidebar-heading: var(--text-main);
   --sidebar-border: var(--panel-border);
   --header-bg: rgba(255, 255, 255, 0.86);
   --table-header-bg: #f6f8fc;
@@ -740,7 +739,6 @@
 :root[data-theme-navigation="solid"] {
   --sidebar-bg: #18202c;
   --sidebar-text: #c9d2df;
-  --sidebar-heading: #ffffff;
   --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
   --sidebar-active-bg: color-mix(in srgb, var(--accent), #18202c 56%);
   --sidebar-active-text: #ffffff;
@@ -757,7 +755,6 @@
 :root[data-theme-navigation="accent"] {
   --sidebar-bg: var(--accent-active);
   --sidebar-text: color-mix(in srgb, var(--on-accent), transparent 18%);
-  --sidebar-heading: var(--on-accent);
   --sidebar-hover-bg: color-mix(in srgb, var(--on-accent), transparent 88%);
   --sidebar-active-bg: color-mix(in srgb, var(--on-accent), transparent 80%);
   --sidebar-active-text: var(--on-accent);
