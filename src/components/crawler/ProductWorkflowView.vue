@@ -2050,7 +2050,7 @@ function detailVariantForm(variant: ProductVariant) {
 }
 
 function detailEditable() {
-  return ['pending', 'approved', 'error', 'listed_master', 'listed'].includes(props.status)
+  return ['pending', 'error', 'listed_master', 'listed'].includes(props.status)
 }
 
 function imageEditable() {
@@ -2068,6 +2068,10 @@ function selectDetailGenre(genre: RakutenGenreOption) {
 }
 
 async function submitDetailChange() {
+  if (!detailEditable()) {
+    ElMessage.warning('当前商品详情仅支持查看')
+    return
+  }
   if (!detailForm.productId) {
     ElMessage.warning('请先打开商品详情')
     return
