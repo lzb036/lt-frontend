@@ -511,11 +511,18 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 }
 
 .shell-menu :deep(.el-menu-item) {
+  position: relative;
   height: var(--menu-item-height);
   margin: 2px 0;
   border-radius: var(--radius-sm);
   color: var(--sidebar-text);
   font-weight: 700;
+  overflow: hidden;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .shell-menu :deep(.el-menu-item .el-icon),
@@ -524,17 +531,63 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 }
 
 .shell-menu :deep(.el-sub-menu__title) {
+  position: relative;
   height: var(--menu-item-height);
   margin: 2px 0;
   border-radius: var(--radius-sm);
   color: var(--sidebar-text);
   font-weight: 800;
+  overflow: hidden;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell-menu :deep(.el-menu-item::before),
+.shell-menu :deep(.el-sub-menu__title::before) {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sidebar-active-text);
+  content: "";
+  opacity: 0;
+  transform: scaleY(0.35);
+  transform-origin: center;
+  transition:
+    opacity var(--motion-fast) ease,
+    transform var(--motion-fast) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .shell-menu :deep(.el-sub-menu__title:hover),
 .shell-menu :deep(.el-menu-item:hover) {
   background: var(--sidebar-hover-bg);
   color: var(--sidebar-text);
+  box-shadow: inset 0 0 0 1px var(--sidebar-border);
+  transform: translateX(2px);
+}
+
+.shell-menu :deep(.el-sub-menu__title:hover::before),
+.shell-menu :deep(.el-menu-item:hover::before),
+.shell-menu :deep(.el-menu-item.is-active::before) {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.shell-menu :deep(.el-menu-item .el-icon),
+.shell-menu :deep(.el-sub-menu__title .el-icon) {
+  transition:
+    color var(--motion-fast) ease,
+    transform var(--motion-fast) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell-menu :deep(.el-menu-item:hover .el-icon),
+.shell-menu :deep(.el-sub-menu__title:hover .el-icon) {
+  transform: scale(1.1);
 }
 
 .shell-menu :deep(.el-sub-menu .el-menu-item) {
