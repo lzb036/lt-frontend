@@ -6,6 +6,7 @@ import type {
   AutoListingSchedule,
   AutoListingSchedulePayload,
   AutoListingTaskType,
+  AutomaticTaskScheduleUpdatePayload,
   AutoDeletionTask,
   CrawlPriceRule,
   CrawlPriceSettings,
@@ -999,6 +1000,17 @@ export function useCollectorApi() {
     return response.data.schedule
   }
 
+  async function updateAutoListingSchedule(
+    scheduleId: number,
+    payload: AutomaticTaskScheduleUpdatePayload,
+  ) {
+    const response = await apiClient.put<{ schedule: AutoListingSchedule }>(
+      `/crawler/auto-listing-schedules/${scheduleId}`,
+      payload,
+    )
+    return response.data.schedule
+  }
+
   async function runAutoListingSchedule(scheduleId: number) {
     const response = await apiClient.post<{ schedule: AutoListingSchedule }>(
       `/crawler/auto-listing-schedules/${scheduleId}/run`,
@@ -1029,6 +1041,25 @@ export function useCollectorApi() {
 
   async function createManualDeletionTask(payload: ManualListingTaskPayload) {
     const response = await apiClient.post<{ task: AutoDeletionTask }>('/crawler/auto-deletion-tasks/manual', payload)
+    return response.data.task
+  }
+
+  async function updateAutoDeletionTask(
+    taskId: number,
+    payload: AutomaticTaskScheduleUpdatePayload,
+  ) {
+    const response = await apiClient.put<{ task: AutoDeletionTask }>(
+      `/crawler/auto-deletion-tasks/${taskId}`,
+      payload,
+    )
+    return response.data.task
+  }
+
+  async function updateAutoDeletionTaskStatus(taskId: number, enabled: boolean) {
+    const response = await apiClient.put<{ task: AutoDeletionTask }>(
+      `/crawler/auto-deletion-tasks/${taskId}/status`,
+      { enabled },
+    )
     return response.data.task
   }
 
@@ -1252,11 +1283,14 @@ export function useCollectorApi() {
     createAutoListingSchedule,
     createManualListingTask,
     updateAutoListingScheduleStatus,
+    updateAutoListingSchedule,
     runAutoListingSchedule,
     deleteAutoListingSchedule,
     listAutoDeletionTasks,
     createAutoDeletionTask,
     createManualDeletionTask,
+    updateAutoDeletionTask,
+    updateAutoDeletionTaskStatus,
     deleteAutoDeletionTask,
     listListingTasks,
     listListingTasksPage,

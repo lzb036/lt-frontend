@@ -5,6 +5,7 @@ export type ReviewStatus = 'pending' | 'approved' | 'error' | 'listing' | 'liste
 export type ScheduleStatus = 'idle' | 'running' | 'disabled' | 'failed'
 export type AutoListingScheduleType = 'daily' | 'weekly' | 'monthly'
 export type AutoListingTaskType = 'automatic' | 'manual'
+export type ManualTaskExecutionMode = 'immediate' | 'scheduled'
 export type AutoListingTaskStatus = ScheduleStatus | 'completed'
 export type AvailabilityStatus = 'available' | 'error' | 'unchecked'
 export type StoreProductStatus = '' | 'active' | 'removed'
@@ -646,7 +647,8 @@ export interface AutoListingSchedule {
   storeName: string
   storeAliasName: string
   taskType: AutoListingTaskType
-  scheduleType: AutoListingScheduleType
+  executionMode?: ManualTaskExecutionMode | null
+  scheduleType: AutoListingScheduleType | 'once' | ''
   scheduleTime: string
   weekday?: number | null
   monthDay?: number | null
@@ -811,9 +813,19 @@ export interface AutoListingSchedulePayload {
   quantity: number
 }
 
+export interface AutomaticTaskScheduleUpdatePayload {
+  scheduleType: AutoListingScheduleType
+  scheduleTime: string
+  weekday?: number | null
+  monthDay?: number | null
+  quantity: number
+}
+
 export interface ManualListingTaskPayload {
   storeId: number
   quantity: number
+  executionMode: ManualTaskExecutionMode
+  executeAt?: string | null
 }
 
 export interface AutoDeletionTask extends AutoListingSchedule {}

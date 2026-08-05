@@ -27,6 +27,10 @@ const fieldHelpTooltipSource = readFileSync(
   resolve(sourceRoot, 'components/crawler/FieldHelpTooltip.vue'),
   'utf8',
 )
+const scheduleEditDialogSource = readFileSync(
+  resolve(sourceRoot, 'components/crawler/AutomaticTaskScheduleEditDialog.vue'),
+  'utf8',
+)
 
 function assertExternalActionToolbar(source: string, viewName: string) {
   const actionIndex = source.indexOf('<div class="head-actions">')
@@ -105,11 +109,25 @@ for (const contract of [
 }
 
 for (const contract of [
+  "form.executionMode === 'scheduled'",
+  'type="datetime"',
+  'value-format="YYYY-MM-DD HH:mm:ss"',
+  '到期执行时间必须晚于当前时间',
+]) {
+  if (!manualListingDialogSource.includes(contract)) {
+    throw new Error(`missing manual listing execution contract: ${contract}`)
+  }
+}
+
+for (const contract of [
   '<template #header>',
   '<FieldHelpTooltip',
   '近一年有效销量为 0',
   '按上架时间从早到晚处理',
   '创建同步商品删除任务',
+  "form.executionMode === 'scheduled'",
+  'type="datetime"',
+  '到期执行时间必须晚于当前时间',
 ]) {
   if (!deletionSource.includes(contract)) {
     throw new Error(`missing auto deletion field help contract: ${contract}`)
@@ -119,5 +137,27 @@ for (const contract of [
 for (const source of [listingDialogSource, manualListingDialogSource, deletionSource]) {
   if (source.includes('class="label-with-help"')) {
     throw new Error('automation help icons must be placed beside dialog titles, not field labels')
+  }
+}
+
+for (const contract of [
+  '编辑自动上架任务',
+  '编辑自动删除任务',
+  'updateAutoListingSchedule',
+  'updateAutoDeletionTask',
+  ':max="10000"',
+]) {
+  if (!scheduleEditDialogSource.includes(contract)) {
+    throw new Error(`missing automatic task edit contract: ${contract}`)
+  }
+}
+
+for (const contract of [
+  "row.taskType === 'automatic'",
+  '编辑',
+  "row.enabled ? '关闭' : '启用'",
+]) {
+  if (!listingSource.includes(contract) || !deletionSource.includes(contract)) {
+    throw new Error(`missing automatic task operation contract: ${contract}`)
   }
 }

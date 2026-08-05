@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Plus, Refresh } from '@element-plus/icons-vue'
+import { Delete, Edit, Plus, Refresh, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import type {
@@ -11,6 +11,7 @@ import type {
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import AutoListingScheduleCreateDialog from './AutoListingScheduleCreateDialog.vue'
+import AutomaticTaskScheduleEditDialog from './AutomaticTaskScheduleEditDialog.vue'
 import ManualListingTaskCreateDialog from './ManualListingTaskCreateDialog.vue'
 
 const api = useCollectorApi()
@@ -18,6 +19,8 @@ const loading = shallowRef(false)
 const operatingId = shallowRef<number | null>(null)
 const automaticCreateVisible = shallowRef(false)
 const manualCreateVisible = shallowRef(false)
+const editVisible = shallowRef(false)
+const editingSchedule = shallowRef<AutoListingSchedule | null>(null)
 const schedules = shallowRef<AutoListingSchedule[]>([])
 const stores = shallowRef<StoreAccount[]>([])
 const filters = reactive({
@@ -50,6 +53,9 @@ async function loadData() {
 
 function frequencyLabel(schedule: AutoListingSchedule) {
   if (schedule.taskType === 'manual') {
+    if (schedule.executionMode === 'scheduled' || schedule.scheduleType === 'once') {
+      return `到期执行 ${formatDateTime(schedule.nextRunAt)}`
+    }
     return '立即执行'
   }
   if (schedule.scheduleType === 'daily') {
@@ -88,16 +94,20 @@ function statusLabel(schedule: AutoListingSchedule) {
   if (schedule.taskType === 'manual' && schedule.status === 'completed') {
     return '已完成'
   }
-  if (!schedule.enabled) {
-    return '已停用'
-  }
-  return {
+  const statusText = {
     idle: '等待执行',
     running: '执行中',
     failed: '上次失败',
     disabled: '已停用',
     completed: '已完成',
-  }[schedule.status] || '等待执行'
+  }[schedule.status]
+  if (schedule.status === 'failed' || schedule.status === 'running') {
+    return statusText
+  }
+  if (!schedule.enabled && schedule.taskType === 'automatic') {
+    return '已停用'
+  }
+  return statusText || '等待执行'
 }
 
 function statusType(schedule: AutoListingSchedule) {
@@ -135,6 +145,29 @@ async function removeSchedule(schedule: AutoListingSchedule) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '删除自动上架任务失败'))
     }
+  } finally {
+    operatingId.value = null
+  }
+}
+
+function openEdit(schedule: AutoListingSchedule) {
+  editingSchedule.value = schedule
+  editVisible.value = true
+}
+
+async function toggleSchedule(schedule: AutoListingSchedule) {
+  operatingId.value = schedule.id
+  try {
+    const updated = await api.updateAutoListingScheduleStatus(
+      schedule.id,
+      !schedule.enabled,
+    )
+    schedules.value = schedules.value.map((item) => (
+      item.id === updated.id ? updated : item
+    ))
+    ElMessage.success(updated.enabled ? '自动上架任务已启用' : '自动上架任务已关闭')
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, schedule.enabled ? '关闭自动上架任务失败' : '启用自动上架任务失败'))
   } finally {
     operatingId.value = null
   }
@@ -241,8 +274,29 @@ async function handleCreated() {
             <span :class="{ 'result-error': Boolean(row.lastError) }">{{ resultText(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
+            <template v-if="row.taskType === 'automatic'">
+              <el-button
+                link
+                type="primary"
+                :icon="Edit"
+                :disabled="operatingId !== null"
+                @click="openEdit(row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                link
+                :type="row.enabled ? 'warning' : 'success'"
+                :icon="row.enabled ? VideoPause : VideoPlay"
+                :loading="operatingId === row.id"
+                :disabled="operatingId !== null && operatingId !== row.id"
+                @click="toggleSchedule(row)"
+              >
+                {{ row.enabled ? '关闭' : '启用' }}
+              </el-button>
+            </template>
             <el-button
               link
               type="danger"
@@ -267,6 +321,12 @@ async function handleCreated() {
       v-model="manualCreateVisible"
       :stores="stores"
       @created="handleCreated"
+    />
+    <AutomaticTaskScheduleEditDialog
+      v-model="editVisible"
+      :task="editingSchedule"
+      task-kind="listing"
+      @updated="handleCreated"
     />
   </section>
 </template>
