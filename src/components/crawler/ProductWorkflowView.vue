@@ -2050,7 +2050,7 @@ function detailVariantForm(variant: ProductVariant) {
 }
 
 function detailEditable() {
-  return ['pending', 'error', 'listed_master', 'listed'].includes(props.status)
+  return ['pending', 'error', 'listed'].includes(props.status)
 }
 
 function imageEditable() {
@@ -3373,7 +3373,7 @@ function sanitizedDescriptionHtml(value: string) {
                   <PendingProductGenreSelect
                     :product="detailGenreProduct"
                     mode="draft"
-                    :disabled="detailSaving || !canEditProductDetailGenre(status)"
+                    :disabled="detailSaving || !detailEditable() || !canEditProductDetailGenre(status)"
                     @selected="selectDetailGenre"
                   />
                 </el-form-item>

@@ -41,7 +41,15 @@ if (canEditProductDetailGenre('approved')) {
   throw new Error('expected approved product genre to be read-only')
 }
 
-for (const status of ['pending', 'listed', 'listed_master']) {
+if (!shouldShowProductDetailGenre('listed_master')) {
+  throw new Error('expected listed master product details to show genre')
+}
+
+if (canEditProductDetailGenre('listed_master')) {
+  throw new Error('expected listed master product genre to be read-only')
+}
+
+for (const status of ['pending', 'listed']) {
   if (!shouldShowProductDetailGenre(status) || !canEditProductDetailGenre(status)) {
     throw new Error(`expected ${status} product genre to remain editable`)
   }

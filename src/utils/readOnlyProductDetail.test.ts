@@ -12,17 +12,19 @@ const editableFunction = workflowSource.match(
   /function detailEditable\(\) \{([\s\S]*?)\n\}/,
 )?.[1] || ''
 
-if (!editableFunction || editableFunction.includes("'approved'")) {
-  throw new Error('approved product details must not be editable')
+for (const readonlyStatus of ["'approved'", "'listed_master'"]) {
+  if (!editableFunction || editableFunction.includes(readonlyStatus)) {
+    throw new Error(`${readonlyStatus} product details must not be editable`)
+  }
 }
 
 for (const contract of [
   ':readonly="!detailEditable()"',
-  ':disabled="!detailEditable()"',
+  ':disabled="detailSaving || !detailEditable() || !canEditProductDetailGenre(status)"',
   'v-if="selectedProductDetail && detailEditable()"',
   "ElMessage.warning('当前商品详情仅支持查看')",
 ]) {
   if (!workflowSource.includes(contract)) {
-    throw new Error(`missing approved detail readonly contract: ${contract}`)
+    throw new Error(`missing product detail readonly contract: ${contract}`)
   }
 }
