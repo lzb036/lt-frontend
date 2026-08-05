@@ -10,6 +10,7 @@ import type {
   StoreAccount,
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import FieldHelpTooltip from './FieldHelpTooltip.vue'
 
 const props = defineProps<{
   stores: StoreAccount[]
@@ -152,9 +153,17 @@ async function submit() {
           />
         </el-select>
       </el-form-item>
-      <el-form-item v-if="form.scheduleType === 'monthly'" label="每月日期">
+      <el-form-item v-if="form.scheduleType === 'monthly'">
+        <template #label>
+          <span class="label-with-help">
+            <span>每月日期</span>
+            <FieldHelpTooltip
+              label="每月日期"
+              content="当月没有所选日期时，任务会在当月最后一天执行。"
+            />
+          </span>
+        </template>
         <el-input-number v-model="form.monthDay" :min="1" :max="31" controls-position="right" />
-        <span class="field-hint">短月份按当月最后一天执行</span>
       </el-form-item>
       <el-form-item label="执行时间" prop="scheduleTime">
         <el-time-picker
@@ -164,14 +173,22 @@ async function submit() {
           placeholder="选择时间"
         />
       </el-form-item>
-      <el-form-item label="上架数量" prop="quantity">
+      <el-form-item prop="quantity">
+        <template #label>
+          <span class="label-with-help">
+            <span>上架数量</span>
+            <FieldHelpTooltip
+              label="上架数量"
+              content="每次到达设定时间时，按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。"
+            />
+          </span>
+        </template>
         <el-input-number
           v-model="form.quantity"
           :min="1"
           :max="10000"
           controls-position="right"
         />
-        <span class="field-hint">商品不足时按实际可用数量上架</span>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -191,6 +208,12 @@ async function submit() {
 <style scoped>
 .full-control {
   width: 100%;
+}
+
+.label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .field-hint {

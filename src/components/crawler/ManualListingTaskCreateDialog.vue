@@ -9,6 +9,7 @@ import type {
   StoreAccount,
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import FieldHelpTooltip from './FieldHelpTooltip.vue'
 
 const props = defineProps<{
   stores: StoreAccount[]
@@ -94,14 +95,22 @@ async function submit() {
           暂无可用店铺
         </span>
       </el-form-item>
-      <el-form-item label="上架数量" prop="quantity">
+      <el-form-item prop="quantity">
+        <template #label>
+          <span class="label-with-help">
+            <span>上架数量</span>
+            <FieldHelpTooltip
+              label="上架数量"
+              content="创建后立即执行，按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。"
+            />
+          </span>
+        </template>
         <el-input-number
           v-model="form.quantity"
           :min="1"
           :max="10000"
           controls-position="right"
         />
-        <span class="field-hint">创建后立即执行，商品不足时按实际数量上架</span>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -121,6 +130,12 @@ async function submit() {
 <style scoped>
 .full-control {
   width: 100%;
+}
+
+.label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .field-hint {
