@@ -2,10 +2,16 @@ import { computed, reactive, ref, watch } from 'vue'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ThemePresetKey = 'default' | 'anthropic' | 'large-simple' | 'night' | 'rose-garden' | 'lagoon' | 'sunset' | 'forest' | 'sea-breeze' | 'wisteria'
-export type ThemeFontMode = 'auto' | 'sans' | 'microsoft' | 'pingfang' | 'noto' | 'serif' | 'japanese' | 'mono'
+export type ThemeFontMode = 'sans' | 'microsoft' | 'serif' | 'mono'
 export type ThemeRadiusMode = 'auto' | '0' | '0.3' | '0.5' | '0.75' | '1.0'
 export type ThemeDensityMode = 'compact' | 'default' | 'relaxed' | 'large'
 export type ThemeSurfaceMode = 'standard' | 'soft' | 'glass' | 'line'
+export type ThemeNavigationMode = 'blend' | 'solid' | 'accent'
+export type ThemeContentWidthMode = 'fluid' | 'wide' | 'focused'
+export type ThemeTableMode = 'plain' | 'striped' | 'grid'
+export type ThemeContrastMode = 'soft' | 'standard' | 'high'
+export type ThemeShadowMode = 'flat' | 'subtle' | 'elevated'
+export type ThemeMotionMode = 'full' | 'reduced' | 'none'
 
 export interface ThemeSettings {
   mode: ThemeMode
@@ -14,6 +20,12 @@ export interface ThemeSettings {
   radius: ThemeRadiusMode
   density: ThemeDensityMode
   surface: ThemeSurfaceMode
+  navigation: ThemeNavigationMode
+  contentWidth: ThemeContentWidthMode
+  table: ThemeTableMode
+  contrast: ThemeContrastMode
+  shadow: ThemeShadowMode
+  motion: ThemeMotionMode
 }
 
 interface ThemeOption<T extends string> {
@@ -27,6 +39,11 @@ interface ThemePresetOption extends ThemeOption<ThemePresetKey> {
   surface: string
 }
 
+interface ThemeFontOption extends ThemeOption<ThemeFontMode> {
+  fontFamily: string
+  sample: string
+}
+
 const THEME_SETTINGS_STORAGE_KEY = 'lt_product_collector_theme_settings'
 
 export const defaultThemeSettings: ThemeSettings = {
@@ -36,6 +53,12 @@ export const defaultThemeSettings: ThemeSettings = {
   radius: '0',
   density: 'default',
   surface: 'standard',
+  navigation: 'blend',
+  contentWidth: 'fluid',
+  table: 'plain',
+  contrast: 'standard',
+  shadow: 'subtle',
+  motion: 'full',
 }
 
 export const themeModeOptions: ThemeOption<ThemeMode>[] = [
@@ -57,13 +80,31 @@ export const themePresetOptions: ThemePresetOption[] = [
   { key: 'wisteria', label: '藤紫', primary: '#8b5fd3', accent: '#d6c6f6', surface: '#f7f4fc' },
 ]
 
-export const themeFontOptions: ThemeOption<ThemeFontMode>[] = [
-  { key: 'sans', label: '系统黑体' },
-  { key: 'microsoft', label: '微软雅黑' },
-  { key: 'pingfang', label: '苹方' },
-  { key: 'noto', label: '思源黑体' },
-  { key: 'serif', label: '宋体' },
-  { key: 'mono', label: '等宽' },
+export const themeFontOptions: ThemeFontOption[] = [
+  {
+    key: 'sans',
+    label: '现代黑体',
+    fontFamily: '"DengXian", "Segoe UI Variable", "Microsoft YaHei", sans-serif',
+    sample: 'Aa 采集 128',
+  },
+  {
+    key: 'microsoft',
+    label: '微软雅黑',
+    fontFamily: '"Microsoft YaHei UI", "Microsoft YaHei", sans-serif',
+    sample: 'Aa 采集 128',
+  },
+  {
+    key: 'serif',
+    label: '传统宋体',
+    fontFamily: '"Songti SC", "SimSun", Georgia, serif',
+    sample: 'Aa 采集 128',
+  },
+  {
+    key: 'mono',
+    label: '等宽字体',
+    fontFamily: '"Cascadia Mono", "Consolas", "NSimSun", monospace',
+    sample: 'Aa 采集 128',
+  },
 ]
 
 export const themeRadiusOptions: ThemeOption<ThemeRadiusMode>[] = [
@@ -86,6 +127,42 @@ export const themeSurfaceOptions: ThemeOption<ThemeSurfaceMode>[] = [
   { key: 'soft', label: '柔和' },
   { key: 'glass', label: '透亮' },
   { key: 'line', label: '细线' },
+]
+
+export const themeNavigationOptions: ThemeOption<ThemeNavigationMode>[] = [
+  { key: 'blend', label: '融合' },
+  { key: 'solid', label: '沉稳' },
+  { key: 'accent', label: '强调' },
+]
+
+export const themeContentWidthOptions: ThemeOption<ThemeContentWidthMode>[] = [
+  { key: 'fluid', label: '铺满' },
+  { key: 'wide', label: '宽屏' },
+  { key: 'focused', label: '聚焦' },
+]
+
+export const themeTableOptions: ThemeOption<ThemeTableMode>[] = [
+  { key: 'plain', label: '简洁' },
+  { key: 'striped', label: '斑马纹' },
+  { key: 'grid', label: '网格' },
+]
+
+export const themeContrastOptions: ThemeOption<ThemeContrastMode>[] = [
+  { key: 'soft', label: '柔和' },
+  { key: 'standard', label: '标准' },
+  { key: 'high', label: '清晰' },
+]
+
+export const themeShadowOptions: ThemeOption<ThemeShadowMode>[] = [
+  { key: 'flat', label: '平面' },
+  { key: 'subtle', label: '轻盈' },
+  { key: 'elevated', label: '悬浮' },
+]
+
+export const themeMotionOptions: ThemeOption<ThemeMotionMode>[] = [
+  { key: 'full', label: '流畅' },
+  { key: 'reduced', label: '克制' },
+  { key: 'none', label: '关闭' },
 ]
 
 export const themeModeSegmentOptions = themeModeOptions.map((option) => ({
@@ -117,6 +194,12 @@ export function useTheme() {
     themeRadiusOptions,
     themeDensityOptions,
     themeSurfaceOptions,
+    themeNavigationOptions,
+    themeContentWidthOptions,
+    themeTableOptions,
+    themeContrastOptions,
+    themeShadowOptions,
+    themeMotionOptions,
     updateThemeSetting,
     resetThemeSettings,
   }
@@ -176,6 +259,12 @@ function readStoredThemeSettings(): ThemeSettings {
       radius: optionExists(themeRadiusOptions, stored.radius) ? stored.radius : defaultThemeSettings.radius,
       density: optionExists(themeDensityOptions, stored.density) ? stored.density : defaultThemeSettings.density,
       surface: optionExists(themeSurfaceOptions, stored.surface) ? stored.surface : defaultThemeSettings.surface,
+      navigation: optionExists(themeNavigationOptions, stored.navigation) ? stored.navigation : defaultThemeSettings.navigation,
+      contentWidth: optionExists(themeContentWidthOptions, stored.contentWidth) ? stored.contentWidth : defaultThemeSettings.contentWidth,
+      table: optionExists(themeTableOptions, stored.table) ? stored.table : defaultThemeSettings.table,
+      contrast: optionExists(themeContrastOptions, stored.contrast) ? stored.contrast : defaultThemeSettings.contrast,
+      shadow: optionExists(themeShadowOptions, stored.shadow) ? stored.shadow : defaultThemeSettings.shadow,
+      motion: optionExists(themeMotionOptions, stored.motion) ? stored.motion : defaultThemeSettings.motion,
     }
   } catch {
     return { ...defaultThemeSettings }
@@ -200,6 +289,13 @@ function applyThemeSettings() {
   root.dataset.themeRadius = themeSettings.radius
   root.dataset.themeDensity = themeSettings.density
   root.dataset.themeSurface = themeSettings.surface
+  root.dataset.themeNavigation = themeSettings.navigation
+  root.dataset.themeContentWidth = themeSettings.contentWidth
+  root.dataset.themeTable = themeSettings.table
+  root.dataset.themeContrast = themeSettings.contrast
+  root.dataset.themeShadow = themeSettings.shadow
+  root.dataset.themeMotion = themeSettings.motion
+  root.style.colorScheme = effectiveThemeMode.value
 }
 
 function optionExists<T extends string>(options: ThemeOption<T>[], value: unknown): value is T {

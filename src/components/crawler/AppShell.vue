@@ -353,9 +353,12 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   height: 100vh;
   min-height: 0;
   grid-template-columns: 196px minmax(0, 1fr);
-  background: linear-gradient(180deg, var(--page-bg) 0%, var(--page-bg-strong) 100%);
+  background-color: var(--page-bg);
+  background-image: var(--surface-page-image);
+  background-size: var(--surface-page-size);
+  background-attachment: fixed;
   overflow: hidden;
-  transition: grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: grid-template-columns var(--motion-normal) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .app-shell-sidebar-collapsed {
@@ -367,15 +370,15 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  border-right: 1px solid var(--panel-border);
+  border-right: 1px solid var(--sidebar-border);
   background: var(--sidebar-bg);
   overflow: hidden;
-  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width var(--motion-normal) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .shell-brand-block {
   flex: 0 0 auto;
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--sidebar-border);
   overflow: hidden;
   padding: 12px 14px 10px;
 }
@@ -386,7 +389,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   gap: 10px;
   min-height: 44px;
   overflow: hidden;
-  transition: justify-content 220ms ease;
+  transition: justify-content var(--motion-normal) ease;
 }
 
 .brand-mark {
@@ -414,12 +417,15 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   opacity: 1;
   max-width: 112px;
   transform: translateX(0);
-  transition: opacity 180ms ease, max-width 220ms ease, transform 220ms ease;
+  transition:
+    opacity var(--motion-fast) ease,
+    max-width var(--motion-normal) ease,
+    transform var(--motion-normal) ease;
 }
 
 .shell-brand strong {
   display: block;
-  color: var(--text-main);
+  color: var(--sidebar-heading);
   font-size: 16px;
   line-height: 1.2;
 }
@@ -442,7 +448,11 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   opacity: 0.88;
   text-overflow: ellipsis;
   transform: translateX(0);
-  transition: opacity 180ms ease, max-width 220ms ease, margin 220ms ease, transform 220ms ease;
+  transition:
+    opacity var(--motion-fast) ease,
+    max-width var(--motion-normal) ease,
+    margin var(--motion-normal) ease,
+    transform var(--motion-normal) ease;
   white-space: nowrap;
 }
 
@@ -498,9 +508,9 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 }
 
 .shell-menu :deep(.el-menu-item) {
-  height: 42px;
+  height: var(--menu-item-height);
   margin: 2px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--sidebar-text);
   font-weight: 700;
 }
@@ -511,21 +521,21 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 }
 
 .shell-menu :deep(.el-sub-menu__title) {
-  height: 42px;
+  height: var(--menu-item-height);
   margin: 2px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--sidebar-text);
   font-weight: 800;
 }
 
 .shell-menu :deep(.el-sub-menu__title:hover),
 .shell-menu :deep(.el-menu-item:hover) {
-  background: var(--panel-muted);
-  color: var(--text-main);
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-heading);
 }
 
 .shell-menu :deep(.el-sub-menu .el-menu-item) {
-  height: 38px;
+  height: var(--submenu-item-height);
   padding-left: 38px !important;
   font-size: 13px;
 }
@@ -553,7 +563,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 
 .shell-sidebar-footer {
   flex: 0 0 auto;
-  border-top: 1px solid var(--panel-border);
+  border-top: 1px solid var(--sidebar-border);
   padding: 12px 8px 14px;
 }
 
@@ -571,7 +581,10 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   cursor: pointer;
   font: inherit;
   padding: 0 10px;
-  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+  transition:
+    border-color var(--motion-fast) ease,
+    background var(--motion-fast) ease,
+    color var(--motion-fast) ease;
 }
 
 .sidebar-action-button + .sidebar-action-button {
@@ -580,9 +593,9 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 
 .sidebar-action-button:hover,
 .sidebar-action-button:focus-visible {
-  border-color: var(--panel-border);
-  background: var(--panel-muted);
-  color: var(--text-main);
+  border-color: var(--sidebar-border);
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-heading);
   outline: none;
 }
 
@@ -617,7 +630,10 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   opacity: 1;
   text-overflow: ellipsis;
   transform: translateX(0);
-  transition: opacity 180ms ease, max-width 220ms ease, transform 220ms ease;
+  transition:
+    opacity var(--motion-fast) ease,
+    max-width var(--motion-normal) ease,
+    transform var(--motion-normal) ease;
   white-space: nowrap;
 }
 
@@ -662,10 +678,16 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 .shell-content {
   flex: 1;
   min-height: 0;
-  padding: 22px 24px 34px;
+  padding: var(--page-padding-top) var(--page-padding-x) var(--page-padding-bottom);
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: stable;
+}
+
+.shell-content > :deep(*) {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
 }
 
 @media (max-width: 900px) {
