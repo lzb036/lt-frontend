@@ -100,14 +100,16 @@ async function removeTask(task: AutoDeletionTask) {
     <div class="page-head">
       <div><p class="eyebrow">Automation Management</p><h1>自动删除管理</h1></div>
       <div class="head-actions">
+        <el-button type="primary" :icon="Plus" @click="openCreate('automatic')">
+          创建定时任务
+        </el-button>
+        <el-button type="success" :icon="Plus" @click="openCreate('manual')">
+          创建任务
+        </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadData">刷新</el-button>
       </div>
     </div>
     <section class="work-panel">
-      <div class="task-toolbar">
-        <el-button type="primary" :icon="Plus" @click="openCreate('automatic')">创建定时任务</el-button>
-        <el-button type="success" :icon="Plus" @click="openCreate('manual')">创建任务</el-button>
-      </div>
       <div class="filters">
         <el-select v-model="filters.storeId" clearable filterable placeholder="筛选店铺" @change="loadData">
           <el-option v-for="store in stores" :key="store.id" :label="store.aliasName || store.storeName" :value="store.id" />
@@ -142,5 +144,68 @@ async function removeTask(task: AutoDeletionTask) {
 </template>
 
 <style scoped>
-.page-stack{display:flex;min-height:calc(100vh - 132px);flex-direction:column;gap:18px}.page-head,.head-actions,.task-toolbar,.filters{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.page-head{justify-content:space-between}.eyebrow{margin:0 0 6px;color:var(--accent);font-size:12px;font-weight:800}.page-head h1{margin:0;font-size:26px}.work-panel{flex:1;min-height:520px;border:1px solid var(--panel-border);border-radius:8px;background:var(--panel-bg);padding:18px}.task-toolbar{margin-bottom:14px}.filters{margin-bottom:14px}.filters :deep(.el-select){width:220px}.full{width:100%}
+.page-stack {
+  display: flex;
+  min-height: calc(100vh - 132px);
+  flex-direction: column;
+  gap: 18px;
+}
+
+.page-head,
+.head-actions,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-head {
+  justify-content: space-between;
+}
+
+.head-actions {
+  justify-content: flex-end;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.work-panel {
+  flex: 1;
+  min-height: 520px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  padding: 18px;
+}
+
+.filters {
+  margin-bottom: 14px;
+}
+
+.filters :deep(.el-select) {
+  width: 220px;
+}
+
+.full {
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .page-head,
+  .head-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
 </style>
