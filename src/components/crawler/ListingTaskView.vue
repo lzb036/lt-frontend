@@ -202,8 +202,8 @@ function statusType(row: ListingTask) {
   return 'info'
 }
 
-function taskFinished(row: ListingTask) {
-  return row.status !== 'queued' && row.status !== 'running'
+function taskRetryable(row: ListingTask) {
+  return row.status === 'failed' || row.status === 'partial' || row.status === 'cancelled'
 }
 
 function taskCancelable(row: ListingTask) {
@@ -317,7 +317,7 @@ function handlePageSizeChange() {
             >
               {{ taskWaitingCancel(row) ? '终止中' : '终止' }}
             </el-button>
-            <el-button v-if="taskFinished(row)" :icon="VideoPlay" link type="primary" @click="retryTask(row)">
+            <el-button v-if="taskRetryable(row)" :icon="VideoPlay" link type="primary" @click="retryTask(row)">
               重试
             </el-button>
           </template>
