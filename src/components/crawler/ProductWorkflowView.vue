@@ -6,7 +6,7 @@ import DOMPurify from 'dompurify'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { ListingTask, ProductCollectionSource, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreNode, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, StoreProductSalesSummary, SyncTask } from '../../types/crawler'
+import type { ListingTask, ProductCollectionSource, ProductDetail, ProductDetailEditPayload, ProductItem, ProductListedStore, ProductVariant, ProductVariantEditPayload, RakutenGenreNode, RakutenGenreOption, RakutenListingStatus, ReviewStatus, StoreAccount, SyncTask } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { productWorkflowPaginationKey } from '../../utils/paginationPreferenceKeys'
 import {
@@ -20,7 +20,6 @@ import CopyableTableText from './CopyableTableText.vue'
 import PendingProductGenreBatchDialog from './PendingProductGenreBatchDialog.vue'
 import PendingProductGenreSelect from './PendingProductGenreSelect.vue'
 import ProductTitleOptimizationDialog from './ProductTitleOptimizationDialog.vue'
-import StoreProductSalesSummaryView from './StoreProductSalesSummary.vue'
 import StoreProductReplacementDialog from './StoreProductReplacementDialog.vue'
 
 type PendingImageOperation =
@@ -69,7 +68,6 @@ const imageFileInputRef = ref<HTMLInputElement | null>(null)
 const inlineImageFileInputRef = ref<HTMLInputElement | null>(null)
 const products = shallowRef<ProductItem[]>([])
 const stores = shallowRef<StoreAccount[]>([])
-const salesSummary = shallowRef<StoreProductSalesSummary | null>(null)
 const selectedIds = ref<number[]>([])
 const selectedPendingImages = shallowRef<Map<number, Set<string>>>(new Map())
 const hiddenProducts = shallowRef<Map<number, ProductItem>>(new Map())
@@ -365,7 +363,6 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       }
       if (!filters.storeId) {
         products.value = []
-        salesSummary.value = null
         total.value = 0
         return
       }
@@ -419,9 +416,6 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       return
     }
     products.value = result.items
-    salesSummary.value = props.status === 'listed'
-      ? result.salesSummary
-      : null
     syncPendingInlineDrafts(result.items)
     reconcilePendingImageSelections(result.items)
     reconcileHiddenProducts(result.items)
@@ -2932,12 +2926,6 @@ function sanitizedDescriptionHtml(value: string) {
           </el-button>
         </div>
       </div>
-      <StoreProductSalesSummaryView
-        v-if="status === 'listed'"
-        :summary="salesSummary"
-        :period-label="salesPeriodLabel"
-      />
-
       <el-table
         ref="productTableRef"
         class="product-table"

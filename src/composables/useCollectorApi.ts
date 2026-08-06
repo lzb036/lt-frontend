@@ -417,15 +417,8 @@ export function useCollectorApi() {
     page: number
     pageSize: number
   }) {
-    const response = await apiClient.get<
-      ApiPageResponse<'products', ProductItem> & {
-        salesSummary?: StoreProductSalesSummary | null
-      }
-    >('/crawler/products', { params })
-    return {
-      ...toPageResult(response.data, 'products'),
-      salesSummary: response.data.salesSummary ?? null,
-    }
+    const response = await apiClient.get<ApiPageResponse<'products', ProductItem>>('/crawler/products', { params })
+    return toPageResult(response.data, 'products')
   }
 
   async function updateProductStatus(payload: { productIds: number[]; status: ReviewStatus; message?: string }) {
@@ -811,6 +804,13 @@ export function useCollectorApi() {
       syncedCount: number
     }>(`/crawler/stores/${id}/sync`, null, { params: { ownerUsername } })
     return response.data
+  }
+
+  async function getStoreProductSalesSummary(id: number, ownerUsername?: string) {
+    const response = await apiClient.get<{
+      salesSummary: StoreProductSalesSummary
+    }>(`/crawler/stores/${id}/sales-summary`, { params: { ownerUsername } })
+    return response.data.salesSummary
   }
 
   async function scanStoreEmptyCabinetFolders(id: number, ownerUsername?: string) {
@@ -1270,6 +1270,7 @@ export function useCollectorApi() {
     saveStore,
     deleteStore,
     syncStore,
+    getStoreProductSalesSummary,
     scanStoreEmptyCabinetFolders,
     verifyStores,
     verifyStore,

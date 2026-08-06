@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, DataAnalysis, Delete, EditPen, FolderDelete, Plus, Refresh } from '@element-plus/icons-vue'
+import { Connection, DataAnalysis, Delete, EditPen, FolderDelete, Plus, Refresh, TrendCharts } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { AuthSession, AvailabilityStatus, StoreAccount, StoreEmptyCabinetFoldersResult, StorePayload } from '../../types/crawler'
+import type { AuthSession, AvailabilityStatus, StoreAccount, StoreEmptyCabinetFoldersResult, StorePayload, StoreProductSalesSummary } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { confirmStoreDeletion } from '../../utils/confirmStoreDeletion'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 import CopyableTableText from './CopyableTableText.vue'
+import StoreProductSalesSummaryView from './StoreProductSalesSummary.vue'
 
 const props = defineProps<{
   session: AuthSession | null
@@ -26,6 +27,10 @@ const syncingId = shallowRef<number | null>(null)
 const emptyFolderScanningId = shallowRef<number | null>(null)
 const emptyFolderDialogOpen = ref(false)
 const emptyFolderResult = shallowRef<StoreEmptyCabinetFoldersResult | null>(null)
+const salesSummaryLoadingId = shallowRef<number | null>(null)
+const salesSummaryDialogOpen = ref(false)
+const salesSummaryStore = shallowRef<StoreAccount | null>(null)
+const salesSummary = shallowRef<StoreProductSalesSummary | null>(null)
 const stores = shallowRef<StoreAccount[]>([])
 const dialogOpen = ref(false)
 const editingId = ref<number | null>(null)
@@ -167,6 +172,19 @@ async function scanEmptyCabinetFolders(row: StoreAccount) {
     ElMessage.error(toApiErrorMessage(error, '检测 R-Cabinet 空白文件夹失败'))
   } finally {
     emptyFolderScanningId.value = null
+  }
+}
+
+async function openSalesSummary(row: StoreAccount) {
+  salesSummaryLoadingId.value = row.id
+  try {
+    salesSummary.value = await api.getStoreProductSalesSummary(row.id)
+    salesSummaryStore.value = row
+    salesSummaryDialogOpen.value = true
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '获取近一年销量失败'))
+  } finally {
+    salesSummaryLoadingId.value = null
   }
 }
 
@@ -386,7 +404,7 @@ async function removeStore(row: StoreAccount) {
             {{ timeText(row.lastProductSyncedAt || row.lastSyncedAt) }}
           </template>
         </el-table-column>
-        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="146" fixed="right">
           <template #default="{ row }">
             <el-button
               :icon="Connection"
@@ -423,6 +441,15 @@ async function removeStore(row: StoreAccount) {
               @click="scanEmptyCabinetFolders(row)"
             >
               清理空白文件夹
+            </el-button>
+            <el-button
+              :icon="TrendCharts"
+              :loading="salesSummaryLoadingId === row.id"
+              link
+              type="success"
+              @click="openSalesSummary(row)"
+            >
+              近一年销量
             </el-button>
             <template v-if="isSuperadmin">
               <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
@@ -506,6 +533,23 @@ async function removeStore(row: StoreAccount) {
         </el-button>
         <el-button type="primary" @click="emptyFolderDialogOpen = false">
           确认
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="salesSummaryDialogOpen"
+      :title="`近一年销量 - ${salesSummaryStore?.aliasName || salesSummaryStore?.storeName || salesSummaryStore?.storeCode || ''}`"
+      width="860px"
+      append-to-body
+    >
+      <StoreProductSalesSummaryView
+        :summary="salesSummary"
+        period-label="近一年销量"
+      />
+      <template #footer>
+        <el-button type="primary" @click="salesSummaryDialogOpen = false">
+          关闭
         </el-button>
       </template>
     </el-dialog>

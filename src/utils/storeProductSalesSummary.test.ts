@@ -7,6 +7,10 @@ const workflowSource = readFileSync(
   resolve(sourceRoot, 'components/crawler/ProductWorkflowView.vue'),
   'utf8',
 )
+const storeManagerSource = readFileSync(
+  resolve(sourceRoot, 'components/crawler/StoreManagerView.vue'),
+  'utf8',
+)
 const summarySource = readFileSync(
   resolve(sourceRoot, 'components/crawler/StoreProductSalesSummary.vue'),
   'utf8',
@@ -19,11 +23,21 @@ const apiSource = readFileSync(
 for (const expectedText of [
   '<StoreProductSalesSummaryView',
   ':summary="salesSummary"',
+  'period-label="近一年销量"',
+  'getStoreProductSalesSummary',
+  '近一年销量',
+]) {
+  if (!storeManagerSource.includes(expectedText)) {
+    throw new Error(`missing store product sales summary wiring: ${expectedText}`)
+  }
+}
+
+for (const removedText of [
   ':period-label="salesPeriodLabel"',
   'result.salesSummary',
 ]) {
-  if (!workflowSource.includes(expectedText)) {
-    throw new Error(`missing store product sales summary wiring: ${expectedText}`)
+  if (workflowSource.includes(removedText)) {
+    throw new Error(`store product sales summary must not remain in product workflow: ${removedText}`)
   }
 }
 
@@ -40,6 +54,6 @@ for (const expectedText of [
   }
 }
 
-if (!apiSource.includes('salesSummary?: StoreProductSalesSummary | null')) {
+if (!apiSource.includes('getStoreProductSalesSummary')) {
   throw new Error('missing store product sales summary API contract')
 }
