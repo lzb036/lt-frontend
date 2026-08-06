@@ -29,28 +29,38 @@ function countText(value: number | null | undefined) {
     <div v-if="summary.syncCompleted" class="sales-summary-grid">
       <div class="sales-summary-item">
         <span>全部有效销量</span>
-        <strong>{{ countText(summary.totalEffectiveUnits) }}</strong>
-        <small>件</small>
+        <div class="sales-summary-value">
+          <strong>{{ countText(summary.totalEffectiveUnits) }}</strong>
+          <small>件</small>
+        </div>
       </div>
       <div class="sales-summary-item">
         <span>当前商品销量</span>
-        <strong>{{ countText(summary.currentProductEffectiveUnits) }}</strong>
-        <small>件</small>
+        <div class="sales-summary-value">
+          <strong>{{ countText(summary.currentProductEffectiveUnits) }}</strong>
+          <small>件</small>
+        </div>
       </div>
       <div class="sales-summary-item sales-summary-item-warning">
         <span>列表外销量</span>
-        <strong>{{ countText(summary.outsideCurrentProductEffectiveUnits) }}</strong>
-        <small>件</small>
+        <div class="sales-summary-value">
+          <strong>{{ countText(summary.outsideCurrentProductEffectiveUnits) }}</strong>
+          <small>件</small>
+        </div>
       </div>
       <div class="sales-summary-item">
         <span>当前商品</span>
-        <strong>{{ countText(summary.currentProductCount) }}</strong>
-        <small>个</small>
+        <div class="sales-summary-value">
+          <strong>{{ countText(summary.currentProductCount) }}</strong>
+          <small>个</small>
+        </div>
       </div>
       <div class="sales-summary-item sales-summary-item-warning">
         <span>列表外商品</span>
-        <strong>{{ countText(summary.outsideCurrentProductCount) }}</strong>
-        <small>个</small>
+        <div class="sales-summary-value">
+          <strong>{{ countText(summary.outsideCurrentProductCount) }}</strong>
+          <small>个</small>
+        </div>
       </div>
     </div>
     <div v-else class="sales-summary-unavailable">
@@ -94,16 +104,17 @@ function countText(value: number | null | undefined) {
 .sales-summary-grid {
   display: grid;
   flex: 1 1 auto;
-  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  grid-template-columns: repeat(5, minmax(118px, 1fr));
   min-width: 0;
 }
 
 .sales-summary-item {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: baseline;
-  gap: 6px;
+  display: flex;
+  min-height: 92px;
   min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
   padding: 15px 18px;
   border-left: 1px solid var(--panel-border);
 }
@@ -111,12 +122,24 @@ function countText(value: number | null | undefined) {
 .sales-summary-item span {
   color: var(--text-secondary);
   font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.sales-summary-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 
 .sales-summary-item strong {
   color: var(--text-main);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .sales-summary-item small {
