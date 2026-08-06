@@ -54,6 +54,7 @@ import type {
   CollectionGenrePolicy,
   SourceType,
   StoreAccount,
+  StoreProductSalesSummary,
   StoreEmptyCabinetFoldersResult,
   StorePayload,
   StoreVerifySummary,
@@ -416,8 +417,15 @@ export function useCollectorApi() {
     page: number
     pageSize: number
   }) {
-    const response = await apiClient.get<ApiPageResponse<'products', ProductItem>>('/crawler/products', { params })
-    return toPageResult(response.data, 'products')
+    const response = await apiClient.get<
+      ApiPageResponse<'products', ProductItem> & {
+        salesSummary?: StoreProductSalesSummary | null
+      }
+    >('/crawler/products', { params })
+    return {
+      ...toPageResult(response.data, 'products'),
+      salesSummary: response.data.salesSummary ?? null,
+    }
   }
 
   async function updateProductStatus(payload: { productIds: number[]; status: ReviewStatus; message?: string }) {

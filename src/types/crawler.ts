@@ -187,6 +187,18 @@ export interface ProductItem {
   updatedAt?: string | null
 }
 
+export interface StoreProductSalesSummary {
+  storeId: number
+  periodFrom: string
+  periodTo: string
+  syncCompleted: boolean
+  totalEffectiveUnits: number | null
+  currentProductEffectiveUnits: number | null
+  outsideCurrentProductEffectiveUnits: number | null
+  currentProductCount: number
+  outsideCurrentProductCount: number
+}
+
 export interface ProductListedStore {
   storeId: number
   storeCode: string
