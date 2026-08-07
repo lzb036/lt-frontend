@@ -144,6 +144,9 @@ for (const contract of [
   '按上架时间从早到晚处理',
   '创建同步商品删除任务',
   "form.executionMode === 'scheduled'",
+  "if (mode === 'manual' && executionMode === 'immediate')",
+  'dialogVisible.value = false',
+  '删除任务已提交，后台正在准备',
   'type="datetime"',
   '到期执行时间必须晚于当前时间',
 ]) {

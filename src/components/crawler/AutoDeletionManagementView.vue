@@ -114,9 +114,21 @@ async function submit() {
     ElMessage.warning('到期执行时间必须晚于当前时间')
     return
   }
+  const mode = createMode.value
+  const executionMode = form.executionMode
+  const manualPayload = {
+    storeId: form.storeId,
+    quantity: form.quantity,
+    executionMode,
+    executeAt: executionMode === 'scheduled' ? form.executeAt : null,
+  }
   saving.value = true
+  if (mode === 'manual' && executionMode === 'immediate') {
+    dialogVisible.value = false
+    ElMessage.info('删除任务已提交，后台正在准备')
+  }
   try {
-    if (createMode.value === 'automatic') {
+    if (mode === 'automatic') {
       await api.createAutoDeletionTask({
         storeId: form.storeId,
         quantity: form.quantity,
@@ -127,15 +139,12 @@ async function submit() {
       })
       ElMessage.success('自动删除任务已创建')
     } else {
-      const task = await api.createManualDeletionTask({
-        storeId: form.storeId,
-        quantity: form.quantity,
-        executionMode: form.executionMode,
-        executeAt: form.executionMode === 'scheduled' ? form.executeAt : null,
-      })
+      const task = await api.createManualDeletionTask(manualPayload)
       ElMessage.success(task.lastMessage || '删除任务已创建')
     }
-    dialogVisible.value = false
+    if (mode === 'automatic' || executionMode === 'scheduled') {
+      dialogVisible.value = false
+    }
     await loadData()
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建自动删除任务失败'))
