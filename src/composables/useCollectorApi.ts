@@ -320,6 +320,7 @@ export function useCollectorApi() {
     sourceType: 'whole_shop'
     target: string
     wholeShopFilter: WholeShopFilter
+    crawlPriceRule?: CrawlPriceRule | null
   }) {
     const response = await apiClient.post<{ preview: WholeShopPreview }>('/crawler/tasks/preview', payload)
     return response.data.preview

@@ -139,7 +139,16 @@ onBeforeUnmount(() => {
 
 watch(tasks, syncProgressPolling)
 watch(
-  () => [form.sourceType, form.target, form.wholeShopFilter],
+  () => [
+    form.sourceType,
+    form.target,
+    form.wholeShopFilter,
+    form.crawlPricePreset,
+    customCrawlPrice.operator,
+    customCrawlPrice.value,
+    customCrawlPrice.minPrice,
+    customCrawlPrice.maxPrice,
+  ],
   () => {
     wholeShopPreviews.value = []
   },
@@ -334,12 +343,17 @@ async function previewWholeShopTask() {
   previewing.value = true
   wholeShopPreviews.value = []
   try {
+    const crawlPriceRule = currentCrawlPriceRule()
+    if (!crawlPriceRule) {
+      return
+    }
     const results = await runWithConcurrency(
       normalizedTargets,
       (target) => api.previewWholeShopTask({
         sourceType: 'whole_shop',
         target,
         wholeShopFilter: form.wholeShopFilter,
+        crawlPriceRule,
       }),
     )
     wholeShopPreviews.value = results.flatMap((result, index) => (

@@ -31,6 +31,7 @@ for (const expectedText of [
   'createTasksWithConcurrency(payloads)',
   'concurrency = 3',
   'wholeShopPreviews.length',
+  'crawlPriceRule,',
 ]) {
   if (!viewSource.replace(/\s+/g, ' ').includes(expectedText.replace(/\s+/g, ' '))) {
     throw new Error(`missing whole-shop crawl view contract: ${expectedText}`)
@@ -69,6 +70,7 @@ for (const expectedText of [
 for (const expectedText of [
   'async function previewWholeShopTask',
   "'/crawler/tasks/preview'",
+  'crawlPriceRule?: CrawlPriceRule | null',
   'previewWholeShopTask,',
 ]) {
   if (!apiSource.includes(expectedText)) {
