@@ -113,6 +113,9 @@ for (const contract of [
   'type="datetime"',
   'value-format="YYYY-MM-DD HH:mm:ss"',
   '到期执行时间必须晚于当前时间',
+  "if (executionMode === 'immediate')",
+  "visible.value = false",
+  '任务已提交，后台正在准备上架任务',
   '任务已受理，后台正在创建上架任务',
 ]) {
   if (!manualListingDialogSource.includes(contract)) {

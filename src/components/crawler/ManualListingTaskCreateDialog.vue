@@ -97,20 +97,28 @@ async function submit() {
     ElMessage.warning('到期执行时间必须晚于当前时间')
     return
   }
+  const executionMode = form.executionMode
+  const payload = {
+    storeId: form.storeId,
+    quantity: form.quantity,
+    executionMode,
+    executeAt: executionMode === 'scheduled' ? form.executeAt : null,
+  }
   submitting.value = true
-  try {
-    const task = await api.createManualListingTask({
-      storeId: form.storeId,
-      quantity: form.quantity,
-      executionMode: form.executionMode,
-      executeAt: form.executionMode === 'scheduled' ? form.executeAt : null,
-    })
-    emit('created', task)
+  if (executionMode === 'immediate') {
     visible.value = false
+    ElMessage.info('任务已提交，后台正在准备上架任务')
+  }
+  try {
+    const task = await api.createManualListingTask(payload)
+    emit('created', task)
+    if (executionMode === 'scheduled') {
+      visible.value = false
+    }
     ElMessage.success(
       task.lastMessage
       || (
-        form.executionMode === 'scheduled'
+        executionMode === 'scheduled'
           ? '到期上架任务已创建'
           : '任务已受理，后台正在创建上架任务'
       ),
