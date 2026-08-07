@@ -113,9 +113,24 @@ for (const contract of [
   'type="datetime"',
   'value-format="YYYY-MM-DD HH:mm:ss"',
   '到期执行时间必须晚于当前时间',
+  '任务已受理，后台正在创建上架任务',
 ]) {
   if (!manualListingDialogSource.includes(contract)) {
     throw new Error(`missing manual listing execution contract: ${contract}`)
+  }
+}
+
+const collectorApiSource = readFileSync(
+  resolve(sourceRoot, 'composables/useCollectorApi.ts'),
+  'utf8',
+)
+
+for (const contract of [
+  "}>('/crawler/listing-tasks', payload, {",
+  'timeout: 5 * 60_000',
+]) {
+  if (!collectorApiSource.includes(contract)) {
+    throw new Error(`missing listing creation timeout contract: ${contract}`)
   }
 }
 

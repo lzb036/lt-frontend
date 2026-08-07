@@ -1096,7 +1096,9 @@ export function useCollectorApi() {
         taskCount: number
         message: string
       }
-    }>('/crawler/listing-tasks', payload)
+    }>('/crawler/listing-tasks', payload, {
+      timeout: 5 * 60_000,
+    })
     return response.data
   }
 

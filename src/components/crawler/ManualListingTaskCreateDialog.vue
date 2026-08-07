@@ -109,7 +109,11 @@ async function submit() {
     visible.value = false
     ElMessage.success(
       task.lastMessage
-      || (form.executionMode === 'scheduled' ? '到期上架任务已创建' : '上架任务已创建'),
+      || (
+        form.executionMode === 'scheduled'
+          ? '到期上架任务已创建'
+          : '任务已受理，后台正在创建上架任务'
+      ),
     )
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '创建上架任务失败'))
