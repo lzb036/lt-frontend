@@ -3131,11 +3131,6 @@ function sanitizedDescriptionHtml(value: string) {
             {{ collectionSourceLabel(row) }}
           </template>
         </el-table-column>
-        <el-table-column v-if="manualPendingToolsVisible" label="评论数量" width="110" align="center">
-          <template #default="{ row }">
-            {{ row.reviewCount ?? 0 }}
-          </template>
-        </el-table-column>
         <el-table-column v-if="status === 'listed'" label="商品编号" min-width="170">
           <template #default="{ row }">
             <CopyableTableText :value="productCode(row)" />
@@ -3219,9 +3214,14 @@ function sanitizedDescriptionHtml(value: string) {
         >
           <template #default="{ row }">
             <div class="row-action-stack">
-              <strong v-if="status === 'pending'" class="pending-action-price">
-                {{ priceText(row) }}
-              </strong>
+              <div v-if="status === 'pending'" class="pending-action-summary">
+                <strong class="pending-action-price">
+                  {{ priceText(row) }}
+                </strong>
+                <span v-if="manualPendingToolsVisible" class="pending-action-review-count">
+                  评论数量：{{ row.reviewCount ?? 0 }}
+                </span>
+              </div>
               <el-button :icon="View" link type="primary" :disabled="isProductBusy(row)" @click="openProductDetail(row)">
                 查看详情
               </el-button>
@@ -4163,12 +4163,25 @@ function sanitizedDescriptionHtml(value: string) {
   font-size: 18px;
 }
 
+.pending-action-summary {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
 .pending-action-price {
   display: block;
-  margin-bottom: 10px;
   color: var(--text-main);
   font-size: 18px;
   font-weight: 800;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.pending-action-review-count {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
 }
