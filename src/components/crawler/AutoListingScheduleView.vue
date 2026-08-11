@@ -162,9 +162,7 @@ async function toggleSchedule(schedule: AutoListingSchedule) {
       schedule.id,
       !schedule.enabled,
     )
-    schedules.value = schedules.value.map((item) => (
-      item.id === updated.id ? updated : item
-    ))
+    await loadData()
     ElMessage.success(updated.enabled ? '自动上架任务已启用' : '自动上架任务已关闭')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, schedule.enabled ? '关闭自动上架任务失败' : '启用自动上架任务失败'))

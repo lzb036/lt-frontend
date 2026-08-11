@@ -199,9 +199,7 @@ async function toggleTask(task: AutoDeletionTask) {
   operatingId.value = task.id
   try {
     const updated = await api.updateAutoDeletionTaskStatus(task.id, !task.enabled)
-    tasks.value = tasks.value.map((item) => (
-      item.id === updated.id ? updated : item
-    ))
+    await loadData()
     ElMessage.success(updated.enabled ? '自动删除任务已启用' : '自动删除任务已关闭')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, task.enabled ? '关闭自动删除任务失败' : '启用自动删除任务失败'))
