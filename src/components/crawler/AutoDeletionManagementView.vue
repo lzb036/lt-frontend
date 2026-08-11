@@ -256,6 +256,12 @@ function statusType(task: AutoDeletionTask) {
         <el-table-column label="执行计划" min-width="170"><template #default="{ row }">{{ scheduleLabel(row) }}</template></el-table-column>
         <el-table-column prop="quantity" label="删除数量" width="100" />
         <el-table-column label="状态" width="100"><template #default="{ row }"><el-tag :type="statusType(row)" effect="plain">{{ statusLabel(row) }}</el-tag></template></el-table-column>
+        <el-table-column label="下次执行" min-width="160">
+          <template #default="{ row }">{{ formatDateTime(row.nextRunAt) }}</template>
+        </el-table-column>
+        <el-table-column label="上次执行" min-width="160">
+          <template #default="{ row }">{{ formatDateTime(row.lastRunAt) }}</template>
+        </el-table-column>
         <el-table-column prop="lastMessage" label="上次结果" min-width="280" show-overflow-tooltip />
         <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
