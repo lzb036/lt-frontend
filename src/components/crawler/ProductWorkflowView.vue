@@ -49,7 +49,7 @@ const LISTED_STORE_NONE_FILTER = '__none__'
 const BATCH_TASK_PRODUCT_LIMIT = 50
 type ListedStoreFilterValue = number | typeof LISTED_STORE_NONE_FILTER | ''
 type ZeroValueFilter = '' | 'sales' | 'optimization' | 'sales_and_optimization'
-type ReviewFilter = '' | 'has' | 'none' | 'unknown'
+type ReviewFilter = '' | 'has' | 'none'
 type ProductSort = 'default' | 'price_asc' | 'price_desc' | 'review_count_desc'
 interface GenreFilterLazyNode {
   root: boolean
@@ -2906,7 +2906,6 @@ function sanitizedDescriptionHtml(value: string) {
           >
             <el-option label="有评论" value="has" />
             <el-option label="无评论" value="none" />
-            <el-option label="未采集/未知" value="unknown" />
           </el-select>
         </div>
         <div v-if="manualPendingToolsVisible" class="filter-field filter-product-sort-field">
@@ -3134,7 +3133,7 @@ function sanitizedDescriptionHtml(value: string) {
         </el-table-column>
         <el-table-column v-if="manualPendingToolsVisible" label="评论数量" width="110" align="center">
           <template #default="{ row }">
-            {{ row.reviewCount == null ? '-' : row.reviewCount }}
+            {{ row.reviewCount ?? 0 }}
           </template>
         </el-table-column>
         <el-table-column v-if="status === 'listed'" label="商品编号" min-width="170">
