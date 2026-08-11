@@ -373,6 +373,8 @@ export function useCollectorApi() {
     collectedAtTo?: string
     genreStatus?: 'missing' | 'present' | ''
     genrePath?: string
+    reviewFilter?: 'has' | 'none' | 'unknown' | ''
+    sort?: 'default' | 'price_asc' | 'price_desc' | 'review_count_desc'
     salesPeriodDays?: number | null
     salesPeriodFrom?: string
     salesPeriodTo?: string
@@ -408,6 +410,8 @@ export function useCollectorApi() {
     collectedAtTo?: string
     genreStatus?: 'missing' | 'present' | ''
     genrePath?: string
+    reviewFilter?: 'has' | 'none' | 'unknown' | ''
+    sort?: 'default' | 'price_asc' | 'price_desc' | 'review_count_desc'
     salesPeriodDays?: number | null
     salesPeriodFrom?: string
     salesPeriodTo?: string

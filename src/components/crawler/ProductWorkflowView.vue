@@ -49,6 +49,8 @@ const LISTED_STORE_NONE_FILTER = '__none__'
 const BATCH_TASK_PRODUCT_LIMIT = 50
 type ListedStoreFilterValue = number | typeof LISTED_STORE_NONE_FILTER | ''
 type ZeroValueFilter = '' | 'sales' | 'optimization' | 'sales_and_optimization'
+type ReviewFilter = '' | 'has' | 'none' | 'unknown'
+type ProductSort = 'default' | 'price_asc' | 'price_desc' | 'review_count_desc'
 interface GenreFilterLazyNode {
   root: boolean
   data?: RakutenGenreOption
@@ -112,6 +114,8 @@ const filters = reactive({
   collectedAtRange: [] as string[] | null,
   genreStatus: '' as '' | 'missing' | 'present',
   genrePath: '',
+  reviewFilter: '' as ReviewFilter,
+  productSort: 'default' as ProductSort,
   storeId: null as number | null,
   listedStoreId: '' as ListedStoreFilterValue,
   listingStatus: '' as '' | 'listed' | 'unlisted',
@@ -305,6 +309,9 @@ const statusCopy = computed(() => {
 const collectionSourceColumnVisible = computed(
   () => ['approved', 'listed_master', 'error'].includes(props.status),
 )
+const manualPendingToolsVisible = computed(
+  () => props.status === 'pending' && props.collectionSource === 'manual',
+)
 
 function collectionSourceLabel(product: ProductItem) {
   return product.collectionSource === 'scheduled' ? '定时采集' : '手动采集'
@@ -328,6 +335,8 @@ watch(
     clearSelection()
     selectedPendingImages.value = new Map()
     hiddenProducts.value = new Map()
+    filters.reviewFilter = ''
+    filters.productSort = 'default'
     resetPage()
     void refreshAll()
   },
@@ -409,6 +418,8 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       collectedAtTo: props.status !== 'listed' ? collectedAtToValue() : '',
       genreStatus: props.status === 'pending' ? filters.genreStatus : '',
       genrePath: props.status === 'pending' ? filters.genrePath : '',
+      reviewFilter: manualPendingToolsVisible.value ? filters.reviewFilter : '',
+      sort: manualPendingToolsVisible.value ? filters.productSort : undefined,
       page: currentPage.value,
       pageSize: pageSize.value,
     })
@@ -624,6 +635,8 @@ function resetFilters() {
   filters.collectedAtRange = []
   filters.genreStatus = ''
   filters.genrePath = ''
+  filters.reviewFilter = ''
+  filters.productSort = 'default'
   filters.storeId = props.status === 'listed' ? (stores.value[0]?.id ?? null) : null
   filters.listedStoreId = ''
   filters.listingStatus = ''
@@ -2883,6 +2896,32 @@ function sanitizedDescriptionHtml(value: string) {
             @change="handleGenrePathChange"
           />
         </div>
+        <div v-if="manualPendingToolsVisible" class="filter-field filter-review-field">
+          <el-select
+            v-model="filters.reviewFilter"
+            class="full-control"
+            clearable
+            placeholder="评论状态"
+            @change="searchProducts"
+          >
+            <el-option label="有评论" value="has" />
+            <el-option label="无评论" value="none" />
+            <el-option label="未采集/未知" value="unknown" />
+          </el-select>
+        </div>
+        <div v-if="manualPendingToolsVisible" class="filter-field filter-product-sort-field">
+          <el-select
+            v-model="filters.productSort"
+            class="full-control"
+            placeholder="排序方式"
+            @change="searchProducts"
+          >
+            <el-option label="默认排序" value="default" />
+            <el-option label="价格：从低到高" value="price_asc" />
+            <el-option label="价格：从高到低" value="price_desc" />
+            <el-option label="评论数量：从高到低" value="review_count_desc" />
+          </el-select>
+        </div>
         <div v-if="status !== 'listed'" class="filter-field filter-price-field">
           <el-input-number
             v-model="filters.priceMin"
@@ -3091,6 +3130,11 @@ function sanitizedDescriptionHtml(value: string) {
         <el-table-column v-if="collectionSourceColumnVisible" label="采集来源" width="120">
           <template #default="{ row }">
             {{ collectionSourceLabel(row) }}
+          </template>
+        </el-table-column>
+        <el-table-column v-if="manualPendingToolsVisible" label="评论数量" width="110" align="center">
+          <template #default="{ row }">
+            {{ row.reviewCount == null ? '-' : row.reviewCount }}
           </template>
         </el-table-column>
         <el-table-column v-if="status === 'listed'" label="商品编号" min-width="170">
@@ -3790,6 +3834,14 @@ function sanitizedDescriptionHtml(value: string) {
 
 .filter-genre-tree-field {
   flex: 0 1 240px;
+}
+
+.filter-review-field {
+  flex: 0 1 160px;
+}
+
+.filter-product-sort-field {
+  flex: 0 1 210px;
 }
 
 .title-optimization-count {

@@ -169,6 +169,7 @@ export interface ProductItem {
   priceMax?: number | null
   currency: string
   salesCount?: number | null
+  reviewCount?: number | null
   periodSalesCount?: number | null
   titleOptimizationCount?: number | null
   titleOptimizationTaskId?: string | null
