@@ -283,7 +283,7 @@ function statusLabel(row: CrawlTask) {
     return '已跳过'
   }
   if (taskPartiallySaved(row)) {
-    return '部分入库'
+    return '成功（部分入库）'
   }
   const status = effectiveTaskStatus(row)
   const labels: Record<string, string> = {
@@ -301,8 +301,11 @@ function statusType(row: CrawlTask) {
   if (row.cancelRequested) {
     return 'warning'
   }
-  if (taskSkippedOnly(row) || taskPartiallySaved(row)) {
+  if (taskSkippedOnly(row)) {
     return 'warning'
+  }
+  if (taskPartiallySaved(row)) {
+    return 'success'
   }
   const status = effectiveTaskStatus(row)
   if (status === 'success') {
