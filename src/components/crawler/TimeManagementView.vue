@@ -332,7 +332,7 @@ function applyOrderSettings(result: SalesOrderSyncGlobalSettings) {
 async function runScheduledTaskCleanupNow() {
   try {
     await ElMessageBox.confirm(
-      '确认立即清理所有非运行中的定时采集任务记录？该操作只删除任务记录，不会删除定时计划和商品数据。',
+      '确认立即清理所有已结束的定时采集任务记录？待执行和执行中的记录不会删除，该操作也不会删除定时计划和商品数据。',
       '立即清理',
       {
         confirmButtonText: '执行',
