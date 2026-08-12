@@ -26,27 +26,32 @@ const {
 } = useMaintenance()
 
 const router = useRouter()
-const maintenanceLoginVisible = shallowRef(false)
+const initialBoot = shallowRef(true)
 let maintenanceRefreshTimer: number | undefined
 const isSuperadmin = computed(() => session.value?.role === 'superadmin')
 const showMaintenance = computed(() => (
-  Boolean(maintenance.value?.active)
+  authenticated.value
+  && Boolean(maintenance.value?.active)
   && !isSuperadmin.value
-  && !maintenanceLoginVisible.value
 ))
-const booting = computed(() => checkingSession.value || (checkingMaintenance.value && !maintenance.value))
+const booting = computed(() => (
+  initialBoot.value
+  || checkingSession.value
+  || (authenticated.value && checkingMaintenance.value && !maintenance.value)
+))
 
 onMounted(async () => {
-  await Promise.allSettled([
-    fetchSession(),
-    fetchMaintenanceStatus(),
-  ])
-  if (session.value) {
-    guardCurrentRoute()
+  try {
+    await fetchSession()
+    if (session.value) {
+      await refreshMaintenance()
+      guardCurrentRoute()
+    }
+  } catch {
+  } finally {
+    initialBoot.value = false
+    syncMaintenancePolling()
   }
-  maintenanceRefreshTimer = window.setInterval(() => {
-    void refreshMaintenance(true)
-  }, 60_000)
 })
 
 onBeforeUnmount(() => {
@@ -55,8 +60,11 @@ onBeforeUnmount(() => {
   }
 })
 
-watch(session, () => {
-  guardCurrentRoute()
+watch(session, (nextSession) => {
+  syncMaintenancePolling()
+  if (nextSession) {
+    guardCurrentRoute()
+  }
 })
 
 watch(() => router.currentRoute.value.fullPath, () => {
@@ -66,7 +74,6 @@ watch(() => router.currentRoute.value.fullPath, () => {
 async function handleLogin(payload: { username: string; password: string }) {
   try {
     const nextSession = await login(payload)
-    maintenanceLoginVisible.value = false
     await refreshMaintenance()
     if (maintenance.value?.active && nextSession.role !== 'superadmin') {
       return
@@ -97,7 +104,6 @@ function guardCurrentRoute() {
 
 async function handleLogout() {
   await logout()
-  maintenanceLoginVisible.value = false
   await router.replace(getDefaultRoutePath(null))
   ElMessage.success('已退出登录')
 }
@@ -112,8 +118,17 @@ async function refreshMaintenance(silent = false) {
   }
 }
 
-function openAdminLogin() {
-  maintenanceLoginVisible.value = true
+function syncMaintenancePolling() {
+  if (maintenanceRefreshTimer !== undefined) {
+    window.clearInterval(maintenanceRefreshTimer)
+    maintenanceRefreshTimer = undefined
+  }
+  if (!session.value) {
+    return
+  }
+  maintenanceRefreshTimer = window.setInterval(() => {
+    void refreshMaintenance(true)
+  }, 30_000)
 }
 </script>
 
@@ -126,11 +141,7 @@ function openAdminLogin() {
   <MaintenanceNoticeView
     v-else-if="showMaintenance && maintenance"
     :maintenance="maintenance"
-    :authenticated="authenticated"
-    :refreshing="checkingMaintenance"
-    @refresh="refreshMaintenance"
     @logout="handleLogout"
-    @admin-login="openAdminLogin"
   />
   <RouterView
     v-else-if="authenticated"
