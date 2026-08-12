@@ -50,6 +50,11 @@ for (const requiredContract of [
   "redirect: '/system/time'",
   "{ path: '/ltJobs/orderSyncHistory', superadminOnly: true }",
   "{ path: '/system/order-sync', superadminOnly: true }",
+  "{ path: '/system/maintenance', superadminOnly: true }",
+  "path: 'system/maintenance'",
+  "meta: { title: '系统维护管理', superadminOnly: true }",
+  "{ path: '/system/maintenance',",
+  "label: '系统维护管理'",
 ]) {
   const sources = [permissionsSource, routerSource, appShellSource]
   if (!sources.some((source) => source.includes(requiredContract))) {

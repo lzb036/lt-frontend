@@ -64,6 +64,27 @@ export interface AuthSession {
   updatedAt?: string | null
 }
 
+export interface MaintenanceSettings {
+  enabled: boolean
+  active: boolean
+  scheduled: boolean
+  title: string
+  message: string
+  startsAt?: string | null
+  estimatedEndsAt?: string | null
+  updatedBy: string
+  updatedAt?: string | null
+  serverTime: string
+}
+
+export interface MaintenanceSettingsPayload {
+  enabled: boolean
+  title: string
+  message: string
+  startsAt?: string | null
+  estimatedEndsAt?: string | null
+}
+
 export interface MaskedSecretMap {
   rakutenServiceSecret: string
   rakutenLicenseKey: string

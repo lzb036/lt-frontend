@@ -34,6 +34,7 @@ import {
   Shop,
   SoldOut,
   SwitchButton,
+  Tools,
   Upload,
   UserFilled,
 } from '@element-plus/icons-vue'
@@ -183,6 +184,11 @@ const menuGroups = computed(() => {
       path: '/system/user',
       label: '用户管理',
       icon: UserFilled,
+    })
+    groups.push({
+      path: '/system/maintenance',
+      label: '系统维护管理',
+      icon: Tools,
     })
   }
   groups.push({

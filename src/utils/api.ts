@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+export const MAINTENANCE_STATUS_EVENT = 'lt:maintenance-status'
+
 export function resolveApiBaseUrl() {
   const configured = (import.meta.env?.VITE_API_BASE_URL || '').trim()
   return configured.length > 0 ? configured : '/api'
@@ -10,6 +12,23 @@ export const apiClient = axios.create({
   withCredentials: true,
   timeout: 60_000,
 })
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      axios.isAxiosError(error)
+      && error.response?.status === 503
+      && error.response.data?.maintenance?.active === true
+      && typeof window !== 'undefined'
+    ) {
+      window.dispatchEvent(new CustomEvent(MAINTENANCE_STATUS_EVENT, {
+        detail: error.response.data.maintenance,
+      }))
+    }
+    return Promise.reject(error)
+  },
+)
 
 export function toApiErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {

@@ -25,6 +25,7 @@ const DEFAULT_ROUTE_CANDIDATES: DefaultRouteCandidate[] = [
   { path: '/ltHj/collectionShops', permission: 'crawler.manage' },
   { path: '/ltShop/GoodsUp', permission: 'stores.manage' },
   { path: '/system/user', superadminOnly: true },
+  { path: '/system/maintenance', superadminOnly: true },
   { path: '/ai/title-optimization', permission: 'ai.manage' },
   { path: '/ltJobs/orderSyncHistory', superadminOnly: true },
   { path: '/system/theme' },
