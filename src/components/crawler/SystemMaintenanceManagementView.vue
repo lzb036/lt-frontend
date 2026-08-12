@@ -19,7 +19,6 @@ import type {
   TaskControlCounts,
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
-import MaintenancePreview from '../maintenance/MaintenancePreview.vue'
 
 defineProps<{
   session: AuthSession | null
@@ -47,16 +46,6 @@ const status = computed(() => {
     return { label: '已计划', type: 'primary' as const, icon: Clock }
   }
   return { label: '正常运行', type: 'success' as const, icon: CircleCheck }
-})
-
-const activationHint = computed(() => {
-  if (!form.enabled) {
-    return '保存后不会限制普通用户访问。'
-  }
-  if (form.startsAt) {
-    return '保存后将在开始时间到达时自动进入维护模式。'
-  }
-  return '保存后将立即进入维护模式。'
 })
 
 const taskControlStatus = computed(() => api.taskControl.value)
@@ -280,7 +269,6 @@ function countValue(key: keyof TaskControlCounts) {
       <div>
         <p class="eyebrow">System Operations</p>
         <h1>系统维护管理</h1>
-        <p class="page-description">配置维护窗口和普通用户看到的提示内容。</p>
       </div>
       <div class="head-actions">
         <el-tag :type="status.type" effect="light" size="large">
@@ -297,7 +285,6 @@ function countValue(key: keyof TaskControlCounts) {
           <div class="panel-heading-icon"><el-icon><Setting /></el-icon></div>
           <div>
             <h2>维护设置</h2>
-            <p>维护期间超级管理员仍可正常登录和操作。</p>
           </div>
         </div>
 
@@ -306,7 +293,6 @@ function countValue(key: keyof TaskControlCounts) {
             <div class="switch-row">
               <div>
                 <strong>开启维护管理</strong>
-                <span>{{ activationHint }}</span>
               </div>
               <el-switch
                 v-model="form.enabled"
@@ -376,8 +362,6 @@ function countValue(key: keyof TaskControlCounts) {
           </div>
         </el-form>
       </section>
-
-      <MaintenancePreview :settings="form" />
     </div>
 
     <section v-loading="taskControlLoading" class="task-control-panel">
@@ -394,7 +378,6 @@ function countValue(key: keyof TaskControlCounts) {
           </div>
           <div>
             <h2>全局任务管控</h2>
-            <p>停止或恢复所有用户本次维护范围内的任务，worker 始终保持运行。</p>
           </div>
         </div>
         <div class="task-control-actions">
@@ -494,12 +477,6 @@ function countValue(key: keyof TaskControlCounts) {
   font-weight: 800;
 }
 
-.page-description {
-  margin: 7px 0 0;
-  color: var(--text-soft);
-  font-size: 13px;
-}
-
 .head-actions {
   display: flex;
   align-items: center;
@@ -513,10 +490,7 @@ function countValue(key: keyof TaskControlCounts) {
 }
 
 .maintenance-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr);
-  align-items: start;
-  gap: 20px;
+  display: block;
 }
 
 .settings-panel {
@@ -652,12 +626,6 @@ function countValue(key: keyof TaskControlCounts) {
   font-size: 16px;
 }
 
-.panel-heading p {
-  margin: 5px 0 0;
-  color: var(--text-faint);
-  font-size: 12px;
-}
-
 .maintenance-form {
   display: grid;
   gap: 2px;
@@ -676,20 +644,13 @@ function countValue(key: keyof TaskControlCounts) {
   background: var(--page-bg);
 }
 
-.switch-row strong,
-.switch-row span {
+.switch-row strong {
   display: block;
 }
 
 .switch-row strong {
   color: var(--text-main);
   font-size: 14px;
-}
-
-.switch-row span {
-  margin-top: 4px;
-  color: var(--text-faint);
-  font-size: 12px;
 }
 
 .time-grid {
@@ -709,10 +670,6 @@ function countValue(key: keyof TaskControlCounts) {
 }
 
 @media (max-width: 1080px) {
-  .maintenance-layout {
-    grid-template-columns: 1fr;
-  }
-
   .task-count-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
