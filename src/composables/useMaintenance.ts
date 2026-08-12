@@ -1,10 +1,15 @@
 import { computed, readonly, shallowRef } from 'vue'
 
-import type { MaintenanceSettings, MaintenanceSettingsPayload } from '../types/crawler'
+import type {
+  MaintenanceSettings,
+  MaintenanceSettingsPayload,
+  TaskControlStatus,
+} from '../types/crawler'
 import { apiClient, MAINTENANCE_STATUS_EVENT } from '../utils/api'
 
 const maintenance = shallowRef<MaintenanceSettings | null>(null)
 const checkingMaintenance = shallowRef(false)
+const taskControl = shallowRef<TaskControlStatus | null>(null)
 let eventListenerInstalled = false
 
 if (typeof window !== 'undefined' && !eventListenerInstalled) {
@@ -43,12 +48,34 @@ export function useMaintenance() {
     return maintenance.value
   }
 
+  async function fetchTaskControlStatus() {
+    const response = await apiClient.get<{ taskControl: TaskControlStatus }>('/maintenance/task-control')
+    taskControl.value = response.data.taskControl
+    return taskControl.value
+  }
+
+  async function stopAllTasks() {
+    const response = await apiClient.post<{ taskControl: TaskControlStatus }>('/maintenance/task-control/stop-all')
+    taskControl.value = response.data.taskControl
+    return taskControl.value
+  }
+
+  async function resumeAllTasks() {
+    const response = await apiClient.post<{ taskControl: TaskControlStatus }>('/maintenance/task-control/resume-all')
+    taskControl.value = response.data.taskControl
+    return taskControl.value
+  }
+
   return {
     maintenance: readonly(maintenance),
     checkingMaintenance: readonly(checkingMaintenance),
     maintenanceActive,
+    taskControl: readonly(taskControl),
     fetchMaintenanceStatus,
     fetchMaintenanceSettings,
     updateMaintenanceSettings,
+    fetchTaskControlStatus,
+    stopAllTasks,
+    resumeAllTasks,
   }
 }

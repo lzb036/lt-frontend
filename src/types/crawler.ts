@@ -85,6 +85,44 @@ export interface MaintenanceSettingsPayload {
   estimatedEndsAt?: string | null
 }
 
+export interface TaskControlCounts {
+  crawl: number
+  listing: number
+  sync: number
+  salesOrderSync: number
+  imageCleanupRecords: number
+}
+
+export interface TaskControlResult {
+  action?: 'stop' | 'resume'
+  counts?: Partial<TaskControlCounts> & {
+    scheduledCrawls?: number
+    autoListing?: number
+    autoDeletion?: number
+  }
+  redis?: {
+    queued: number
+    deferred: number
+    scheduled: number
+    started: number
+  }
+  errors?: string[]
+}
+
+export interface TaskControlStatus {
+  paused: boolean
+  phase: 'running' | 'stopping' | 'paused' | 'resuming'
+  operationId: string
+  stoppedAt?: string | null
+  stoppedBy: string
+  resumedAt?: string | null
+  resumedBy: string
+  activeCounts: TaskControlCounts
+  activeTotal: number
+  resumableCount: number
+  lastResult: TaskControlResult
+}
+
 export interface MaskedSecretMap {
   rakutenServiceSecret: string
   rakutenLicenseKey: string
