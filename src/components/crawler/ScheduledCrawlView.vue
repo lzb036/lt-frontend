@@ -378,7 +378,10 @@ function handlePageSizeChange() {
         <el-select v-model="filters.status" clearable placeholder="采集状态" @change="searchTasks">
           <el-option label="待执行" value="queued" />
           <el-option label="采集中" value="running" />
+          <el-option label="终止中" value="cancelling" />
           <el-option label="成功" value="success" />
+          <el-option label="成功（部分入库）" value="partial_saved" />
+          <el-option label="已跳过" value="skipped" />
           <el-option label="部分成功" value="partial" />
           <el-option label="失败" value="failed" />
           <el-option label="已终止" value="cancelled" />
