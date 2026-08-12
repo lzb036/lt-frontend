@@ -345,6 +345,15 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function deleteTaskPendingProducts(taskId: string) {
+    const response = await apiClient.delete<{
+      taskId: string
+      deletedCount: number
+      deletedProductIds: number[]
+    }>(`/crawler/tasks/${taskId}/pending-products`)
+    return response.data
+  }
+
   async function downloadManualCrawlImportTemplate() {
     const response = await apiClient.get<Blob>('/crawler/tasks/import-template', { responseType: 'blob' })
     return response.data
@@ -1232,6 +1241,7 @@ export function useCollectorApi() {
     restartTask,
     cancelTask,
     deleteTasks,
+    deleteTaskPendingProducts,
     downloadManualCrawlImportTemplate,
     importManualCrawlTasks,
     listProducts,

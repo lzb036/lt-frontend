@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleClose, Delete, Download, Plus, QuestionFilled, Refresh, Search, Upload, View, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useAuth } from '../../composables/useAuth'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type {
   CrawlLimit,
@@ -19,10 +20,13 @@ import type {
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
+import { hasPermission } from '../../utils/permissions'
 import CopyableTableText from './CopyableTableText.vue'
 import ManualCrawlResultDialog from './ManualCrawlResultDialog.vue'
 
 const api = useCollectorApi()
+const { session } = useAuth()
+const canManageProducts = computed(() => hasPermission(session.value, 'products.manage'))
 const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const creating = shallowRef(false)
@@ -30,6 +34,7 @@ const previewing = shallowRef(false)
 const wholeShopPreviews = shallowRef<Array<{ target: string; preview: WholeShopPreview }>>([])
 const downloadingTemplate = shallowRef(false)
 const importing = shallowRef(false)
+const deletingProductTaskId = shallowRef('')
 const importInputRef = shallowRef<HTMLInputElement | null>(null)
 const createDialogVisible = shallowRef(false)
 const resultDialogVisible = shallowRef(false)
@@ -750,6 +755,33 @@ async function deleteSelectedTasks() {
   }
 }
 
+async function deleteTaskProducts(row: CrawlTask) {
+  try {
+    await ElMessageBox.confirm(
+      '确认删除该任务实际入库且目前仍处于待审核状态的商品？已审核商品、跳过商品以及其他任务的商品不会删除，采集任务记录也会保留。',
+      '删除任务商品',
+      {
+        confirmButtonText: '删除商品',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    deletingProductTaskId.value = row.id
+    const result = await api.deleteTaskPendingProducts(row.id)
+    ElMessage.success(
+      result.deletedCount > 0
+        ? `已删除 ${result.deletedCount} 个待审核商品`
+        : '该任务没有可删除的待审核商品',
+    )
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '删除任务商品失败'))
+    }
+  } finally {
+    deletingProductTaskId.value = ''
+  }
+}
+
 function resetFilters() {
   filters.target = ''
   filters.status = ''
@@ -1006,7 +1038,7 @@ function statusType(row: CrawlTask) {
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="startedAt" label="开始执行时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="taskCancelable(row) || taskWaitingCancel(row)"
@@ -1029,6 +1061,16 @@ function statusType(row: CrawlTask) {
               @click="openResultDialog(row)"
             >
               查看详情
+            </el-button>
+            <el-button
+              v-if="canManageProducts && taskRestartable(row)"
+              :icon="Delete"
+              :loading="deletingProductTaskId === row.id"
+              link
+              type="danger"
+              @click="deleteTaskProducts(row)"
+            >
+              删除商品
             </el-button>
           </template>
         </el-table-column>

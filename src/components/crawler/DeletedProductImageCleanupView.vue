@@ -172,7 +172,6 @@ function statusType(status: string) {
         height="max(650px, calc(100vh - 230px))"
         row-key="id"
       >
-        <el-table-column prop="ownerUsername" label="所属用户" min-width="140" />
         <el-table-column prop="storeName" label="店铺" min-width="150" />
         <el-table-column label="原商品" min-width="180">
           <template #default="{ row }">

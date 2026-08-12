@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleClose, Delete, Refresh, Search, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
+import { useAuth } from '../../composables/useAuth'
 import { useServerPagination } from '../../composables/useServerPagination'
 import type { CrawlTask } from '../../types/crawler'
 import { withMinimumDelay } from '../../utils/async'
 import { toApiErrorMessage } from '../../utils/api'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
+import { hasPermission } from '../../utils/permissions'
 import CopyableTableText from './CopyableTableText.vue'
 
 const api = useCollectorApi()
+const { session } = useAuth()
+const canManageProducts = computed(() => hasPermission(session.value, 'products.manage'))
 const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const tasks = shallowRef<CrawlTask[]>([])
 const selectedTasks = shallowRef<CrawlTask[]>([])
+const deletingProductTaskId = shallowRef('')
 let progressTimer: number | undefined
 
 const filters = reactive({
@@ -186,6 +191,33 @@ async function deleteSelectedTasks() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function deleteTaskProducts(row: CrawlTask) {
+  try {
+    await ElMessageBox.confirm(
+      '确认删除该任务实际入库且目前仍处于待审核状态的商品？已审核商品、跳过商品以及其他任务的商品不会删除，采集任务记录也会保留。',
+      '删除任务商品',
+      {
+        confirmButtonText: '删除商品',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    deletingProductTaskId.value = row.id
+    const result = await api.deleteTaskPendingProducts(row.id)
+    ElMessage.success(
+      result.deletedCount > 0
+        ? `已删除 ${result.deletedCount} 个待审核商品`
+        : '该任务没有可删除的待审核商品',
+    )
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '删除任务商品失败'))
+    }
+  } finally {
+    deletingProductTaskId.value = ''
   }
 }
 
@@ -406,7 +438,7 @@ function handlePageSizeChange() {
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="startedAt" label="开始执行时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="96" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="taskCancelable(row) || taskWaitingCancel(row)"
@@ -420,6 +452,16 @@ function handlePageSizeChange() {
             </el-button>
             <el-button v-if="taskFinished(row)" :icon="VideoPlay" link type="primary" @click="restartTask(row)">
               重新采集
+            </el-button>
+            <el-button
+              v-if="canManageProducts && taskFinished(row)"
+              :icon="Delete"
+              :loading="deletingProductTaskId === row.id"
+              link
+              type="danger"
+              @click="deleteTaskProducts(row)"
+            >
+              删除商品
             </el-button>
           </template>
         </el-table-column>
