@@ -26,6 +26,8 @@ for (const requiredContract of [
   'await refreshMaintenance()',
   'if (!session.value)',
   '退出登录',
+  'await ElMessageBox.confirm',
+  '@click="confirmLogout"',
 ]) {
   if (!appSource.includes(requiredContract) && !noticeSource.includes(requiredContract)) {
     throw new Error(`missing maintenance flow contract: ${requiredContract}`)

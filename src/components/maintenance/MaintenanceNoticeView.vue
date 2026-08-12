@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Clock, SwitchButton, Tools } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 
 import type { MaintenanceSettings } from '../../types/crawler'
 
@@ -31,6 +32,18 @@ function formatDateTime(value?: string | null) {
     minute: '2-digit',
     hour12: false,
   }).format(date)
+}
+
+async function confirmLogout() {
+  try {
+    await ElMessageBox.confirm('确认退出当前账号？', '退出登录', {
+      confirmButtonText: '退出登录',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    emit('logout')
+  } catch {
+  }
 }
 </script>
 
@@ -102,7 +115,7 @@ function formatDateTime(value?: string | null) {
             <strong>{{ estimatedEndTime }}</strong>
           </div>
 
-          <button class="window-logout-button" type="button" @click="emit('logout')">
+          <button class="window-logout-button" type="button" @click="confirmLogout">
             <el-icon><SwitchButton /></el-icon>
             <span>退出登录</span>
           </button>
