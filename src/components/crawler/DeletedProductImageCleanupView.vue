@@ -126,6 +126,7 @@ function statusLabel(status: string) {
     pending: '待清理',
     queued: '已创建任务',
     failed: '清理失败',
+    cancelled: '已停止',
   }
   return labels[status] || status
 }
