@@ -96,7 +96,7 @@ function statusLabel(schedule: AutoListingSchedule) {
   }
   const statusText = {
     idle: '等待执行',
-    running: '执行中',
+    running: '创建中',
     failed: '上次失败',
     disabled: '已停用',
     completed: '已完成',

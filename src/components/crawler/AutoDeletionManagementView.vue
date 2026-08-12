@@ -210,7 +210,7 @@ async function toggleTask(task: AutoDeletionTask) {
 
 function statusLabel(task: AutoDeletionTask) {
   if (task.taskType === 'manual' && task.status === 'completed') return '已完成'
-  if (task.status === 'running') return '执行中'
+  if (task.status === 'running') return '创建中'
   if (task.status === 'failed') return '上次失败'
   if (task.taskType === 'automatic' && !task.enabled) return '已关闭'
   return '等待执行'
