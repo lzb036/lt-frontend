@@ -26,7 +26,6 @@ import {
   NoSmoking,
   OfficeBuilding,
   Picture,
-  PictureFilled,
   Pointer,
   Promotion,
   Reading,
@@ -103,7 +102,6 @@ const menuGroups = computed(() => {
   const jobChildren: MenuEntry[] = []
   if (hasPermission(props.session, 'products.manage')) {
     jobChildren.push({ path: '/ltJobs/upGoodsJob', label: '上架任务', icon: Upload })
-    jobChildren.push({ path: '/ltJobs/listingImageUploadJob', label: '图片上传任务', icon: PictureFilled })
   }
   if (hasAnyPermission(props.session, ['products.manage', 'stores.manage'])) {
     jobChildren.push({ path: '/ltJobs/syncJob', label: '同步任务', icon: Connection })

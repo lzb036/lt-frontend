@@ -27,10 +27,6 @@ for (const requiredContract of [
   "name: 'image-cleanup-jobs'",
   "taskGroup: 'image_cleanup'",
   "meta: { title: '图片清理任务', superadminOnly: true }",
-  "path: 'ltJobs/listingImageUploadJob'",
-  "name: 'listing-image-upload-jobs'",
-  "taskGroup: 'listing_image_upload'",
-  "meta: { title: '图片上传任务', permission: 'products.manage' }",
 ]) {
   if (!routerSource.includes(requiredContract)) {
     throw new Error(`missing specialized task route contract: ${requiredContract}`)
@@ -40,11 +36,18 @@ for (const requiredContract of [
 for (const requiredContract of [
   "{ path: '/ltJobs/titleOptimizationJob', label: '标题优化任务'",
   "{ path: '/ltJobs/imageCleanupJob', label: '图片清理任务'",
-  "{ path: '/ltJobs/listingImageUploadJob', label: '图片上传任务'",
 ]) {
   if (!appShellSource.includes(requiredContract)) {
     throw new Error(`missing specialized task menu contract: ${requiredContract}`)
   }
+}
+
+if (!routerSource.includes("{ path: 'ltJobs/listingImageUploadJob', redirect: '/ltJobs/upGoodsJob' }")) {
+  throw new Error('legacy image-upload route must redirect to the unified listing task page')
+}
+
+if (appShellSource.includes("label: '图片上传任务'")) {
+  throw new Error('image-upload tasks must not have a separate navigation entry')
 }
 
 for (const requiredContract of [

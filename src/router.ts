@@ -38,7 +38,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ltJobs/wjJobs', name: 'manual-crawl', component: ManualCrawlView, meta: { title: '手动采集', permission: 'crawler.manage' } },
       { path: 'ltJobs/wjProductJob', name: 'scheduled-crawl', component: ScheduledCrawlView, meta: { title: '定时采集', permission: 'crawler.manage' } },
       { path: 'ltJobs/upGoodsJob', name: 'listing-jobs', component: ListingTaskView, meta: { title: '上架任务', permission: 'products.manage' } },
-      { path: 'ltJobs/listingImageUploadJob', name: 'listing-image-upload-jobs', component: SyncTaskView, props: { taskGroup: 'listing_image_upload', title: '图片上传任务', eyebrow: 'Image Upload Jobs', emptyText: '暂无图片上传任务', actionLabel: '图片上传' }, meta: { title: '图片上传任务', permission: 'products.manage' } },
+      { path: 'ltJobs/listingImageUploadJob', redirect: '/ltJobs/upGoodsJob' },
       { path: 'ltJobs/syncJob', name: 'sync-jobs', component: SyncTaskView, meta: { title: '同步任务', anyPermission: ['products.manage', 'stores.manage'] } },
       { path: 'ltJobs/titleOptimizationJob', name: 'title-optimization-jobs', component: SyncTaskView, props: { taskGroup: 'title_optimization', title: '标题优化任务', eyebrow: 'AI Jobs', emptyText: '暂无标题优化任务', actionLabel: '标题优化' }, meta: { title: '标题优化任务', permission: 'ai.manage' } },
       { path: 'ltJobs/imageCleanupJob', name: 'image-cleanup-jobs', component: SyncTaskView, props: { taskGroup: 'image_cleanup', title: '图片清理任务', eyebrow: 'Cleanup Jobs', emptyText: '暂无图片清理任务', actionLabel: '图片清理' }, meta: { title: '图片清理任务', superadminOnly: true } },

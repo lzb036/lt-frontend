@@ -17,7 +17,6 @@ const iconContracts = [
   ["label: '敏感词管理'", 'icon: NoSmoking'],
   ["label: '任务日志'", 'icon: Memo'],
   ["label: '上架任务'", 'icon: Upload'],
-  ["label: '图片上传任务'", 'icon: PictureFilled'],
   ["label: '同步任务'", 'icon: Connection'],
   ["label: '标题优化任务'", 'icon: MagicStick'],
   ["label: '图片清理任务'", 'icon: DeleteFilled'],
