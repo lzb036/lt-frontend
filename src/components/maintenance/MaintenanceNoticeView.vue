@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Clock, Tools } from '@element-plus/icons-vue'
+import { Clock, SwitchButton, Tools } from '@element-plus/icons-vue'
 
 import type { MaintenanceSettings } from '../../types/crawler'
 
 const props = defineProps<{
   maintenance: MaintenanceSettings
+}>()
+
+const emit = defineEmits<{
+  logout: []
 }>()
 
 const startTime = computed(() => formatDateTime(props.maintenance.startsAt))
@@ -79,7 +83,9 @@ function formatDateTime(value?: string | null) {
       <aside class="maintenance-window">
         <div class="window-details">
           <div class="window-heading">
-            <span class="window-heading-icon"><el-icon><Clock /></el-icon></span>
+            <span class="window-heading-icon" aria-hidden="true">
+              <Clock class="window-clock-svg" />
+            </span>
             <div>
               <span>MAINTENANCE WINDOW</span>
               <strong>计划维护时间</strong>
@@ -96,6 +102,10 @@ function formatDateTime(value?: string | null) {
             <strong>{{ estimatedEndTime }}</strong>
           </div>
 
+          <button class="window-logout-button" type="button" @click="emit('logout')">
+            <el-icon><SwitchButton /></el-icon>
+            <span>退出登录</span>
+          </button>
         </div>
       </aside>
     </section>
@@ -336,13 +346,12 @@ function formatDateTime(value?: string | null) {
   line-height: 1;
 }
 
-.window-heading-icon :deep(.el-icon) {
-  width: 23px;
-  height: 23px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 23px;
+.window-clock-svg {
+  width: 25px;
+  height: 25px;
+  display: block;
+  flex: 0 0 25px;
+  color: currentColor;
 }
 
 .window-heading div > span {
@@ -375,6 +384,40 @@ function formatDateTime(value?: string | null) {
 .time-separator {
   height: 1px;
   background: #e0e6e4;
+}
+
+.window-logout-button {
+  width: 100%;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+  border: 1px solid #b8cbc7;
+  border-radius: 6px;
+  color: #17685d;
+  background: #f5faf8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.window-logout-button:hover {
+  border-color: #17685d;
+  color: #ffffff;
+  background: #17685d;
+}
+
+.window-logout-button .el-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
 }
 
 .maintenance-footer {
