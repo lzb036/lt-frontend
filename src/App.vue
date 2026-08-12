@@ -141,7 +141,6 @@ function syncMaintenancePolling() {
   <MaintenanceNoticeView
     v-else-if="showMaintenance && maintenance"
     :maintenance="maintenance"
-    @logout="handleLogout"
   />
   <RouterView
     v-else-if="authenticated"

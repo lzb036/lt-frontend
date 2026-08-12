@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Clock, SwitchButton, Tools } from '@element-plus/icons-vue'
+import { Clock, Tools } from '@element-plus/icons-vue'
 
 import type { MaintenanceSettings } from '../../types/crawler'
 
@@ -8,26 +8,8 @@ const props = defineProps<{
   maintenance: MaintenanceSettings
 }>()
 
-const emit = defineEmits<{
-  logout: []
-}>()
-
 const startTime = computed(() => formatDateTime(props.maintenance.startsAt))
 const estimatedEndTime = computed(() => formatDateTime(props.maintenance.estimatedEndsAt))
-const maintenanceDate = computed(() => {
-  const value = props.maintenance.startsAt
-  if (!value) {
-    return { month: '--', day: '--' }
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return { month: '--', day: '--' }
-  }
-  return {
-    month: new Intl.DateTimeFormat('zh-CN', { month: '2-digit' }).format(date),
-    day: new Intl.DateTimeFormat('zh-CN', { day: '2-digit' }).format(date),
-  }
-})
 
 function formatDateTime(value?: string | null) {
   if (!value) {
@@ -57,7 +39,6 @@ function formatDateTime(value?: string | null) {
         </span>
         <div>
           <strong>商品采集系统</strong>
-          <span>PRODUCT COLLECTOR</span>
         </div>
       </div>
       <div class="maintenance-status">
@@ -93,20 +74,9 @@ function formatDateTime(value?: string | null) {
           </div>
         </div>
 
-        <p class="maintenance-auto-note">维护结束后，当前页面会自动恢复系统访问。</p>
-        <button class="logout-button" type="button" @click="emit('logout')">
-          <el-icon><SwitchButton /></el-icon>
-          退出当前账号
-        </button>
       </div>
 
       <aside class="maintenance-window">
-        <div class="window-date">
-          <span>{{ maintenanceDate.month }}月</span>
-          <strong>{{ maintenanceDate.day }}</strong>
-          <em>维护窗口</em>
-        </div>
-
         <div class="window-details">
           <div class="window-heading">
             <span class="window-heading-icon"><el-icon><Clock /></el-icon></span>
@@ -126,13 +96,6 @@ function formatDateTime(value?: string | null) {
             <strong>{{ estimatedEndTime }}</strong>
           </div>
 
-          <div class="window-state">
-            <span class="status-indicator"></span>
-            <div>
-              <strong>系统暂时不可用</strong>
-              <span>维护团队正在按计划处理</span>
-            </div>
-          </div>
         </div>
       </aside>
     </section>
@@ -173,38 +136,34 @@ function formatDateTime(value?: string | null) {
 .brand-mark {
   width: 42px;
   height: 42px;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #b9d7d2;
   border-radius: 8px;
   background: #e8f4f1;
+  overflow: hidden;
 }
 
 .brand-mark img {
-  width: 29px;
-  height: 29px;
+  width: 34px;
+  height: 34px;
+  display: block;
+  object-fit: contain;
+  object-position: center;
 }
 
 .maintenance-brand strong,
-.maintenance-brand span,
 .window-heading span,
 .window-heading strong,
 .time-row span,
-.time-row strong,
-.window-state span,
-.window-state strong {
+.time-row strong {
   display: block;
 }
 
 .maintenance-brand strong {
   font-size: 16px;
-}
-
-.maintenance-brand div > span {
-  margin-top: 3px;
-  color: #74817e;
-  font-size: 10px;
-  font-weight: 700;
 }
 
 .maintenance-status {
@@ -342,63 +301,10 @@ function formatDateTime(value?: string | null) {
   box-shadow: 0 0 0 5px rgba(217, 144, 47, 0.14);
 }
 
-.maintenance-auto-note {
-  margin: 32px 0 0;
-  color: #7a8783;
-  font-size: 12px;
-}
-
-.logout-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 18px;
-  padding: 0;
-  border: 0;
-  color: #5f6e69;
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.logout-button:hover {
-  color: #17685d;
-}
-
 .maintenance-window {
-  display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
   min-height: 390px;
-  border-top: 1px solid #bbc9c5;
-  border-bottom: 1px solid #bbc9c5;
-}
-
-.window-date {
-  display: grid;
-  align-content: start;
-  justify-items: center;
-  padding: 38px 18px;
-  color: #ffffff;
-  background: #17685d;
-}
-
-.window-date span {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.window-date strong {
-  margin-top: 6px;
-  font-size: 54px;
-  line-height: 1;
-}
-
-.window-date em {
-  margin-top: 18px;
-  font-size: 11px;
-  font-style: normal;
-  opacity: 0.72;
+  border: 1px solid #bbc9c5;
+  background: #ffffff;
 }
 
 .window-details {
@@ -417,13 +323,26 @@ function formatDateTime(value?: string | null) {
 }
 
 .window-heading-icon {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  flex: 0 0 48px;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   color: #17685d;
   background: #e7f2ef;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.window-heading-icon :deep(.el-icon) {
+  width: 23px;
+  height: 23px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 23px;
 }
 
 .window-heading div > span {
@@ -456,27 +375,6 @@ function formatDateTime(value?: string | null) {
 .time-separator {
   height: 1px;
   background: #e0e6e4;
-}
-
-.window-state {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 6px;
-  padding: 16px;
-  border-left: 3px solid #d9902f;
-  background: #fbf7ef;
-}
-
-.window-state strong {
-  color: #3b352a;
-  font-size: 12px;
-}
-
-.window-state div > span {
-  margin-top: 3px;
-  color: #8d8068;
-  font-size: 10px;
 }
 
 .maintenance-footer {
@@ -512,10 +410,6 @@ function formatDateTime(value?: string | null) {
     padding: 0 18px;
   }
 
-  .maintenance-brand div > span {
-    display: none;
-  }
-
   .maintenance-status {
     font-size: 10px;
   }
@@ -533,18 +427,6 @@ function formatDateTime(value?: string | null) {
 
   .maintenance-message {
     font-size: 14px;
-  }
-
-  .maintenance-window {
-    grid-template-columns: 80px minmax(0, 1fr);
-  }
-
-  .window-date {
-    padding: 30px 10px;
-  }
-
-  .window-date strong {
-    font-size: 40px;
   }
 
   .window-details {

@@ -25,8 +25,6 @@ for (const requiredContract of [
   'await fetchSession()',
   'await refreshMaintenance()',
   'if (!session.value)',
-  '退出当前账号',
-  '维护结束后，当前页面会自动恢复系统访问。',
 ]) {
   if (!appSource.includes(requiredContract) && !noticeSource.includes(requiredContract)) {
     throw new Error(`missing maintenance flow contract: ${requiredContract}`)
