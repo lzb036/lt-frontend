@@ -109,7 +109,7 @@ const menuGroups = computed(() => {
   if (hasPermission(props.session, 'ai.manage')) {
     jobChildren.push({ path: '/ltJobs/titleOptimizationJob', label: '标题优化任务', icon: MagicStick })
   }
-  if (isSuperadmin.value) {
+  if (hasPermission(props.session, 'stores.manage')) {
     jobChildren.push({ path: '/ltJobs/imageCleanupJob', label: '图片清理任务', icon: DeleteFilled })
     jobChildren.push({ path: '/ltJobs/orderSyncHistory', label: '订单获取记录', icon: Files })
   }

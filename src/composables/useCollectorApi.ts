@@ -835,6 +835,17 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function updateOwnedStoreSettings(
+    id: number,
+    payload: Pick<StorePayload, 'aliasName' | 'enabled'>,
+  ) {
+    const response = await apiClient.patch<{ store: StoreAccount }>(
+      `/crawler/stores/${id}/owner-settings`,
+      payload,
+    )
+    return response.data.store
+  }
+
   async function deleteStore(id: number, ownerUsername?: string) {
     await apiClient.delete<{ deleted: boolean }>(`/crawler/stores/${id}`, { params: { ownerUsername } })
   }
@@ -1315,6 +1326,7 @@ export function useCollectorApi() {
     listStores,
     listStoresPage,
     saveStore,
+    updateOwnedStoreSettings,
     deleteStore,
     syncStore,
     getStoreProductSalesSummary,

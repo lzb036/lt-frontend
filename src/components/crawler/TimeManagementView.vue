@@ -28,7 +28,6 @@ const settings = shallowRef<TimeSettings | null>(null)
 const nowTick = shallowRef(Date.now())
 const serverTimeOffsetMs = shallowRef(0)
 let countdownTimer: number | undefined
-const isSuperadmin = computed(() => props.session?.role === 'superadmin')
 
 const form = reactive<TimeSettingsPayload>({
   cleanupWeekday: 6,
@@ -56,7 +55,7 @@ const orderState = reactive({
 const orderDraft = reactive<SalesOrderSyncGlobalSettingsPayload>({ ...DEFAULT_ORDER_SETTINGS })
 const orderSettingsDirty = computed(() => {
   const savedSnapshot = orderState.savedSnapshot
-  if (!isSuperadmin.value || !savedSnapshot) {
+  if (!savedSnapshot) {
     return false
   }
   return (
@@ -141,9 +140,7 @@ const deletedImageCleanupCountdownText = computed(() => {
 onMounted(() => {
   startCountdown()
   void loadSettings()
-  if (isSuperadmin.value) {
-    void loadOrderSettings()
-  }
+  void loadOrderSettings()
 })
 
 onBeforeUnmount(() => {
@@ -200,9 +197,7 @@ function stopCountdown() {
 async function loadSettings() {
   loading.value = true
   try {
-    const result = isSuperadmin.value
-      ? await api.getTimeSettings()
-      : await api.getDeletedProductImageCleanupSettings()
+    const result = await api.getTimeSettings()
     applySettings(result)
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载时间设置失败'))
@@ -247,10 +242,6 @@ function applyServerTime(serverNowValue?: string | null) {
 }
 
 async function saveSettings() {
-  if (!isSuperadmin.value) {
-    await saveDeletedImageCleanupSettings()
-    return
-  }
   if (!form.cleanupTime) {
     ElMessage.warning('请选择清理时间')
     return
@@ -277,27 +268,6 @@ async function saveSettings() {
     ElMessage.success('其他定时管理设置已保存')
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '保存时间设置失败'))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function saveDeletedImageCleanupSettings() {
-  if (!form.deletedImageCleanupTime) {
-    ElMessage.warning('请选择图片清理时间')
-    return
-  }
-  saving.value = true
-  try {
-    const result = await api.updateDeletedProductImageCleanupSettings({
-      deletedImageCleanupEnabled: form.deletedImageCleanupEnabled,
-      deletedImageCleanupWeekday: form.deletedImageCleanupWeekday,
-      deletedImageCleanupTime: form.deletedImageCleanupTime,
-    })
-    applySettings(result)
-    ElMessage.success('图片清理设置已保存')
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '保存图片清理设置失败'))
   } finally {
     saving.value = false
   }
@@ -332,7 +302,7 @@ function applyOrderSettings(result: SalesOrderSyncGlobalSettings) {
 async function runScheduledTaskCleanupNow() {
   try {
     await ElMessageBox.confirm(
-      '确认立即清理所有已结束的定时采集任务记录？待执行和执行中的记录不会删除，该操作也不会删除定时计划和商品数据。',
+      '确认立即清理当前账号所有已结束的定时采集任务记录？待执行和执行中的记录不会删除，该操作也不会删除定时计划和商品数据。',
       '立即清理',
       {
         confirmButtonText: '执行',
@@ -356,7 +326,7 @@ async function runScheduledTaskCleanupNow() {
 async function runUnlistedProductCleanupNow() {
   try {
     await ElMessageBox.confirm(
-      '确认立即为所有启用店铺创建未上架商品删除任务？任务会删除乐天商品和本地商品记录，关联图片进入每周图片清理队列。',
+      '确认立即为当前账号的所有启用店铺创建未上架商品删除任务？任务会删除乐天商品和本地商品记录，关联图片进入每周图片清理队列。',
       '立即删除未上架商品',
       {
         confirmButtonText: '执行',
@@ -436,7 +406,7 @@ function formatCountdown(remainingMs: number) {
 
 <template>
   <section class="page-stack">
-    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
+    <section v-loading="loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>定时采集记录清理</h2>
@@ -503,11 +473,11 @@ function formatCountdown(remainingMs: number) {
       </div>
     </section>
 
-    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
+    <section v-loading="loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>商品自动同步</h2>
-          <p>按统一时间为所有启用且凭据完整的店铺创建商品同步任务</p>
+          <p>按当前账号设置的时间，为当前账号所有启用且凭据完整的店铺创建商品同步任务</p>
         </div>
         <div class="panel-head-actions">
           <el-switch
@@ -571,7 +541,7 @@ function formatCountdown(remainingMs: number) {
       </div>
     </section>
 
-    <section v-if="isSuperadmin" v-loading="loading" class="time-panel">
+    <section v-loading="loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>未上架商品月度删除</h2>
@@ -696,7 +666,7 @@ function formatCountdown(remainingMs: number) {
 
     </section>
 
-    <section v-if="isSuperadmin" v-loading="orderState.loading" class="time-panel">
+    <section v-loading="orderState.loading" class="time-panel">
       <div class="time-panel-head">
         <div>
           <h2>订单自动同步</h2>

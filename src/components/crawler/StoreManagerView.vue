@@ -95,9 +95,6 @@ function openCreateDialog() {
 }
 
 function openEditDialog(row: StoreAccount) {
-  if (!isSuperadmin.value) {
-    return
-  }
   editingId.value = row.id
   form.ownerUsername = undefined
   form.aliasName = row.aliasName
@@ -110,16 +107,20 @@ function openEditDialog(row: StoreAccount) {
 }
 
 async function saveStore() {
-  if (!isSuperadmin.value) {
-    return
-  }
   if (!editingId.value && (!form.rakutenServiceSecret?.trim() || !form.rakutenLicenseKey?.trim())) {
     ElMessage.warning('新增店铺时必须填写乐天 Secret 和乐天 Key')
     return
   }
   saving.value = true
   try {
-    await api.saveStore({ ...form, ownerUsername: undefined }, editingId.value ?? undefined)
+    if (!isSuperadmin.value && editingId.value) {
+      await api.updateOwnedStoreSettings(editingId.value, {
+        aliasName: form.aliasName,
+        enabled: form.enabled,
+      })
+    } else {
+      await api.saveStore({ ...form, ownerUsername: undefined }, editingId.value ?? undefined)
+    }
     await loadStores()
     dialogOpen.value = false
     ElMessage.success('店铺已保存')
@@ -517,10 +518,10 @@ async function removeStore(row: StoreAccount) {
             >
               近一年销量
             </el-button>
+            <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
+              编辑
+            </el-button>
             <template v-if="isSuperadmin">
-              <el-button :icon="EditPen" link type="primary" @click="openEditDialog(row)">
-                编辑
-              </el-button>
               <el-button :icon="Delete" link type="danger" @click="removeStore(row)">
                 删除
               </el-button>
@@ -545,9 +546,11 @@ async function removeStore(row: StoreAccount) {
       <div class="dialog-form">
         <el-input v-model="form.aliasName" placeholder="店铺别称" />
         <el-switch v-model="form.enabled" active-text="启用" inactive-text="停用" />
-        <el-input v-model="form.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
-        <el-input v-model="form.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
-        <el-input v-model="form.description" class="full-row" type="textarea" :rows="3" placeholder="店铺介绍" />
+        <template v-if="isSuperadmin">
+          <el-input v-model="form.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
+          <el-input v-model="form.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
+          <el-input v-model="form.description" class="full-row" type="textarea" :rows="3" placeholder="店铺介绍" />
+        </template>
       </div>
       <template #footer>
         <el-button @click="dialogOpen = false">取消</el-button>
