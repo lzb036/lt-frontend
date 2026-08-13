@@ -85,6 +85,25 @@ export interface MaintenanceSettingsPayload {
   estimatedEndsAt?: string | null
 }
 
+export interface SystemAnnouncement {
+  id: number
+  title: string
+  content: string
+  imageUrls: string[]
+  published: boolean
+  createdBy: string
+  updatedBy: string
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+export interface SystemAnnouncementPayload {
+  title: string
+  content: string
+  imageUrls: string[]
+  published: boolean
+}
+
 export interface TaskControlCounts {
   crawl: number
   listing: number

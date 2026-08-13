@@ -3,6 +3,8 @@ import { computed, readonly, shallowRef } from 'vue'
 import type {
   MaintenanceSettings,
   MaintenanceSettingsPayload,
+  SystemAnnouncement,
+  SystemAnnouncementPayload,
   TaskControlStatus,
 } from '../types/crawler'
 import { apiClient, MAINTENANCE_STATUS_EVENT } from '../utils/api'
@@ -48,6 +50,57 @@ export function useMaintenance() {
     return maintenance.value
   }
 
+  async function listAnnouncements() {
+    const response = await apiClient.get<{
+      announcements: SystemAnnouncement[]
+    }>('/maintenance/announcements')
+    return response.data.announcements
+  }
+
+  async function listManagedAnnouncements() {
+    const response = await apiClient.get<{
+      announcements: SystemAnnouncement[]
+    }>('/maintenance/announcements/manage')
+    return response.data.announcements
+  }
+
+  async function saveAnnouncement(
+    payload: SystemAnnouncementPayload,
+    announcementId?: number,
+  ) {
+    const response = announcementId
+      ? await apiClient.put<{ announcement: SystemAnnouncement }>(
+          `/maintenance/announcements/${announcementId}`,
+          payload,
+        )
+      : await apiClient.post<{ announcement: SystemAnnouncement }>(
+          '/maintenance/announcements',
+          payload,
+        )
+    return response.data.announcement
+  }
+
+  async function deleteAnnouncement(announcementId: number) {
+    await apiClient.delete(`/maintenance/announcements/${announcementId}`)
+  }
+
+  async function uploadAnnouncementImage(file: File) {
+    const data = new FormData()
+    data.append('file', file)
+    const response = await apiClient.post<{ imageUrl: string }>(
+      '/maintenance/announcement-images',
+      data,
+      { timeout: 2 * 60_000 },
+    )
+    return response.data.imageUrl
+  }
+
+  async function deleteAnnouncementImage(imageUrl: string) {
+    await apiClient.delete('/maintenance/announcement-images', {
+      data: { imageUrl },
+    })
+  }
+
   async function fetchTaskControlStatus() {
     const response = await apiClient.get<{ taskControl: TaskControlStatus }>('/maintenance/task-control')
     taskControl.value = response.data.taskControl
@@ -74,6 +127,12 @@ export function useMaintenance() {
     fetchMaintenanceStatus,
     fetchMaintenanceSettings,
     updateMaintenanceSettings,
+    listAnnouncements,
+    listManagedAnnouncements,
+    saveAnnouncement,
+    deleteAnnouncement,
+    uploadAnnouncementImage,
+    deleteAnnouncementImage,
     fetchTaskControlStatus,
     stopAllTasks,
     resumeAllTasks,

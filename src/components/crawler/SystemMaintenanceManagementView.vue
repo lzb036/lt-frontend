@@ -19,6 +19,7 @@ import type {
   TaskControlCounts,
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
+import AnnouncementManagementPanel from './AnnouncementManagementPanel.vue'
 
 defineProps<{
   session: AuthSession | null
@@ -447,6 +448,8 @@ function countValue(key: keyof TaskControlCounts) {
         </el-button>
       </div>
     </section>
+
+    <AnnouncementManagementPanel />
   </section>
 </template>
 

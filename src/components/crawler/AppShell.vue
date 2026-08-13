@@ -40,6 +40,7 @@ import {
 
 import type { AuthSession } from '../../types/crawler'
 import { getDefaultRoutePath, hasAnyPermission, hasPermission, isSuperadmin as isSuperadminSession } from '../../utils/permissions'
+import AnnouncementCenterDialog from './AnnouncementCenterDialog.vue'
 
 type MenuEntry = {
   path: string
@@ -73,6 +74,7 @@ const activePath = computed(() => {
   return path === '/' ? defaultRoutePath.value : path
 })
 const sidebarCollapsed = ref(false)
+const announcementDialogOpen = ref(false)
 const sessionDisplayName = computed(() => props.session?.displayName || props.session?.username || '')
 
 const menuGroups = computed(() => {
@@ -209,10 +211,8 @@ function toggleSidebarCollapsed() {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
-async function openOperatorManual() {
-  if (activePath.value !== '/help/operator-manual') {
-    await router.push('/help/operator-manual')
-  }
+function openAnnouncementCenter() {
+  announcementDialogOpen.value = true
 }
 
 async function confirmLogout() {
@@ -302,14 +302,13 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
         <button
           type="button"
           class="sidebar-action-button"
-          :class="{ 'is-active': activePath === '/help/operator-manual' }"
-          :aria-label="sidebarCollapsed ? '使用手册' : undefined"
-          @click="openOperatorManual"
+          :aria-label="sidebarCollapsed ? '公告' : undefined"
+          @click="openAnnouncementCenter"
         >
           <el-icon class="sidebar-action-icon">
             <Reading />
           </el-icon>
-          <span class="sidebar-action-label">使用手册</span>
+          <span class="sidebar-action-label">公告</span>
           <span class="sidebar-system-version">{{ systemVersion }}</span>
         </button>
         <button
@@ -348,6 +347,11 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
         </RouterView>
       </main>
     </div>
+
+    <AnnouncementCenterDialog
+      v-model="announcementDialogOpen"
+      :session="session"
+    />
   </div>
 </template>
 
