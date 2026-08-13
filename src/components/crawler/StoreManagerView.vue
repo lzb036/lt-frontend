@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, DataAnalysis, Delete, EditPen, FolderDelete, Plus, Refresh, TrendCharts } from '@element-plus/icons-vue'
+import { Connection, CopyDocument, DataAnalysis, Delete, EditPen, FolderDelete, Plus, Refresh, TrendCharts } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
@@ -228,7 +228,12 @@ async function checkSingleStoreKeys(row: StoreAccount) {
     const result = await api.verifyStore(row.id)
     stores.value = stores.value.map((store) => (
       store.id === result.id
-        ? { ...result, recentYearOrderCount: store.recentYearOrderCount }
+        ? {
+            ...result,
+            rakutenServiceSecret: result.rakutenServiceSecret || store.rakutenServiceSecret,
+            rakutenLicenseKey: result.rakutenLicenseKey || store.rakutenLicenseKey,
+            recentYearOrderCount: store.recentYearOrderCount,
+          }
         : store
     ))
     if (result.lastError) {
@@ -249,7 +254,12 @@ async function refreshSingleStoreCounts(row: StoreAccount) {
     const result = await api.refreshStoreCount(row.id)
     stores.value = stores.value.map((store) => (
       store.id === result.id
-        ? { ...result, recentYearOrderCount: store.recentYearOrderCount }
+        ? {
+            ...result,
+            rakutenServiceSecret: result.rakutenServiceSecret || store.rakutenServiceSecret,
+            rakutenLicenseKey: result.rakutenLicenseKey || store.rakutenLicenseKey,
+            recentYearOrderCount: store.recentYearOrderCount,
+          }
         : store
     ))
     if (result.lastError) {
@@ -288,6 +298,34 @@ function countText(value?: number | null) {
 
 function timeText(value?: string | null) {
   return value || '-'
+}
+
+async function copySecret(value: string, label: string) {
+  if (!value) {
+    ElMessage.warning(`${label}为空`)
+    return
+  }
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(value)
+    } else {
+      const input = document.createElement('textarea')
+      input.value = value
+      input.setAttribute('readonly', 'true')
+      input.style.position = 'fixed'
+      input.style.left = '-9999px'
+      document.body.appendChild(input)
+      input.select()
+      const copied = document.execCommand('copy')
+      document.body.removeChild(input)
+      if (!copied) {
+        throw new Error('copy failed')
+      }
+    }
+    ElMessage.success(`${label}已复制`)
+  } catch {
+    ElMessage.error(`${label}复制失败`)
+  }
 }
 
 function handlePageSizeChange() {
@@ -392,6 +430,34 @@ async function removeStore(row: StoreAccount) {
             <el-tag :type="row.enabled ? 'success' : 'info'">
               {{ row.enabled ? '启用' : '停用' }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="乐天 Service Secret" min-width="250">
+          <template #default="{ row }">
+            <div class="secret-cell">
+              <span>{{ row.rakutenServiceSecret || '-' }}</span>
+              <el-button
+                :icon="CopyDocument"
+                link
+                type="primary"
+                title="复制 Service Secret"
+                @click="copySecret(row.rakutenServiceSecret, 'Service Secret')"
+              />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="乐天 License Key" min-width="250">
+          <template #default="{ row }">
+            <div class="secret-cell">
+              <span>{{ row.rakutenLicenseKey || '-' }}</span>
+              <el-button
+                :icon="CopyDocument"
+                link
+                type="primary"
+                title="复制 License Key"
+                @click="copySecret(row.rakutenLicenseKey, 'License Key')"
+              />
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="检测时间" min-width="170">
@@ -610,6 +676,21 @@ async function removeStore(row: StoreAccount) {
   color: var(--text-main);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.secret-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-main);
+}
+
+.secret-cell span {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
 .empty-folder-summary {
