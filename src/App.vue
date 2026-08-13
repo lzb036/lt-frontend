@@ -18,6 +18,7 @@ const {
   fetchSession,
   login,
   logout,
+  consumeImpersonationToken,
 } = useAuth()
 const {
   maintenance,
@@ -45,7 +46,17 @@ const booting = computed(() => (
 
 onMounted(async () => {
   try {
-    await fetchSession()
+    const impersonationToken = readImpersonationToken()
+    if (impersonationToken) {
+      await consumeImpersonationToken(impersonationToken)
+      window.history.replaceState(
+        null,
+        document.title,
+        `${window.location.pathname}${window.location.search}`,
+      )
+    } else {
+      await fetchSession()
+    }
     if (session.value) {
       await refreshMaintenance()
       guardCurrentRoute()
@@ -56,6 +67,13 @@ onMounted(async () => {
     syncMaintenancePolling()
   }
 })
+
+function readImpersonationToken() {
+  const prefix = '#impersonation='
+  return window.location.hash.startsWith(prefix)
+    ? decodeURIComponent(window.location.hash.slice(prefix.length))
+    : ''
+}
 
 onBeforeUnmount(() => {
   if (maintenanceRefreshTimer !== undefined) {

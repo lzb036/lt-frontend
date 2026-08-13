@@ -247,6 +247,42 @@ async function resetPassword(row: UserAccount) {
   }
 }
 
+async function loginAsUser(row: UserAccount) {
+  if (!row.enabled) {
+    ElMessage.warning('该用户已停用，不能登录')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认以「${row.displayName || row.username}（${row.username}）」身份打开新的浏览器标签页？当前超级管理员标签页不会退出。`,
+      '登录用户账户',
+      {
+        confirmButtonText: '确认登录',
+        cancelButtonText: '取消',
+        type: 'warning',
+        distinguishCancelAndClose: true,
+      },
+    )
+  } catch {
+    return
+  }
+
+  const tab = window.open('', '_blank')
+  if (!tab) {
+    ElMessage.error('浏览器阻止了新标签页，请允许本站打开新标签页后重试')
+    return
+  }
+  tab.opener = null
+  tab.document.title = '正在打开用户账户'
+  try {
+    const result = await api.createImpersonationToken(row.username)
+    tab.location.href = new URL(result.path, window.location.origin).href
+  } catch (error) {
+    tab.close()
+    ElMessage.error(toApiErrorMessage(error, '打开用户账户失败'))
+  }
+}
+
 async function removeUser(row: UserAccount) {
   if (row.role === 'superadmin') {
     ElMessage.warning('不能删除超级管理员')
@@ -564,8 +600,11 @@ async function copySecret(value: string, label: string) {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="152" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="190" fixed="right">
           <template #default="{ row }">
+            <el-button :disabled="!row.enabled" :icon="User" link type="primary" @click="loginAsUser(row)">
+              登录
+            </el-button>
             <el-button :disabled="row.role === 'superadmin'" :icon="Shop" link type="primary" @click="openStoreDialog(row)">
               店铺
             </el-button>

@@ -2,7 +2,7 @@ import { computed, readonly, shallowRef } from 'vue'
 import axios from 'axios'
 
 import type { AuthSession } from '../types/crawler'
-import { apiClient, toApiErrorMessage } from '../utils/api'
+import { apiClient, TAB_SESSION_TOKEN_KEY, toApiErrorMessage } from '../utils/api'
 
 const session = shallowRef<AuthSession | null>(null)
 const checkingSession = shallowRef(false)
@@ -42,6 +42,7 @@ export function useAuth() {
     authError.value = ''
     try {
       const response = await apiClient.post<AuthSession>('/auth/login', payload)
+      window.sessionStorage.removeItem(TAB_SESSION_TOKEN_KEY)
       session.value = normalizeAuthSession(response.data)
       return session.value
     } catch (error) {
@@ -54,8 +55,25 @@ export function useAuth() {
   }
 
   async function logout() {
-    await apiClient.post('/auth/logout')
+    if (window.sessionStorage.getItem(TAB_SESSION_TOKEN_KEY)) {
+      window.sessionStorage.removeItem(TAB_SESSION_TOKEN_KEY)
+    } else {
+      await apiClient.post('/auth/logout')
+    }
     session.value = null
+  }
+
+  async function consumeImpersonationToken(token: string) {
+    const response = await apiClient.post<{
+      session: AuthSession
+      sessionToken: string
+    }>('/auth/impersonation/consume', { token })
+    window.sessionStorage.setItem(
+      TAB_SESSION_TOKEN_KEY,
+      response.data.sessionToken,
+    )
+    session.value = normalizeAuthSession(response.data.session)
+    return session.value
   }
 
   async function updatePaginationPreference(listKey: string, pageSize: number) {
@@ -112,6 +130,7 @@ export function useAuth() {
     fetchSession,
     login,
     logout,
+    consumeImpersonationToken,
     updatePaginationPreference,
   }
 }

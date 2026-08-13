@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 export const MAINTENANCE_STATUS_EVENT = 'lt:maintenance-status'
+export const TAB_SESSION_TOKEN_KEY = 'lt_tab_session_token'
 
 export function resolveApiBaseUrl() {
   const configured = (import.meta.env?.VITE_API_BASE_URL || '').trim()
@@ -11,6 +12,17 @@ export const apiClient = axios.create({
   baseURL: resolveApiBaseUrl(),
   withCredentials: true,
   timeout: 60_000,
+})
+
+apiClient.interceptors.request.use((config) => {
+  if (typeof window === 'undefined') {
+    return config
+  }
+  const token = window.sessionStorage.getItem(TAB_SESSION_TOKEN_KEY)
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
 })
 
 apiClient.interceptors.response.use(

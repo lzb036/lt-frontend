@@ -348,6 +348,14 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function createImpersonationToken(username: string) {
+    const response = await apiClient.post<{ path: string; username: string }>(
+      '/auth/impersonation',
+      { username },
+    )
+    return response.data
+  }
+
   async function deleteUser(username: string, confirmationText: string) {
     const response = await apiClient.delete<{
       deleted: boolean
@@ -1244,6 +1252,7 @@ export function useCollectorApi() {
     createUser,
     updateUser,
     resetPassword,
+    createImpersonationToken,
     deleteUser,
     getSecretProfile,
     updateSecretProfile,
