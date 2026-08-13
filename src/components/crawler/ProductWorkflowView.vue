@@ -1510,6 +1510,25 @@ function areTasksFinished(tasks: Array<ListingTask | SyncTask>) {
   return tasks.length > 0 && tasks.every((task) => !['queued', 'running'].includes(task.status))
 }
 
+const TASK_CONTROL_STOP_MESSAGE = '系统维护期间由超级管理员停止'
+
+function isTaskControlStopped(task: ListingTask) {
+  return (
+    task.status === 'cancelled'
+    && [task.message, task.errorDetail].some((value) => value?.includes(TASK_CONTROL_STOP_MESSAGE))
+  )
+}
+
+function taskControlStoppedMessage(tasks: ListingTask[]) {
+  const stoppedCount = tasks.filter(isTaskControlStopped).length
+  if (stoppedCount < 1) {
+    return ''
+  }
+  return stoppedCount === 1
+    ? '上架任务已由全局任务管控暂停，恢复本次停止任务后将继续执行未完成商品。'
+    : `${stoppedCount} 个上架任务已由全局任务管控暂停，恢复本次停止任务后将继续执行未完成商品。`
+}
+
 function handleListingTaskResult(task: ListingTask, productIds: number[]) {
   if (task.status === 'success') {
     clearListingTaskBusy(productIds)
@@ -1556,7 +1575,12 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
     } else {
       void refreshAll({ loadStores: false })
     }
-    ElMessage.warning(task.errorDetail || task.message || '上架任务已终止，请到上架任务中查看详情')
+    ElMessage.warning(
+      taskControlStoppedMessage([task])
+      || task.errorDetail
+      || task.message
+      || '上架任务已终止，请到上架任务中查看详情',
+    )
     maybeRefreshAfterOptimisticAction()
     return
   }
@@ -1604,7 +1628,10 @@ function handleListingTasksResult(tasks: ListingTask[], productIds: number[], me
     maybeRefreshAfterOptimisticAction()
     return
   }
-  ElMessage.warning('部分上架任务未成功，请到上架任务中查看异常信息')
+  ElMessage.warning(
+    taskControlStoppedMessage(tasks)
+    || '部分上架任务未成功，请到上架任务中查看异常信息',
+  )
   maybeRefreshAfterOptimisticAction()
 }
 
