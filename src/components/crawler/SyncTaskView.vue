@@ -142,6 +142,10 @@ function handleSelectionChange(rows: SyncTask[]) {
   selectedTasks.value = rows
 }
 
+function selectedTaskIds() {
+  return [...new Set(selectedTasks.value.flatMap((task) => task.childTaskIds?.length ? task.childTaskIds : [task.id]))]
+}
+
 async function cancelTask(row: SyncTask) {
   try {
     await ElMessageBox.confirm(
@@ -191,7 +195,7 @@ async function deleteSelectedTasks() {
   }
   try {
     await ElMessageBox.confirm(
-      `确认删除选中的 ${selectedTasks.value.length} 条${props.actionLabel}任务？该操作只删除任务记录，不会删除业务数据。`,
+      `确认删除选中的 ${selectedTaskIds().length} 条${props.actionLabel}任务记录？总任务会连同其全部分任务一起删除，该操作不会删除业务数据。`,
       '批量删除',
       {
         confirmButtonText: '删除',
@@ -200,7 +204,7 @@ async function deleteSelectedTasks() {
       },
     )
     loading.value = true
-    const result = await api.deleteSyncTasks(selectedTasks.value.map((task) => task.id))
+    const result = await api.deleteSyncTasks(selectedTaskIds())
     selectedTasks.value = []
     await loadTasks()
     if (result.failedIds.length > 0) {
@@ -251,15 +255,19 @@ function displayStatusLabel(row: SyncTask) {
 }
 
 function taskCancelable(row: SyncTask) {
-  return (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
+  return !row.isGroup && (row.status === 'queued' || row.status === 'running') && !row.cancelRequested
 }
 
 function taskWaitingCancel(row: SyncTask) {
-  return (row.status === 'queued' || row.status === 'running') && Boolean(row.cancelRequested)
+  return !row.isGroup && (row.status === 'queued' || row.status === 'running') && Boolean(row.cancelRequested)
 }
 
 function taskRetryable(row: SyncTask) {
-  return ['failed', 'partial', 'cancelled'].includes(row.status)
+  return !row.isGroup && ['failed', 'partial', 'cancelled'].includes(row.status)
+}
+
+function taskRowClassName({ row }: { row: SyncTask }) {
+  return row.isGroup ? 'task-group-row' : ''
 }
 
 function taskTypeLabel(task: SyncTask) {
@@ -329,12 +337,21 @@ function handlePageSizeChange() {
         :empty-text="emptyText"
         height="max(650px, calc(100vh - 230px))"
         row-key="id"
+        :tree-props="{ children: 'children' }"
+        :indent="20"
+        :row-class-name="taskRowClassName"
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="52" />
         <el-table-column label="任务名称" min-width="230">
           <template #default="{ row }">
-            <CopyableTableText :value="row.taskName" />
+            <div class="task-name-cell">
+              <el-tag v-if="row.isGroup" size="small" type="primary" effect="plain">总任务</el-tag>
+              <span v-else-if="row.taskGroupIndex && row.taskGroupSize" class="task-part-label">
+                分任务 {{ row.taskGroupIndex }}/{{ row.taskGroupSize }}
+              </span>
+              <CopyableTableText :value="row.taskName" />
+            </div>
           </template>
         </el-table-column>
         <el-table-column v-if="taskGroup === 'sync'" label="任务类型" width="120">
@@ -439,5 +456,23 @@ function handlePageSizeChange() {
   border-radius: 8px;
   background: var(--panel-bg);
   box-shadow: var(--shadow-sm);
+}
+
+.task-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.task-part-label {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+:deep(.task-group-row > td.el-table__cell) {
+  background: var(--el-fill-color-light);
+  font-weight: 600;
 }
 </style>

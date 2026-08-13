@@ -578,6 +578,12 @@ export interface ListingTask {
   storeName?: string | null
   aliasName?: string | null
   taskName: string
+  taskGroupId?: string | null
+  taskGroupIndex?: number | null
+  taskGroupSize?: number | null
+  isGroup?: boolean
+  childTaskIds?: string[]
+  children?: ListingTask[]
   status: TaskStatus
   totalCount: number
   successCount: number
@@ -607,6 +613,12 @@ export interface SyncTask {
   storeId?: number | null
   storeName: string
   taskName: string
+  taskGroupId?: string | null
+  taskGroupIndex?: number | null
+  taskGroupSize?: number | null
+  isGroup?: boolean
+  childTaskIds?: string[]
+  children?: SyncTask[]
   taskType?: string
   status: TaskStatus
   totalCount: number
