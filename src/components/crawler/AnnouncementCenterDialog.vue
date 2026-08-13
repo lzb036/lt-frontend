@@ -18,10 +18,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'unread-change': [value: boolean]
 }>()
 
 const api = useMaintenance()
 const loading = shallowRef(false)
+const markingRead = shallowRef(false)
 const announcements = shallowRef<SystemAnnouncement[]>([])
 const activeKey = shallowRef('manual')
 const manualPdfUrl = '/docs/product-collection-system-manual.pdf?v=20260720-2220'
@@ -55,10 +57,23 @@ watch(
   },
 )
 
+watch(
+  () => props.modelValue,
+  (open, wasOpen) => {
+    if (!open && wasOpen) {
+      void markLoadedAnnouncementsRead()
+    }
+  },
+)
+
 async function loadAnnouncements() {
   loading.value = true
   try {
     announcements.value = await api.listAnnouncements()
+    emit(
+      'unread-change',
+      announcements.value.some((announcement) => !announcement.isRead),
+    )
     if (
       activeKey.value !== 'manual'
       && !announcements.value.some(
@@ -71,10 +86,39 @@ async function loadAnnouncements() {
     } else if (activeKey.value === 'manual' && announcements.value.length) {
       activeKey.value = `announcement-${announcements.value[0].id}`
     }
+    if (!props.modelValue) {
+      await markLoadedAnnouncementsRead()
+    }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载公告失败'))
   } finally {
     loading.value = false
+  }
+}
+
+async function markLoadedAnnouncementsRead() {
+  const unreadIds = announcements.value
+    .filter((announcement) => !announcement.isRead)
+    .map((announcement) => announcement.id)
+  if (!unreadIds.length || markingRead.value) {
+    return
+  }
+  markingRead.value = true
+  try {
+    const readIds = new Set(await api.markAnnouncementsRead(unreadIds))
+    announcements.value = announcements.value.map((announcement) => (
+      readIds.has(announcement.id)
+        ? { ...announcement, isRead: true }
+        : announcement
+    ))
+    emit(
+      'unread-change',
+      announcements.value.some((announcement) => !announcement.isRead),
+    )
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '公告已读状态保存失败'))
+  } finally {
+    markingRead.value = false
   }
 }
 
@@ -108,7 +152,10 @@ function formatDateTime(value?: string | null) {
           :key="item.key"
           type="button"
           class="announcement-list-item"
-          :class="{ 'is-active': item.key === activeKey }"
+          :class="{
+            'is-active': item.key === activeKey,
+            'is-unread': item.kind === 'announcement' && !item.announcement.isRead,
+          }"
           @click="selectItem(item)"
         >
           <el-icon><Reading /></el-icon>
@@ -118,6 +165,13 @@ function formatDateTime(value?: string | null) {
                 ? item.title
                 : item.announcement.title
             }}
+          </span>
+          <span
+            v-if="item.kind === 'announcement'"
+            class="announcement-read-state"
+            :class="{ 'is-unread': !item.announcement.isRead }"
+          >
+            {{ item.announcement.isRead ? '已读' : '未读' }}
           </span>
         </button>
       </aside>
@@ -199,7 +253,7 @@ function formatDateTime(value?: string | null) {
   width: 100%;
   min-height: 44px;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   padding: 10px;
@@ -211,6 +265,11 @@ function formatDateTime(value?: string | null) {
   cursor: pointer;
 }
 
+.announcement-list-item.is-unread {
+  color: var(--text-main);
+  font-weight: 800;
+}
+
 .announcement-list-item:hover,
 .announcement-list-item.is-active {
   color: var(--accent);
@@ -219,6 +278,23 @@ function formatDateTime(value?: string | null) {
 
 .announcement-list-item span {
   overflow-wrap: anywhere;
+}
+
+.announcement-read-state {
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.announcement-read-state.is-unread {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .announcement-detail {

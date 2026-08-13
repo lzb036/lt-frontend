@@ -157,6 +157,7 @@ function syncMaintenancePolling() {
     <component
       :is="Component"
       :session="session"
+      :maintenance-active="Boolean(maintenance?.active)"
       @logout="handleLogout"
     />
   </RouterView>

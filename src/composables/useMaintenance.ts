@@ -57,6 +57,21 @@ export function useMaintenance() {
     return response.data.announcements
   }
 
+  async function hasUnreadAnnouncements() {
+    const response = await apiClient.get<{ hasUnread: boolean }>(
+      '/maintenance/announcements/unread',
+    )
+    return response.data.hasUnread
+  }
+
+  async function markAnnouncementsRead(announcementIds: number[]) {
+    const response = await apiClient.post<{ readAnnouncementIds: number[] }>(
+      '/maintenance/announcements/read',
+      { announcementIds },
+    )
+    return response.data.readAnnouncementIds
+  }
+
   async function listManagedAnnouncements() {
     const response = await apiClient.get<{
       announcements: SystemAnnouncement[]
@@ -128,6 +143,8 @@ export function useMaintenance() {
     fetchMaintenanceSettings,
     updateMaintenanceSettings,
     listAnnouncements,
+    hasUnreadAnnouncements,
+    markAnnouncementsRead,
     listManagedAnnouncements,
     saveAnnouncement,
     deleteAnnouncement,

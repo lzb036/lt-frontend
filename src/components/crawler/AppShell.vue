@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, shallowRef } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
@@ -39,6 +39,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import type { AuthSession } from '../../types/crawler'
+import { useMaintenance } from '../../composables/useMaintenance'
 import { getDefaultRoutePath, hasAnyPermission, hasPermission, isSuperadmin as isSuperadminSession } from '../../utils/permissions'
 import AnnouncementCenterDialog from './AnnouncementCenterDialog.vue'
 
@@ -57,6 +58,7 @@ type MenuGroup = {
 
 const props = defineProps<{
   session: AuthSession | null
+  maintenanceActive?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -65,6 +67,7 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const router = useRouter()
+const announcementApi = useMaintenance()
 const systemVersion = 'v1.0.0'
 
 const isSuperadmin = computed(() => isSuperadminSession(props.session))
@@ -73,8 +76,9 @@ const activePath = computed(() => {
   const path = route.path || defaultRoutePath.value
   return path === '/' ? defaultRoutePath.value : path
 })
-const sidebarCollapsed = ref(false)
-const announcementDialogOpen = ref(false)
+const sidebarCollapsed = shallowRef(false)
+const announcementDialogOpen = shallowRef(false)
+const hasUnreadAnnouncements = shallowRef(false)
 const sessionDisplayName = computed(() => props.session?.displayName || props.session?.username || '')
 
 const menuGroups = computed(() => {
@@ -201,6 +205,19 @@ const menuGroups = computed(() => {
 
 const sidebarCollapseIcon = computed(() => (sidebarCollapsed.value ? Expand : Fold))
 
+onMounted(async () => {
+  if (props.maintenanceActive) {
+    return
+  }
+  try {
+    hasUnreadAnnouncements.value = await announcementApi.hasUnreadAnnouncements()
+    if (hasUnreadAnnouncements.value) {
+      announcementDialogOpen.value = true
+    }
+  } catch {
+  }
+})
+
 async function handleMenuSelect(path: string) {
   if (path !== activePath.value) {
     await router.push(path)
@@ -213,6 +230,10 @@ function toggleSidebarCollapsed() {
 
 function openAnnouncementCenter() {
   announcementDialogOpen.value = true
+}
+
+function updateUnreadStatus(value: boolean) {
+  hasUnreadAnnouncements.value = value
 }
 
 async function confirmLogout() {
@@ -300,14 +321,21 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 
       <footer class="shell-sidebar-footer">
         <button
+          v-if="!maintenanceActive"
           type="button"
           class="sidebar-action-button"
           :aria-label="sidebarCollapsed ? '公告' : undefined"
           @click="openAnnouncementCenter"
         >
-          <el-icon class="sidebar-action-icon">
-            <Reading />
-          </el-icon>
+          <el-badge
+            :is-dot="hasUnreadAnnouncements"
+            :hidden="!hasUnreadAnnouncements"
+            class="announcement-badge"
+          >
+            <el-icon class="sidebar-action-icon">
+              <Reading />
+            </el-icon>
+          </el-badge>
           <span class="sidebar-action-label">公告</span>
           <span class="sidebar-system-version">{{ systemVersion }}</span>
         </button>
@@ -349,8 +377,10 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
     </div>
 
     <AnnouncementCenterDialog
+      v-if="!maintenanceActive"
       v-model="announcementDialogOpen"
       :session="session"
+      @unread-change="updateUnreadStatus"
     />
   </div>
 </template>
@@ -683,6 +713,11 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 .sidebar-action-icon {
   flex: 0 0 auto;
   font-size: 18px;
+}
+
+.announcement-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
 }
 
 .sidebar-action-label {

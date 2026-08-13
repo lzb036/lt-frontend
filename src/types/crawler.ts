@@ -95,6 +95,7 @@ export interface SystemAnnouncement {
   updatedBy: string
   createdAt?: string | null
   updatedAt?: string | null
+  isRead?: boolean | null
 }
 
 export interface SystemAnnouncementPayload {
