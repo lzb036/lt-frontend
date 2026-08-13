@@ -321,7 +321,6 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 
       <footer class="shell-sidebar-footer">
         <button
-          v-if="!maintenanceActive"
           type="button"
           class="sidebar-action-button"
           :aria-label="sidebarCollapsed ? '公告' : undefined"
@@ -377,9 +376,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
     </div>
 
     <AnnouncementCenterDialog
-      v-if="!maintenanceActive"
       v-model="announcementDialogOpen"
-      :session="session"
       @unread-change="updateUnreadStatus"
     />
   </div>

@@ -90,6 +90,8 @@ export interface SystemAnnouncement {
   title: string
   content: string
   imageUrls: string[]
+  linkLabel: string
+  linkUrl: string
   published: boolean
   createdBy: string
   updatedBy: string
@@ -102,6 +104,8 @@ export interface SystemAnnouncementPayload {
   title: string
   content: string
   imageUrls: string[]
+  linkLabel: string
+  linkUrl: string
   published: boolean
 }
 

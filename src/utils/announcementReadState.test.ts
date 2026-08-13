@@ -22,7 +22,6 @@ for (const contract of [
   'onMounted(async () =>',
   'await announcementApi.hasUnreadAnnouncements()',
   'if (hasUnreadAnnouncements.value)',
-  'v-if="!maintenanceActive"',
   "@unread-change=\"updateUnreadStatus\"",
   "announcement.isRead ? '已读' : '未读'",
   'void markLoadedAnnouncementsRead()',
@@ -36,6 +35,25 @@ for (const contract of [
     && !maintenanceSource.includes(contract)
   ) {
     throw new Error(`missing announcement read-state contract: ${contract}`)
+  }
+}
+
+if (
+  !shellSource.includes('<span class="sidebar-action-label">公告</span>')
+  || shellSource.indexOf('<span class="sidebar-action-label">公告</span>')
+    > shellSource.indexOf('<span class="sidebar-action-label">退出登录</span>')
+) {
+  throw new Error('announcement entry must be displayed above logout')
+}
+
+for (const removedContract of [
+  'manualPdfUrl',
+  '<iframe',
+  "kind: 'manual'",
+  'v-if="!maintenanceActive"',
+]) {
+  if (dialogSource.includes(removedContract) || shellSource.includes(removedContract)) {
+    throw new Error(`announcement center must not include: ${removedContract}`)
   }
 }
 

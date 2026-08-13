@@ -29,6 +29,8 @@ const form = reactive<SystemAnnouncementPayload>({
   title: '',
   content: '',
   imageUrls: [],
+  linkLabel: '',
+  linkUrl: '',
   published: true,
 })
 
@@ -56,6 +58,8 @@ function resetForm() {
   form.title = ''
   form.content = ''
   form.imageUrls = []
+  form.linkLabel = ''
+  form.linkUrl = ''
   form.published = true
   uploadFiles.value = []
   uploadedDuringEdit.clear()
@@ -72,6 +76,8 @@ function openEditDialog(announcement: SystemAnnouncement) {
   form.title = announcement.title
   form.content = announcement.content
   form.imageUrls = [...announcement.imageUrls]
+  form.linkLabel = announcement.linkLabel
+  form.linkUrl = announcement.linkUrl
   form.published = announcement.published
   uploadFiles.value = announcement.imageUrls.map((url, index) => ({
     name: `公告图片 ${index + 1}`,
@@ -87,8 +93,12 @@ async function saveAnnouncement() {
     ElMessage.warning('请输入公告标题')
     return
   }
-  if (!form.content.trim() && form.imageUrls.length < 1) {
-    ElMessage.warning('公告内容和图片不能同时为空')
+  if (!form.content.trim() && form.imageUrls.length < 1 && !form.linkUrl.trim()) {
+    ElMessage.warning('公告内容、图片和链接不能同时为空')
+    return
+  }
+  if (form.linkLabel.trim() && !form.linkUrl.trim()) {
+    ElMessage.warning('填写链接文字后必须填写链接地址')
     return
   }
   saving.value = true
@@ -98,6 +108,8 @@ async function saveAnnouncement() {
       title: form.title.trim(),
       content: form.content.trim(),
       imageUrls: [...form.imageUrls],
+      linkLabel: form.linkLabel.trim(),
+      linkUrl: form.linkUrl.trim(),
       published: form.published,
     }, editingId.value ?? undefined)
     uploadedDuringEdit.clear()
@@ -297,6 +309,22 @@ function formatDateTime(value?: string | null) {
             <el-icon><DocumentAdd /></el-icon>
           </el-upload>
         </el-form-item>
+        <div class="announcement-link-fields">
+          <el-form-item label="链接文字">
+            <el-input
+              v-model="form.linkLabel"
+              maxlength="255"
+              placeholder="例如：查看使用手册"
+            />
+          </el-form-item>
+          <el-form-item label="链接地址">
+            <el-input
+              v-model="form.linkUrl"
+              maxlength="1000"
+              placeholder="支持站内路径或 HTTP/HTTPS 地址"
+            />
+          </el-form-item>
+        </div>
         <el-form-item>
           <div class="publish-row">
             <span>发布状态</span>
@@ -370,6 +398,12 @@ function formatDateTime(value?: string | null) {
   display: grid;
 }
 
+.announcement-link-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 12px;
+}
+
 .publish-row {
   width: 100%;
   display: flex;
@@ -396,6 +430,10 @@ function formatDateTime(value?: string | null) {
 
   .panel-actions {
     justify-content: flex-end;
+  }
+
+  .announcement-link-fields {
+    grid-template-columns: 1fr;
   }
 }
 </style>

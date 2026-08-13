@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, shallowRef, watch } from 'vue'
-import { Download, FullScreen, Reading } from '@element-plus/icons-vue'
+import { Link, Reading } from '@element-plus/icons-vue'
 
 import { useMaintenance } from '../../composables/useMaintenance'
-import type { AuthSession, SystemAnnouncement } from '../../types/crawler'
+import type { SystemAnnouncement } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { ElMessage } from 'element-plus'
 
-type AnnouncementItem =
-  | { kind: 'announcement'; key: string; announcement: SystemAnnouncement }
-  | { kind: 'manual'; key: 'manual'; title: string }
+type AnnouncementItem = {
+  key: string
+  announcement: SystemAnnouncement
+}
 
 const props = defineProps<{
   modelValue: boolean
-  session: AuthSession | null
 }>()
 
 const emit = defineEmits<{
@@ -25,23 +25,16 @@ const api = useMaintenance()
 const loading = shallowRef(false)
 const markingRead = shallowRef(false)
 const announcements = shallowRef<SystemAnnouncement[]>([])
-const activeKey = shallowRef('manual')
-const manualPdfUrl = '/docs/product-collection-system-manual.pdf?v=20260720-2220'
-const canDownload = computed(() => props.session?.role === 'superadmin')
-const manualPdfEmbedUrl = computed(() => (
-  `${manualPdfUrl}#view=FitH&toolbar=${canDownload.value ? '1' : '0'}&navpanes=0`
-))
+const activeKey = shallowRef('')
 const dialogOpen = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value),
 })
 const items = computed<AnnouncementItem[]>(() => [
   ...announcements.value.map((announcement) => ({
-    kind: 'announcement' as const,
     key: `announcement-${announcement.id}`,
     announcement,
   })),
-  { kind: 'manual' as const, key: 'manual' as const, title: '使用手册' },
 ])
 const activeItem = computed(() => (
   items.value.find((item) => item.key === activeKey.value)
@@ -75,15 +68,15 @@ async function loadAnnouncements() {
       announcements.value.some((announcement) => !announcement.isRead),
     )
     if (
-      activeKey.value !== 'manual'
+      activeKey.value
       && !announcements.value.some(
         (announcement) => `announcement-${announcement.id}` === activeKey.value,
       )
     ) {
       activeKey.value = announcements.value.length
         ? `announcement-${announcements.value[0].id}`
-        : 'manual'
-    } else if (activeKey.value === 'manual' && announcements.value.length) {
+        : ''
+    } else if (!activeKey.value && announcements.value.length) {
       activeKey.value = `announcement-${announcements.value[0].id}`
     }
     if (!props.modelValue) {
@@ -126,10 +119,6 @@ function selectItem(item: AnnouncementItem) {
   activeKey.value = item.key
 }
 
-function openPdfManual() {
-  window.open(manualPdfEmbedUrl.value, '_blank', 'noopener,noreferrer')
-}
-
 function formatDateTime(value?: string | null) {
   return value || '-'
 }
@@ -154,20 +143,15 @@ function formatDateTime(value?: string | null) {
           class="announcement-list-item"
           :class="{
             'is-active': item.key === activeKey,
-            'is-unread': item.kind === 'announcement' && !item.announcement.isRead,
+            'is-unread': !item.announcement.isRead,
           }"
           @click="selectItem(item)"
         >
           <el-icon><Reading /></el-icon>
           <span>
-            {{
-              item.kind === 'manual'
-                ? item.title
-                : item.announcement.title
-            }}
+            {{ item.announcement.title }}
           </span>
           <span
-            v-if="item.kind === 'announcement'"
             class="announcement-read-state"
             :class="{ 'is-unread': !item.announcement.isRead }"
           >
@@ -177,13 +161,28 @@ function formatDateTime(value?: string | null) {
       </aside>
 
       <main class="announcement-detail">
-        <template v-if="activeItem?.kind === 'announcement'">
+        <template v-if="activeItem">
           <header class="announcement-detail-head">
             <h2>{{ activeItem.announcement.title }}</h2>
             <span>{{ formatDateTime(activeItem.announcement.updatedAt) }}</span>
           </header>
           <div class="announcement-content">
             {{ activeItem.announcement.content }}
+          </div>
+          <div
+            v-if="activeItem.announcement.linkUrl"
+            class="announcement-link"
+          >
+            <el-button
+              type="primary"
+              :icon="Link"
+              tag="a"
+              :href="activeItem.announcement.linkUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ activeItem.announcement.linkLabel || '查看详情' }}
+            </el-button>
           </div>
           <div
             v-if="activeItem.announcement.imageUrls.length"
@@ -201,31 +200,7 @@ function formatDateTime(value?: string | null) {
           </div>
         </template>
 
-        <template v-else>
-          <header class="announcement-detail-head manual-head">
-            <h2>使用手册</h2>
-            <div class="manual-actions">
-              <el-button :icon="FullScreen" @click="openPdfManual">
-                新窗口查看
-              </el-button>
-              <el-button
-                v-if="canDownload"
-                type="primary"
-                :icon="Download"
-                tag="a"
-                :href="manualPdfUrl"
-                download="商品采集系统完整界面功能手册.pdf"
-              >
-                下载PDF
-              </el-button>
-            </div>
-          </header>
-          <iframe
-            class="manual-frame"
-            :src="manualPdfEmbedUrl"
-            title="商品采集系统完整界面功能手册"
-          />
-        </template>
+        <el-empty v-else description="暂无公告" />
       </main>
     </div>
   </el-dialog>
@@ -349,21 +324,8 @@ function formatDateTime(value?: string | null) {
   background: var(--page-bg);
 }
 
-.manual-head {
-  align-items: center;
-}
-
-.manual-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.manual-frame {
-  width: 100%;
-  height: calc(min(760px, 78vh) - 92px);
-  min-height: 520px;
-  border: 0;
-  background: var(--page-bg);
+.announcement-link {
+  padding-bottom: 22px;
 }
 
 @media (max-width: 760px) {
@@ -395,8 +357,5 @@ function formatDateTime(value?: string | null) {
     flex-direction: column;
   }
 
-  .manual-actions {
-    flex-wrap: wrap;
-  }
 }
 </style>
