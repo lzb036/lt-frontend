@@ -345,6 +345,17 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function deleteUser(username: string, confirmationText: string) {
+    const response = await apiClient.delete<{
+      deleted: boolean
+      username: string
+      deletedProductCount: number
+    }>(`/users/${encodeURIComponent(username)}`, {
+      data: { confirmationText },
+    })
+    return response.data
+  }
+
   async function deleteTaskPendingProducts(taskId: string) {
     const response = await apiClient.delete<{
       taskId: string
@@ -1219,6 +1230,7 @@ export function useCollectorApi() {
     createUser,
     updateUser,
     resetPassword,
+    deleteUser,
     getSecretProfile,
     updateSecretProfile,
     verifySecretProfile,

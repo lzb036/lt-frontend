@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, Connection, DataAnalysis, Delete, EditPen, FolderDelete, Lock, Plus, Refresh, Shop, User } from '@element-plus/icons-vue'
+import { CircleCheck, Connection, CopyDocument, Delete, EditPen, Lock, Plus, Refresh, Shop, User } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useServerPagination } from '../../composables/useServerPagination'
-import type { AuthSession, AvailabilityStatus, StoreAccount, StoreEmptyCabinetFoldersResult, StorePayload, UserAccount } from '../../types/crawler'
+import type { AuthSession, AvailabilityStatus, StoreAccount, StorePayload, UserAccount } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import { confirmStoreDeletion } from '../../utils/confirmStoreDeletion'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
@@ -69,12 +69,6 @@ const storeLoading = shallowRef(false)
 const storeSaving = shallowRef(false)
 const storeVerifying = shallowRef(false)
 const storeVerifyingId = shallowRef<number | null>(null)
-const storeCountFetching = shallowRef(false)
-const storeCountFetchingId = shallowRef<number | null>(null)
-const storeSyncingId = shallowRef<number | null>(null)
-const storeEmptyFolderScanningId = shallowRef<number | null>(null)
-const storeEmptyFolderDialogOpen = shallowRef(false)
-const storeEmptyFolderResult = shallowRef<StoreEmptyCabinetFoldersResult | null>(null)
 const managedStoreUser = shallowRef<UserAccount | null>(null)
 const userStores = shallowRef<StoreAccount[]>([])
 const storeEditingId = shallowRef<number | null>(null)
@@ -233,6 +227,38 @@ async function resetPassword(row: UserAccount) {
   }
 }
 
+async function removeUser(row: UserAccount) {
+  if (row.role === 'superadmin') {
+    ElMessage.warning('不能删除超级管理员')
+    return
+  }
+  const confirmationText = `删除用户 ${row.username}`
+  try {
+    const result = await ElMessageBox.prompt(
+      `此操作将永久删除用户「${row.displayName || row.username}」及其店铺、商品、采集记录、任务记录、订单数据、配置和商品图片，删除后无法恢复。\n\n请输入：${confirmationText}`,
+      '彻底删除用户',
+      {
+        type: 'error',
+        confirmButtonText: '永久删除',
+        cancelButtonText: '取消',
+        inputPlaceholder: confirmationText,
+        inputValidator: (value) => (
+          value === confirmationText || `请输入完整确认文字：${confirmationText}`
+        ),
+        dangerouslyUseHTMLString: false,
+        distinguishCancelAndClose: true,
+      },
+    )
+    const deleted = await api.deleteUser(row.username, result.value)
+    await loadUsers()
+    ElMessage.success(`用户已删除，同时清理 ${deleted.deletedProductCount} 个商品及其图片`)
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(toApiErrorMessage(error, '删除用户失败'))
+    }
+  }
+}
+
 function handlePageSizeChange() {
   resetPage()
   void loadUsers()
@@ -321,39 +347,6 @@ async function saveStore() {
   }
 }
 
-async function syncStore(row: StoreAccount) {
-  if (!managedStoreUser.value) {
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-      `确认为店铺「${row.aliasName || row.storeName || row.storeCode}」创建商品同步任务？`,
-      '商品同步确认',
-      {
-        type: 'warning',
-        confirmButtonText: '确认同步',
-        cancelButtonText: '取消',
-      },
-    )
-  } catch {
-    return
-  }
-  storeSyncingId.value = row.id
-  try {
-    const result = await api.syncStore(row.id, managedStoreUser.value.username)
-    await loadUserStores()
-    if (result.store.lastError) {
-      ElMessage.warning(result.store.lastError)
-    } else {
-      ElMessage.success('同步任务已创建并加入队列。')
-    }
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '商品同步失败'))
-  } finally {
-    storeSyncingId.value = null
-  }
-}
-
 async function checkStoreKeys() {
   if (!managedStoreUser.value) {
     return
@@ -371,26 +364,6 @@ async function checkStoreKeys() {
     ElMessage.error(toApiErrorMessage(error, '密钥检测失败'))
   } finally {
     storeVerifying.value = false
-  }
-}
-
-async function refreshStoreCounts() {
-  if (!managedStoreUser.value) {
-    return
-  }
-  storeCountFetching.value = true
-  try {
-    const result = await api.refreshStoreCounts(managedStoreUser.value.username)
-    await loadUserStores()
-    if (result.summary.error > 0) {
-      ElMessage.warning(`数量获取完成，异常店铺 ${result.summary.error} 个`)
-    } else {
-      ElMessage.success('数量获取完成')
-    }
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '数量获取失败'))
-  } finally {
-    storeCountFetching.value = false
   }
 }
 
@@ -415,51 +388,6 @@ async function checkSingleStoreKeys(row: StoreAccount) {
     ElMessage.error(toApiErrorMessage(error, '店铺密钥检测失败'))
   } finally {
     storeVerifyingId.value = null
-  }
-}
-
-async function refreshSingleStoreCounts(row: StoreAccount) {
-  if (!managedStoreUser.value) {
-    return
-  }
-  storeCountFetchingId.value = row.id
-  try {
-    const result = await api.refreshStoreCount(row.id, managedStoreUser.value.username)
-    userStores.value = userStores.value.map((store) => (
-      store.id === result.id
-        ? { ...result, recentYearOrderCount: store.recentYearOrderCount }
-        : store
-    ))
-    if (result.lastError) {
-      ElMessage.warning(`店铺「${result.aliasName || result.storeName || result.storeCode}」数量获取异常`)
-    } else {
-      ElMessage.success(`店铺「${result.aliasName || result.storeName || result.storeCode}」数量获取完成`)
-    }
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '店铺数量获取失败'))
-  } finally {
-    storeCountFetchingId.value = null
-  }
-}
-
-async function scanEmptyCabinetFolders(row: StoreAccount) {
-  if (!managedStoreUser.value) {
-    return
-  }
-  storeEmptyFolderScanningId.value = row.id
-  try {
-    storeEmptyFolderResult.value = await api.scanStoreEmptyCabinetFolders(
-      row.id,
-      managedStoreUser.value.username,
-    )
-    storeEmptyFolderDialogOpen.value = true
-    if ((storeEmptyFolderResult.value?.total ?? 0) < 1) {
-      ElMessage.success(`店铺「${row.aliasName || row.storeName || row.storeCode}」没有空白文件夹`)
-    }
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '检测 R-Cabinet 空白文件夹失败'))
-  } finally {
-    storeEmptyFolderScanningId.value = null
   }
 }
 
@@ -505,12 +433,36 @@ function availabilityTagType(status: AvailabilityStatus) {
   return tagTypes[status] ?? 'info'
 }
 
-function countText(value?: number | null) {
-  return value == null ? '-' : value.toLocaleString()
-}
-
 function timeText(value?: string | null) {
   return value || '-'
+}
+
+async function copySecret(value: string, label: string) {
+  if (!value) {
+    ElMessage.warning(`${label}为空`)
+    return
+  }
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(value)
+    } else {
+      const input = document.createElement('textarea')
+      input.value = value
+      input.setAttribute('readonly', 'true')
+      input.style.position = 'fixed'
+      input.style.left = '-9999px'
+      document.body.appendChild(input)
+      input.select()
+      const copied = document.execCommand('copy')
+      document.body.removeChild(input)
+      if (!copied) {
+        throw new Error('copy failed')
+      }
+    }
+    ElMessage.success(`${label}已复制`)
+  } catch {
+    ElMessage.error(`${label}复制失败`)
+  }
 }
 </script>
 
@@ -565,7 +517,7 @@ function timeText(value?: string | null) {
           </template>
         </el-table-column>
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="152" fixed="right">
           <template #default="{ row }">
             <el-button :disabled="row.role === 'superadmin'" :icon="Shop" link type="primary" @click="openStoreDialog(row)">
               店铺
@@ -575,6 +527,9 @@ function timeText(value?: string | null) {
             </el-button>
             <el-button :icon="CircleCheck" link type="primary" @click="resetPassword(row)">
               重置密码
+            </el-button>
+            <el-button :disabled="row.role === 'superadmin'" :icon="Delete" link type="danger" @click="removeUser(row)">
+              删除
             </el-button>
           </template>
         </el-table-column>
@@ -647,14 +602,8 @@ function timeText(value?: string | null) {
       <div class="store-dialog-stack">
         <div class="store-dialog-head">
           <div class="head-actions">
-            <el-button :icon="Refresh" :loading="storeLoading" @click="loadUserStores">
-              刷新
-            </el-button>
             <el-button :icon="Connection" :loading="storeVerifying" @click="checkStoreKeys">
               密钥检测
-            </el-button>
-            <el-button :icon="DataAnalysis" :loading="storeCountFetching" @click="refreshStoreCounts">
-              数量获取
             </el-button>
             <el-button type="primary" :icon="Plus" @click="openStoreCreateDialog">
               新增店铺
@@ -678,28 +627,9 @@ function timeText(value?: string | null) {
               <CopyableTableText :value="row.aliasName" />
             </template>
           </el-table-column>
-          <el-table-column label="已用文件夹数" width="130" align="left">
+          <el-table-column label="添加时间" min-width="170">
             <template #default="{ row }">
-              {{ countText(row.cabinetUsedFolderCount) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="剩余文件夹数" width="130" align="left">
-            <template #default="{ row }">
-              {{ countText(row.cabinetRemainingFolderCount) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="近一年订单数" width="130" align="left">
-            <template #default="{ row }">
-              {{ countText(row.recentYearOrderCount) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="乐天商品数" min-width="170">
-            <template #default="{ row }">
-              <div class="store-counts">
-                <span>总数：{{ countText(row.rakutenProductTotalCount) }}</span>
-                <span>已上架：{{ countText(row.rakutenProductListedCount) }}</span>
-                <span>未上架：{{ countText(row.rakutenProductUnlistedCount) }}</span>
-              </div>
+              {{ timeText(row.createdAt) }}
             </template>
           </el-table-column>
           <el-table-column label="可用性状态" width="120">
@@ -718,18 +648,42 @@ function timeText(value?: string | null) {
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="检测时间" min-width="170">
+          <el-table-column label="乐天 Service Secret" min-width="250">
             <template #default="{ row }">
-              {{ timeText(row.lastCheckedAt) }}
+              <div class="secret-cell">
+                <span>{{ row.rakutenServiceSecret || '-' }}</span>
+                <el-button
+                  :icon="CopyDocument"
+                  link
+                  type="primary"
+                  title="复制 Service Secret"
+                  @click="copySecret(row.rakutenServiceSecret, 'Service Secret')"
+                />
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="商品同步时间" min-width="170">
+          <el-table-column label="乐天 License Key" min-width="250">
             <template #default="{ row }">
-              {{ timeText(row.lastProductSyncedAt || row.lastSyncedAt) }}
+              <div class="secret-cell">
+                <span>{{ row.rakutenLicenseKey || '-' }}</span>
+                <el-button
+                  :icon="CopyDocument"
+                  link
+                  type="primary"
+                  title="复制 License Key"
+                  @click="copySecret(row.rakutenLicenseKey, 'License Key')"
+                />
+              </div>
             </template>
           </el-table-column>
           <el-table-column class-name="table-action-column" label="操作" width="132" fixed="right">
             <template #default="{ row }">
+              <el-button :icon="EditPen" link type="primary" @click="openStoreEditDialog(row)">
+                编辑
+              </el-button>
+              <el-button :icon="Delete" link type="danger" @click="removeStore(row)">
+                删除
+              </el-button>
               <el-button
                 :icon="Connection"
                 :loading="storeVerifyingId === row.id"
@@ -738,39 +692,6 @@ function timeText(value?: string | null) {
                 @click="checkSingleStoreKeys(row)"
               >
                 密钥检测
-              </el-button>
-              <el-button
-                :icon="DataAnalysis"
-                :loading="storeCountFetchingId === row.id"
-                link
-                type="primary"
-                @click="refreshSingleStoreCounts(row)"
-              >
-                数量获取
-              </el-button>
-              <el-button
-                :icon="Connection"
-                :loading="storeSyncingId === row.id"
-                link
-                type="primary"
-                @click="syncStore(row)"
-              >
-                商品同步
-              </el-button>
-              <el-button
-                :icon="FolderDelete"
-                :loading="storeEmptyFolderScanningId === row.id"
-                link
-                type="warning"
-                @click="scanEmptyCabinetFolders(row)"
-              >
-                清理空白文件夹
-              </el-button>
-              <el-button :icon="EditPen" link type="primary" @click="openStoreEditDialog(row)">
-                编辑
-              </el-button>
-              <el-button :icon="Delete" link type="danger" @click="removeStore(row)">
-                删除
               </el-button>
             </template>
           </el-table-column>
@@ -788,54 +709,6 @@ function timeText(value?: string | null) {
           />
         </div>
       </div>
-    </el-dialog>
-
-    <el-dialog
-      v-model="storeEmptyFolderDialogOpen"
-      title="R-Cabinet 空白文件夹检测"
-      width="760px"
-      append-to-body
-    >
-      <el-alert
-        type="warning"
-        :closable="false"
-        show-icon
-        title="仅列出本平台上传商品时创建且当前为空的文件夹。乐天 API 不支持删除文件夹，请进入 RMS 后台手动清理。"
-      />
-      <div v-if="storeEmptyFolderResult" class="empty-folder-summary">
-        <span>
-          店铺：
-          <strong>
-            {{ storeEmptyFolderResult.store.aliasName || storeEmptyFolderResult.store.storeName || storeEmptyFolderResult.store.storeCode }}
-          </strong>
-        </span>
-        <span>
-          空白文件夹总数：
-          <el-tag :type="storeEmptyFolderResult.total > 0 ? 'warning' : 'success'">
-            {{ storeEmptyFolderResult.total }}
-          </el-tag>
-        </span>
-        <span class="empty-folder-prefix">
-          平台文件夹前缀：{{ storeEmptyFolderResult.folderPrefix }}
-        </span>
-      </div>
-      <el-table
-        :data="storeEmptyFolderResult?.folders || []"
-        max-height="420"
-        empty-text="当前店铺没有空白文件夹"
-      >
-        <el-table-column prop="folderName" label="文件夹名称" min-width="220" />
-        <el-table-column prop="folderPath" label="文件夹路径" min-width="260" />
-        <el-table-column prop="folderId" label="文件夹 ID" width="130" />
-      </el-table>
-      <template #footer>
-        <el-button @click="storeEmptyFolderDialogOpen = false">
-          取消
-        </el-button>
-        <el-button type="primary" @click="storeEmptyFolderDialogOpen = false">
-          确认
-        </el-button>
-      </template>
     </el-dialog>
 
     <el-dialog
@@ -912,27 +785,19 @@ function timeText(value?: string | null) {
   gap: 14px;
 }
 
-.store-counts {
-  display: grid;
-  gap: 2px;
-  color: var(--text-main);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.empty-folder-summary {
+.secret-cell {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin: 16px 0 12px;
+  gap: 6px;
   color: var(--text-main);
 }
 
-.empty-folder-prefix {
-  color: var(--text-muted);
-  font-size: 12px;
+.secret-cell span {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
 .dialog-form {
@@ -964,9 +829,5 @@ function timeText(value?: string | null) {
     grid-template-columns: 1fr;
   }
 
-  .empty-folder-summary {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 </style>
