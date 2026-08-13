@@ -27,6 +27,8 @@ for (const contract of [
   'void markLoadedAnnouncementsRead()',
   '/maintenance/announcements/unread',
   '/maintenance/announcements/read',
+  'await router.push(normalizedUrl)',
+  'dialogOpen.value = false',
 ]) {
   if (
     !appSource.includes(contract)
@@ -35,6 +37,24 @@ for (const contract of [
     && !maintenanceSource.includes(contract)
   ) {
     throw new Error(`missing announcement read-state contract: ${contract}`)
+  }
+}
+
+for (const removedShellContract of [
+  'systemVersion',
+  'sidebar-system-version',
+]) {
+  if (shellSource.includes(removedShellContract)) {
+    throw new Error(`announcement entry must not include: ${removedShellContract}`)
+  }
+}
+
+for (const removedLinkContract of [
+  'target="_blank"',
+  ':href="activeItem.announcement.linkUrl"',
+]) {
+  if (dialogSource.includes(removedLinkContract)) {
+    throw new Error(`internal announcement links must not include: ${removedLinkContract}`)
   }
 }
 

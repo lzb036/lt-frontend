@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, watch } from 'vue'
 import { Link, Reading } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 
 import { useMaintenance } from '../../composables/useMaintenance'
 import type { SystemAnnouncement } from '../../types/crawler'
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const api = useMaintenance()
+const router = useRouter()
 const loading = shallowRef(false)
 const markingRead = shallowRef(false)
 const announcements = shallowRef<SystemAnnouncement[]>([])
@@ -119,6 +121,19 @@ function selectItem(item: AnnouncementItem) {
   activeKey.value = item.key
 }
 
+async function openAnnouncementLink(linkUrl: string) {
+  const normalizedUrl = String(linkUrl || '').trim()
+  if (!normalizedUrl) {
+    return
+  }
+  if (normalizedUrl.startsWith('/') && !normalizedUrl.startsWith('//')) {
+    dialogOpen.value = false
+    await router.push(normalizedUrl)
+    return
+  }
+  window.open(normalizedUrl, '_blank', 'noopener,noreferrer')
+}
+
 function formatDateTime(value?: string | null) {
   return value || '-'
 }
@@ -176,10 +191,7 @@ function formatDateTime(value?: string | null) {
             <el-button
               type="primary"
               :icon="Link"
-              tag="a"
-              :href="activeItem.announcement.linkUrl"
-              target="_blank"
-              rel="noopener noreferrer"
+              @click="openAnnouncementLink(activeItem.announcement.linkUrl)"
             >
               {{ activeItem.announcement.linkLabel || '查看详情' }}
             </el-button>
