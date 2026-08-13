@@ -51,6 +51,7 @@ type ListedStoreFilterValue = number | typeof LISTED_STORE_NONE_FILTER | ''
 type ZeroValueFilter = '' | 'sales' | 'optimization' | 'sales_and_optimization'
 type ReviewFilter = '' | 'has' | 'none'
 type ProductSort = 'default' | 'price_asc' | 'price_desc' | 'review_count_desc'
+type ApprovalQuantityMode = 'all' | 'count'
 interface GenreFilterLazyNode {
   root: boolean
   data?: RakutenGenreOption
@@ -169,6 +170,12 @@ const replacementVisible = shallowRef(false)
 const replacementProduct = shallowRef<ProductItem | null>(null)
 const genreBatchVisible = shallowRef(false)
 const genreBatchProducts = shallowRef<ProductItem[]>([])
+const approvalQuantityDialogVisible = shallowRef(false)
+const approvalQuantitySubmitting = shallowRef(false)
+const approvalQuantityForm = reactive({
+  mode: 'count' as ApprovalQuantityMode,
+  count: 1,
+})
 const pendingApprovalProductIds = shallowRef<number[]>([])
 const detailGenreProduct = computed<ProductItem | null>(() => {
   if (!selectedProductDetail.value) {
@@ -1042,6 +1049,68 @@ async function approveProduct(product: ProductItem) {
     confirmButtonText: '审核通过',
     type: 'success',
   })
+}
+
+function openApprovalQuantityDialog() {
+  approvalQuantityForm.mode = 'count'
+  approvalQuantityForm.count = 1
+  approvalQuantityDialogVisible.value = true
+}
+
+async function submitApprovalQuantity() {
+  if (!props.collectionSource) {
+    ElMessage.error('当前页面缺少采集来源，无法执行审核')
+    return
+  }
+  if (
+    approvalQuantityForm.mode === 'count'
+    && (!Number.isInteger(approvalQuantityForm.count) || approvalQuantityForm.count < 1)
+  ) {
+    ElMessage.warning('请输入大于 0 的整数')
+    return
+  }
+
+  const scopeLabel = props.collectionSource === 'manual' ? '手动采集' : '定时采集'
+  const quantityLabel = approvalQuantityForm.mode === 'all'
+    ? '全部可审核商品'
+    : `${approvalQuantityForm.count} 个可审核商品`
+  try {
+    await ElMessageBox.confirm(
+      `确认审核通过当前用户${scopeLabel}待审核列表中的${quantityLabel}？缺少有效品类或属于替换采集的商品会自动跳过。`,
+      '指定通过数目',
+      {
+        confirmButtonText: '确认通过',
+        cancelButtonText: '取消',
+        type: 'success',
+      },
+    )
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(toApiErrorMessage(error, '确认操作失败'))
+    }
+    return
+  }
+
+  approvalQuantitySubmitting.value = true
+  try {
+    const result = await api.approveProductsByCount({
+      collectionSource: props.collectionSource,
+      mode: approvalQuantityForm.mode,
+      count: approvalQuantityForm.mode === 'count' ? approvalQuantityForm.count : undefined,
+    })
+    approvalQuantityDialogVisible.value = false
+    clearSelection()
+    await refreshAll({ loadStores: false })
+    if (result.skippedCount > 0) {
+      ElMessage.warning(`已审核通过 ${result.approvedCount} 个商品，跳过 ${result.skippedCount} 个不可审核商品`)
+    } else {
+      ElMessage.success(`已审核通过 ${result.approvedCount} 个商品`)
+    }
+  } catch (error) {
+    ElMessage.error(toApiErrorMessage(error, '指定数量审核通过失败'))
+  } finally {
+    approvalQuantitySubmitting.value = false
+  }
 }
 
 async function recheckSelected() {
@@ -2627,6 +2696,16 @@ function sanitizedDescriptionHtml(value: string) {
           已选择 <strong>{{ selectedIds.length }}</strong> 个商品
         </span>
         <div v-if="status === 'pending'" class="batch-action-group">
+          <el-button
+            v-if="collectionSource"
+            type="success"
+            plain
+            :icon="Finished"
+            :disabled="loading || operating"
+            @click="openApprovalQuantityDialog"
+          >
+            指定通过数目
+          </el-button>
           <el-button type="success" :icon="Finished" :disabled="loading || selectedIds.length < 1" :loading="operating" @click="approveSelected">
             批量审核通过
           </el-button>
@@ -3359,6 +3438,43 @@ function sanitizedDescriptionHtml(value: string) {
       :products="genreBatchProducts"
       @saved="handleGenreBatchSaved"
     />
+
+    <el-dialog
+      v-model="approvalQuantityDialogVisible"
+      title="指定通过数目"
+      width="440px"
+      append-to-body
+      destroy-on-close
+      :close-on-click-modal="!approvalQuantitySubmitting"
+      :close-on-press-escape="!approvalQuantitySubmitting"
+    >
+      <el-form label-position="top">
+        <el-form-item label="通过范围">
+          <el-radio-group v-model="approvalQuantityForm.mode">
+            <el-radio-button value="all">全部</el-radio-button>
+            <el-radio-button value="count">指定数量</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="approvalQuantityForm.mode === 'count'" label="商品数量">
+          <el-input-number
+            v-model="approvalQuantityForm.count"
+            class="full-control"
+            :min="1"
+            :step="1"
+            step-strictly
+            controls-position="right"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="approvalQuantitySubmitting" @click="approvalQuantityDialogVisible = false">
+          取消
+        </el-button>
+        <el-button type="primary" :loading="approvalQuantitySubmitting" @click="submitApprovalQuantity">
+          确认
+        </el-button>
+      </template>
+    </el-dialog>
 
     <StoreProductReplacementDialog
       v-model="replacementVisible"

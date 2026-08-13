@@ -440,6 +440,20 @@ export function useCollectorApi() {
     return response.data.products
   }
 
+  async function approveProductsByCount(payload: {
+    collectionSource: ProductCollectionSource
+    mode: 'all' | 'count'
+    count?: number
+  }) {
+    const response = await apiClient.post<{
+      approvedCount: number
+      skippedCount: number
+      approvedProductIds: number[]
+      skipped: Array<{ productId: number; reason: string }>
+    }>('/crawler/products/approve-by-count', payload)
+    return response.data
+  }
+
   async function searchRakutenGenres(keyword: string, limit = 30) {
     const response = await apiClient.get<{ genres: RakutenGenreOption[] }>('/crawler/products/genres', {
       params: { keyword, limit },
@@ -1247,6 +1261,7 @@ export function useCollectorApi() {
     listProducts,
     listProductsPage,
     updateProductStatus,
+    approveProductsByCount,
     searchRakutenGenres,
     listRakutenGenreChildren,
     updatePendingProductGenre,
