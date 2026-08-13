@@ -724,11 +724,30 @@ async function copySecret(value: string, label: string) {
       destroy-on-close
     >
       <div class="dialog-form">
-        <el-input v-model="storeForm.aliasName" placeholder="店铺别称" />
-        <el-switch v-model="storeForm.enabled" active-text="启用" inactive-text="停用" />
-        <el-input v-model="storeForm.rakutenServiceSecret" type="password" show-password placeholder="乐天 Secret，留空则不修改" />
-        <el-input v-model="storeForm.rakutenLicenseKey" type="password" show-password placeholder="乐天 Key，留空则不修改" />
-        <el-input v-model="storeForm.description" class="full-row" type="textarea" :rows="3" placeholder="店铺介绍" />
+        <template v-if="storeEditingId">
+          <el-input v-model="storeForm.aliasName" placeholder="店铺别称" />
+          <el-switch v-model="storeForm.enabled" active-text="启用" inactive-text="停用" />
+        </template>
+        <el-input
+          v-model="storeForm.rakutenServiceSecret"
+          type="password"
+          show-password
+          :placeholder="storeEditingId ? '乐天 Service Secret，留空则不修改' : '乐天 Service Secret'"
+        />
+        <el-input
+          v-model="storeForm.rakutenLicenseKey"
+          type="password"
+          show-password
+          :placeholder="storeEditingId ? '乐天 License Key，留空则不修改' : '乐天 License Key'"
+        />
+        <el-input
+          v-if="storeEditingId"
+          v-model="storeForm.description"
+          class="full-row"
+          type="textarea"
+          :rows="3"
+          placeholder="店铺介绍"
+        />
       </div>
       <template #footer>
         <el-button @click="storeFormDialogOpen = false">取消</el-button>
