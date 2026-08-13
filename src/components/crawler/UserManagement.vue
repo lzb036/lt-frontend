@@ -57,6 +57,10 @@ const PASSWORD_CHARACTER_GROUPS = [
 const PASSWORD_CHARACTERS = PASSWORD_CHARACTER_GROUPS.join('')
 
 const canManageUsers = computed(() => props.session?.role === 'superadmin')
+const userFilters = reactive({
+  username: '',
+  displayName: '',
+})
 
 const editForm = reactive({
   displayName: '',
@@ -95,7 +99,12 @@ onMounted(() => {
 async function loadUsers() {
   loading.value = true
   try {
-    const result = await api.listUsersPage({ page: currentPage.value, pageSize: pageSize.value })
+    const result = await api.listUsersPage({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      username: userFilters.username.trim(),
+      displayName: userFilters.displayName.trim(),
+    })
     users.value = result.items
     setPageResult(result)
   } catch (error) {
@@ -103,6 +112,17 @@ async function loadUsers() {
   } finally {
     loading.value = false
   }
+}
+
+function submitUserFilters() {
+  resetPage()
+  void loadUsers()
+}
+
+function resetUserFilters() {
+  userFilters.username = ''
+  userFilters.displayName = ''
+  submitUserFilters()
 }
 
 async function createUser() {
@@ -507,6 +527,28 @@ async function copySecret(value: string, label: string) {
     />
 
     <section v-if="canManageUsers" class="work-panel">
+      <div class="user-filters">
+        <el-input
+          v-model="userFilters.username"
+          class="user-filter-control"
+          clearable
+          placeholder="按用户名筛选"
+          @keyup.enter="submitUserFilters"
+        />
+        <el-input
+          v-model="userFilters.displayName"
+          class="user-filter-control"
+          clearable
+          placeholder="按显示名称筛选"
+          @keyup.enter="submitUserFilters"
+        />
+        <el-button type="primary" :loading="loading" @click="submitUserFilters">
+          查询
+        </el-button>
+        <el-button :disabled="loading" @click="resetUserFilters">
+          重置
+        </el-button>
+      </div>
       <el-table v-loading="loading" :data="users" empty-text="暂无用户" height="max(520px, calc(100vh - 230px))">
         <el-table-column prop="username" label="用户名" min-width="150" />
         <el-table-column prop="displayName" label="显示名称" min-width="160" />
@@ -804,6 +846,18 @@ async function copySecret(value: string, label: string) {
   padding: 18px;
 }
 
+.user-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.user-filter-control {
+  width: 220px;
+}
+
 .store-dialog-stack {
   display: grid;
   gap: 14px;
@@ -851,6 +905,10 @@ async function copySecret(value: string, label: string) {
 
   .dialog-form {
     grid-template-columns: 1fr;
+  }
+
+  .user-filter-control {
+    width: 100%;
   }
 
 }

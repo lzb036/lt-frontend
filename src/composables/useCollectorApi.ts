@@ -88,7 +88,10 @@ export function useCollectorApi() {
     return response.data.users
   }
 
-  async function listUsersPage(params: PageParams) {
+  async function listUsersPage(params: PageParams & {
+    username?: string
+    displayName?: string
+  }) {
     const response = await apiClient.get<ApiPageResponse<'users', UserAccount>>('/users', { params })
     return toPageResult(response.data, 'users')
   }
