@@ -130,20 +130,36 @@ export interface TaskControlResult {
     scheduled: number
     started: number
   }
+  deploySafe?: boolean
+  quiescence?: {
+    quiet: boolean
+    databaseActive: number
+    queue: {
+      queued: number
+      deferred: number
+      scheduled: number
+      started: number
+    }
+    scheduleRunnerActive?: boolean
+    errors: string[]
+  }
   errors?: string[]
 }
 
 export interface TaskControlStatus {
   paused: boolean
-  phase: 'running' | 'stopping' | 'paused' | 'resuming'
+  phase: 'running' | 'stopping' | 'paused' | 'stop_failed' | 'resuming' | 'resume_failed'
   operationId: string
   stoppedAt?: string | null
   stoppedBy: string
   resumedAt?: string | null
   resumedBy: string
+  selectedUsernames: string[]
+  selectionLocked: boolean
   activeCounts: TaskControlCounts
   activeTotal: number
   resumableCount: number
+  deploySafe: boolean
   lastResult: TaskControlResult
 }
 

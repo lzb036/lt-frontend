@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, shallowRef } from 'vue'
+import { computed, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   CircleCheck,
@@ -13,10 +13,11 @@ import {
 } from '@element-plus/icons-vue'
 
 import { useMaintenance } from '../../composables/useMaintenance'
+import { useCollectorApi } from '../../composables/useCollectorApi'
 import type {
   AuthSession,
   MaintenanceSettingsPayload,
-  TaskControlCounts,
+  UserAccount,
 } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 import AnnouncementManagementPanel from './AnnouncementManagementPanel.vue'
@@ -26,10 +27,15 @@ defineProps<{
 }>()
 
 const api = useMaintenance()
+const collectorApi = useCollectorApi()
 const loading = shallowRef(false)
 const saving = shallowRef(false)
 const taskControlLoading = shallowRef(false)
 const taskControlAction = shallowRef<'stop' | 'resume' | ''>('')
+const usersLoading = shallowRef(false)
+const users = shallowRef<UserAccount[]>([])
+const selectedUsernames = shallowRef<string[]>([])
+const taskControlFeedback = shallowRef('')
 const loaded = shallowRef(false)
 const form = reactive<MaintenanceSettingsPayload>({
   enabled: false,
@@ -51,6 +57,7 @@ const status = computed(() => {
 
 const taskControlStatus = computed(() => api.taskControl.value)
 const taskControlPaused = computed(() => Boolean(taskControlStatus.value?.paused))
+const taskControlDeploySafe = computed(() => Boolean(taskControlStatus.value?.deploySafe))
 const taskControlTransitioning = computed(() => (
   taskControlStatus.value?.phase === 'stopping'
   || taskControlStatus.value?.phase === 'resuming'
@@ -62,35 +69,87 @@ const taskControlStateLabel = computed(() => {
   if (taskControlStatus.value?.phase === 'resuming') {
     return '正在恢复任务'
   }
+  if (taskControlStatus.value?.phase === 'stop_failed') {
+    return '停止不完整'
+  }
+  if (taskControlStatus.value?.phase === 'resume_failed') {
+    return '恢复失败'
+  }
+  if (taskControlDeploySafe.value) {
+    return '已静默，可以部署'
+  }
   return taskControlPaused.value ? '任务调度已暂停' : '任务调度正常'
 })
-const taskCountItems = computed(() => {
-  const counts = taskControlStatus.value?.activeCounts
-  return [
-    { key: 'crawl' as const, label: '采集任务', value: counts?.crawl || 0 },
-    { key: 'listing' as const, label: '上架任务', value: counts?.listing || 0 },
-    { key: 'sync' as const, label: '同步及图片任务', value: counts?.sync || 0 },
-    { key: 'salesOrderSync' as const, label: '订单同步', value: counts?.salesOrderSync || 0 },
-    { key: 'imageCleanupRecords' as const, label: '待清理图片', value: counts?.imageCleanupRecords || 0 },
-  ]
+const taskControlTagType = computed(() => {
+  if (
+    taskControlStatus.value?.phase === 'stop_failed'
+    || taskControlStatus.value?.phase === 'resume_failed'
+  ) {
+    return 'danger' as const
+  }
+  if (taskControlDeploySafe.value) {
+    return 'success' as const
+  }
+  return taskControlPaused.value ? 'warning' as const : 'success' as const
 })
-const lastOperationLabel = computed(() => {
-  const control = taskControlStatus.value
-  if (!control?.operationId) {
-    return '暂无全局任务管控记录'
+const taskControlErrors = computed(() => taskControlStatus.value?.lastResult.errors || [])
+const taskControlQueue = computed(() => taskControlStatus.value?.lastResult.quiescence?.queue)
+const taskControlSelectionLocked = computed(() => Boolean(taskControlStatus.value?.selectionLocked))
+const selectableUsers = computed(() => users.value)
+const allUsersSelected = computed(() => (
+  selectableUsers.value.length > 0
+  && selectableUsers.value.every((user) => selectedUsernames.value.includes(user.username))
+))
+const taskControlAlertType = computed(() => {
+  if (taskControlStatus.value?.phase === 'stop_failed' || taskControlStatus.value?.phase === 'resume_failed') {
+    return 'error' as const
   }
-  if (control.paused) {
-    return `${control.stoppedBy || '超级管理员'} 于 ${formatDateTime(control.stoppedAt)} 停止全部任务`
+  if (taskControlDeploySafe.value || taskControlStatus.value?.lastResult.action === 'resume') {
+    return 'success' as const
   }
-  if (control.resumedAt) {
-    return `${control.resumedBy || '超级管理员'} 于 ${formatDateTime(control.resumedAt)} 恢复全部任务`
+  return taskControlPaused.value ? 'warning' as const : 'info' as const
+})
+const taskControlAlertTitle = computed(() => {
+  if (taskControlFeedback.value) {
+    return taskControlFeedback.value
   }
-  return '任务调度正常'
+  if (taskControlStatus.value?.phase === 'stopping') {
+    return '正在停止所选用户的任务并确认队列静默，请勿开始部署。'
+  }
+  if (taskControlStatus.value?.phase === 'resuming') {
+    return '正在恢复本次停止快照中的任务和计划。'
+  }
+  if (taskControlStatus.value?.phase === 'stop_failed') {
+    return taskControlErrors.value[0] || '任务停止不完整，当前禁止部署。'
+  }
+  if (taskControlStatus.value?.phase === 'resume_failed') {
+    return taskControlErrors.value[0] || '本次恢复失败，用户选择仍保持锁定，请重试恢复。'
+  }
+  if (taskControlDeploySafe.value) {
+    return `所选 ${taskControlStatus.value?.selectedUsernames.length || 0} 个用户已确认静默，可以开始部署。`
+  }
+  if (taskControlStatus.value?.lastResult.action === 'resume') {
+    const errors = taskControlErrors.value.length
+    return errors
+      ? `恢复已完成，但有 ${errors} 项因状态变化未恢复。`
+      : '本次停止的用户任务和计划已恢复，现可重新选择用户。'
+  }
+  return '选择用户后执行停止。停止成功前不可部署，恢复完成后才可开始下一次操作。'
 })
 
 onMounted(() => {
-  void Promise.all([loadSettings(), loadTaskControl()])
+  void Promise.all([loadSettings(), loadTaskControl(), loadUsers()])
 })
+
+watch(
+  () => taskControlStatus.value?.selectedUsernames,
+  (usernames) => {
+    if (taskControlSelectionLocked.value) {
+      selectedUsernames.value = [...(usernames || [])]
+    }
+  },
+  { deep: true },
+)
 
 async function loadSettings() {
   loading.value = true
@@ -170,31 +229,61 @@ async function loadTaskControl() {
   }
 }
 
+async function loadUsers() {
+  usersLoading.value = true
+  try {
+    users.value = await collectorApi.listUsers()
+  } catch (error) {
+    taskControlFeedback.value = toApiErrorMessage(error, '加载用户列表失败')
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+function toggleSelectAll(value: boolean) {
+  if (taskControlSelectionLocked.value) {
+    return
+  }
+  selectedUsernames.value = value
+    ? selectableUsers.value.map((user) => user.username)
+    : []
+}
+
 async function stopAllTasks() {
+  if (!selectedUsernames.value.length) {
+    taskControlFeedback.value = '请至少选择一个用户。'
+    return
+  }
   try {
     const result = await ElMessageBox.prompt(
-      '该操作会停止所有用户正在执行和等待执行的任务，暂停后台调度，但不会关闭 worker，也不会删除任务记录。请输入“停止全部任务”确认。',
-      '停止全部任务',
+      `该操作会停止所选 ${selectedUsernames.value.length} 个用户正在执行和等待执行的任务，并锁定本次选择，直到恢复完成。请输入“停止所选任务”确认。`,
+      '停止所选用户任务',
       {
         confirmButtonText: '确认停止',
         cancelButtonText: '取消',
         type: 'warning',
-        inputPlaceholder: '停止全部任务',
-        inputValidator: (value) => value === '停止全部任务' || '请输入“停止全部任务”',
+        inputPlaceholder: '停止所选任务',
+        inputValidator: (value) => value === '停止所选任务' || '请输入“停止所选任务”',
       },
     )
-    if (result.value !== '停止全部任务') {
+    if (result.value !== '停止所选任务') {
       return
     }
   } catch {
     return
   }
   taskControlAction.value = 'stop'
+  taskControlFeedback.value = '正在停止所选用户的任务并确认静默状态。'
   try {
-    const control = await api.stopAllTasks()
-    ElMessage.success(`已停止本次维护范围内的任务，可恢复 ${control.resumableCount} 项`)
+    const control = await api.stopAllTasks(selectedUsernames.value)
+    if (!control.deploySafe) {
+      taskControlFeedback.value = control.lastResult.errors?.[0]
+        || '任务停止不完整，仍未达到部署静默状态，请重新执行停止检查。'
+    } else {
+      taskControlFeedback.value = `所选用户已进入部署静默状态，本次记录了 ${control.resumableCount} 个可恢复项目。`
+    }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '停止全部任务失败'))
+    taskControlFeedback.value = toApiErrorMessage(error, '停止所选用户任务失败')
   } finally {
     taskControlAction.value = ''
     await loadTaskControl()
@@ -205,7 +294,7 @@ async function resumeAllTasks() {
   try {
     await ElMessageBox.confirm(
       `确认恢复本次维护停止的 ${taskControlStatus.value?.resumableCount || 0} 项任务？系统只会恢复本次停止快照中的任务和计划，不会恢复历史取消或失败任务。`,
-      '全部恢复',
+      '恢复本次停止任务',
       {
         confirmButtonText: '确认恢复',
         cancelButtonText: '取消',
@@ -216,20 +305,20 @@ async function resumeAllTasks() {
     return
   }
   taskControlAction.value = 'resume'
+  taskControlFeedback.value = '正在恢复本次停止快照中的任务和计划。'
   try {
     const control = await api.resumeAllTasks()
     const errors = control.lastResult.errors || []
     if (errors.length > 0) {
-      await ElMessageBox.alert(
-        `已恢复大部分任务，另有 ${errors.length} 项因状态变化或业务条件不满足未恢复。`,
-        '恢复结果',
-        { type: 'warning', confirmButtonText: '知道了' },
-      )
+      taskControlFeedback.value = `恢复已完成，另有 ${errors.length} 项因状态变化或业务条件不满足未恢复。`
     } else {
-      ElMessage.success('本次维护停止的任务已全部恢复')
+      taskControlFeedback.value = '本次停止的用户任务和计划已全部恢复，可以重新选择用户。'
+    }
+    if (!control.selectionLocked) {
+      selectedUsernames.value = []
     }
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '恢复全部任务失败'))
+    taskControlFeedback.value = toApiErrorMessage(error, '恢复本次停止任务失败')
   } finally {
     taskControlAction.value = ''
     await loadTaskControl()
@@ -240,28 +329,6 @@ function toPickerValue(value?: string | null) {
   return value ? value.slice(0, 16) : null
 }
 
-function formatDateTime(value?: string | null) {
-  if (!value) {
-    return '未记录'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
-}
-
-function countValue(key: keyof TaskControlCounts) {
-  return taskControlStatus.value?.activeCounts[key] || 0
-}
 </script>
 
 <template>
@@ -271,21 +338,21 @@ function countValue(key: keyof TaskControlCounts) {
         <p class="eyebrow">System Operations</p>
         <h1>系统维护管理</h1>
       </div>
-      <div class="head-actions">
-        <el-tag :type="status.type" effect="light" size="large">
-          <el-icon><component :is="status.icon" /></el-icon>
-          {{ status.label }}
-        </el-tag>
-        <el-button :icon="RefreshRight" :loading="loading" @click="loadSettings">刷新</el-button>
-      </div>
     </header>
 
     <div v-loading="loading && !loaded" class="maintenance-layout">
       <section class="settings-panel">
-        <div class="panel-heading">
+        <div class="panel-heading settings-heading">
           <div class="panel-heading-icon"><el-icon><Setting /></el-icon></div>
           <div>
             <h2>维护设置</h2>
+          </div>
+          <div class="settings-heading-actions">
+            <el-tag :type="status.type" effect="light" size="large">
+              <el-icon><component :is="status.icon" /></el-icon>
+              {{ status.label }}
+            </el-tag>
+            <el-button :icon="RefreshRight" :loading="loading" @click="loadSettings">刷新</el-button>
           </div>
         </div>
 
@@ -382,7 +449,7 @@ function countValue(key: keyof TaskControlCounts) {
           </div>
         </div>
         <div class="task-control-actions">
-          <el-tag :type="taskControlPaused ? 'warning' : 'success'" effect="light" size="large">
+          <el-tag :type="taskControlTagType" effect="light" size="large">
             {{ taskControlStateLabel }}
           </el-tag>
           <el-button :icon="RefreshRight" :loading="taskControlLoading" @click="loadTaskControl">
@@ -391,50 +458,62 @@ function countValue(key: keyof TaskControlCounts) {
         </div>
       </div>
 
-      <div class="task-count-grid">
-        <div v-for="item in taskCountItems" :key="item.key" class="task-count-item">
-          <span>{{ item.label }}</span>
-          <strong>{{ countValue(item.key) }}</strong>
+      <div class="user-selection">
+        <div class="selection-head">
+          <div>
+            <strong>选择用户</strong>
+            <span v-if="taskControlSelectionLocked">本次选择已锁定，恢复完成后才能重新选择。</span>
+            <span v-else>停止和恢复只作用于所选用户。</span>
+          </div>
+          <el-checkbox
+            :model-value="allUsersSelected"
+            :disabled="taskControlSelectionLocked || usersLoading || !selectableUsers.length"
+            @change="toggleSelectAll(Boolean($event))"
+          >
+            全选
+          </el-checkbox>
         </div>
-      </div>
-
-      <div class="task-control-summary">
-        <div>
-          <span>当前活跃任务</span>
-          <strong>{{ taskControlStatus?.activeTotal || 0 }}</strong>
-        </div>
-        <div>
-          <span>本次可恢复项目</span>
-          <strong>{{ taskControlStatus?.resumableCount || 0 }}</strong>
-        </div>
-        <p>{{ lastOperationLabel }}</p>
+        <el-select
+          v-model="selectedUsernames"
+          multiple
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          :max-collapse-tags="4"
+          :loading="usersLoading"
+          :disabled="taskControlSelectionLocked"
+          placeholder="请选择需要停止任务的用户"
+        >
+          <el-option
+            v-for="user in selectableUsers"
+            :key="user.username"
+            :label="`${user.displayName || user.username}（${user.username}）${user.enabled ? '' : ' - 已停用'}`"
+            :value="user.username"
+          />
+        </el-select>
       </div>
 
       <el-alert
-        v-if="taskControlPaused"
-        type="warning"
+        :type="taskControlAlertType"
         :closable="false"
         show-icon
-        title="任务调度已暂停。所有用户不能创建新任务，自动上架、自动删除、定时采集和订单同步也不会触发。"
-      />
-      <el-alert
-        v-else
-        type="info"
-        :closable="false"
-        show-icon
-        title="全部恢复只处理最近一次“停止全部任务”生成的快照，不会恢复此前由用户取消、失败或禁用的历史任务。"
-      />
+        :title="taskControlAlertTitle"
+      >
+        <template v-if="taskControlPaused && taskControlQueue" #default>
+          队列剩余：等待 {{ taskControlQueue.queued }}、延迟 {{ taskControlQueue.deferred }}、计划 {{ taskControlQueue.scheduled }}、执行中 {{ taskControlQueue.started }}。
+        </template>
+      </el-alert>
 
       <div class="danger-actions">
         <el-button
-          v-if="!taskControlPaused"
+          v-if="!taskControlDeploySafe"
           type="danger"
           :icon="VideoPause"
           :loading="taskControlAction === 'stop'"
-          :disabled="taskControlTransitioning"
+          :disabled="taskControlTransitioning || (!taskControlPaused && !selectedUsernames.length)"
           @click="stopAllTasks"
         >
-          停止全部任务
+          {{ taskControlPaused ? '重新停止并检查' : '停止所选用户任务' }}
         </el-button>
         <el-button
           v-else
@@ -444,7 +523,7 @@ function countValue(key: keyof TaskControlCounts) {
           :disabled="taskControlTransitioning"
           @click="resumeAllTasks"
         >
-          全部恢复
+          恢复本次停止任务
         </el-button>
       </div>
     </section>
@@ -480,13 +559,7 @@ function countValue(key: keyof TaskControlCounts) {
   font-weight: 800;
 }
 
-.head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.head-actions :deep(.el-tag) {
+.settings-heading-actions :deep(.el-tag) {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -533,69 +606,48 @@ function countValue(key: keyof TaskControlCounts) {
   background: #f8edd9;
 }
 
+.settings-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
 .task-control-actions {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.task-count-grid {
+.user-selection {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
-.task-count-item {
-  min-width: 0;
-  display: grid;
-  gap: 7px;
-  padding: 14px;
-  border: 1px solid var(--panel-border);
-  border-radius: 7px;
-  background: var(--page-bg);
+.user-selection :deep(.el-select) {
+  width: 100%;
 }
 
-.task-count-item span {
-  color: var(--text-faint);
-  font-size: 12px;
-}
-
-.task-count-item strong {
-  color: var(--text-main);
-  font-size: 22px;
-  line-height: 1;
-}
-
-.task-control-summary {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+.selection-head {
+  display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 14px 16px;
-  border-left: 3px solid #5b8399;
-  background: var(--page-bg);
+  justify-content: space-between;
+  gap: 18px;
 }
 
-.task-control-summary div {
+.selection-head > div {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
-.task-control-summary span {
-  color: var(--text-faint);
-  font-size: 11px;
-}
-
-.task-control-summary strong {
+.selection-head strong {
   color: var(--text-main);
-  font-size: 17px;
+  font-size: 14px;
 }
 
-.task-control-summary p {
-  margin: 0;
+.selection-head span {
   color: var(--text-soft);
   font-size: 12px;
-  text-align: right;
 }
 
 .danger-actions {
@@ -672,22 +724,12 @@ function countValue(key: keyof TaskControlCounts) {
   padding-top: 6px;
 }
 
-@media (max-width: 1080px) {
-  .task-count-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 640px) {
   .page-head,
   .switch-row,
   .task-control-head {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .head-actions {
-    justify-content: space-between;
   }
 
   .time-grid {
@@ -706,17 +748,19 @@ function countValue(key: keyof TaskControlCounts) {
     justify-content: space-between;
   }
 
-  .task-count-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .settings-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 
-  .task-control-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .settings-heading-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
   }
 
-  .task-control-summary p {
-    grid-column: 1 / -1;
-    text-align: left;
+  .selection-head {
+    align-items: flex-start;
   }
 }
 </style>

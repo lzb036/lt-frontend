@@ -122,14 +122,22 @@ export function useMaintenance() {
     return taskControl.value
   }
 
-  async function stopAllTasks() {
-    const response = await apiClient.post<{ taskControl: TaskControlStatus }>('/maintenance/task-control/stop-all')
+  async function stopAllTasks(usernames: string[]) {
+    const response = await apiClient.post<{ taskControl: TaskControlStatus }>(
+      '/maintenance/task-control/stop-all',
+      { usernames },
+      { timeout: 150_000 },
+    )
     taskControl.value = response.data.taskControl
     return taskControl.value
   }
 
   async function resumeAllTasks() {
-    const response = await apiClient.post<{ taskControl: TaskControlStatus }>('/maintenance/task-control/resume-all')
+    const response = await apiClient.post<{ taskControl: TaskControlStatus }>(
+      '/maintenance/task-control/resume-all',
+      undefined,
+      { timeout: 150_000 },
+    )
     taskControl.value = response.data.taskControl
     return taskControl.value
   }
