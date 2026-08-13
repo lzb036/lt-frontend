@@ -126,7 +126,12 @@ async function openAnnouncementLink(linkUrl: string) {
   if (!normalizedUrl) {
     return
   }
-  if (normalizedUrl.startsWith('/') && !normalizedUrl.startsWith('//')) {
+  const isInternalDocument = normalizedUrl.startsWith('/docs/')
+  if (
+    normalizedUrl.startsWith('/')
+    && !normalizedUrl.startsWith('//')
+    && !isInternalDocument
+  ) {
     dialogOpen.value = false
     await router.push(normalizedUrl)
     return

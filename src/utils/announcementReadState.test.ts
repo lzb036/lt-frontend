@@ -29,6 +29,8 @@ for (const contract of [
   '/maintenance/announcements/read',
   'await router.push(normalizedUrl)',
   'dialogOpen.value = false',
+  "normalizedUrl.startsWith('/docs/')",
+  "window.open(normalizedUrl, '_blank', 'noopener,noreferrer')",
 ]) {
   if (
     !appSource.includes(contract)
