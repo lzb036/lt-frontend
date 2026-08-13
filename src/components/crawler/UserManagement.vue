@@ -376,7 +376,12 @@ async function checkSingleStoreKeys(row: StoreAccount) {
     const result = await api.verifyStore(row.id, managedStoreUser.value.username)
     userStores.value = userStores.value.map((store) => (
       store.id === result.id
-        ? { ...result, recentYearOrderCount: store.recentYearOrderCount }
+        ? {
+            ...result,
+            rakutenServiceSecret: result.rakutenServiceSecret || store.rakutenServiceSecret,
+            rakutenLicenseKey: result.rakutenLicenseKey || store.rakutenLicenseKey,
+            recentYearOrderCount: store.recentYearOrderCount,
+          }
         : store
     ))
     if (result.lastError) {
