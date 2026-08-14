@@ -385,7 +385,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   display: grid;
   height: 100vh;
   min-height: 0;
-  grid-template-columns: 196px minmax(0, 1fr);
+  grid-template-columns: 228px minmax(0, 1fr);
   background-color: var(--page-bg);
   background-image: var(--surface-page-image);
   background-size: var(--surface-page-size);
