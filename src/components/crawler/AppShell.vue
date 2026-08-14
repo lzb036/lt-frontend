@@ -271,7 +271,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
             <img src="/favicon.svg" alt="" />
           </span>
           <span class="brand-copy">
-            <strong>商品采集系统</strong>
+            <strong>乐天商品采集系统</strong>
             <em>Product Collector</em>
           </span>
         </div>
