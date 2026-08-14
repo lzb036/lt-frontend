@@ -24,7 +24,8 @@ for (const contract of [
   'if (hasUnreadAnnouncements.value)',
   "@unread-change=\"updateUnreadStatus\"",
   "announcement.isRead ? '已读' : '未读'",
-  'void markLoadedAnnouncementsRead()',
+  'void markAnnouncementRead(item.announcement.id)',
+  'await markAnnouncementRead(activeItem.value.announcement.id)',
   '/maintenance/announcements/unread',
   '/maintenance/announcements/read',
   'await router.push(normalizedUrl)',
@@ -62,10 +63,9 @@ for (const removedLinkContract of [
 
 if (
   !shellSource.includes('<span class="sidebar-action-label">公告</span>')
-  || shellSource.indexOf('<span class="sidebar-action-label">公告</span>')
-    > shellSource.indexOf('<span class="sidebar-action-label">退出登录</span>')
+  || !shellSource.includes('sidebar-announcement-button')
 ) {
-  throw new Error('announcement entry must be displayed above logout')
+  throw new Error('announcement entry must use the dedicated footer action style')
 }
 
 for (const removedContract of [

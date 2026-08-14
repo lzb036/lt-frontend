@@ -25,7 +25,6 @@ const emit = defineEmits<{
 const api = useMaintenance()
 const router = useRouter()
 const loading = shallowRef(false)
-const markingRead = shallowRef(false)
 const announcements = shallowRef<SystemAnnouncement[]>([])
 const activeKey = shallowRef('')
 const dialogOpen = computed({
@@ -52,15 +51,6 @@ watch(
   },
 )
 
-watch(
-  () => props.modelValue,
-  (open, wasOpen) => {
-    if (!open && wasOpen) {
-      void markLoadedAnnouncementsRead()
-    }
-  },
-)
-
 async function loadAnnouncements() {
   loading.value = true
   try {
@@ -81,8 +71,8 @@ async function loadAnnouncements() {
     } else if (!activeKey.value && announcements.value.length) {
       activeKey.value = `announcement-${announcements.value[0].id}`
     }
-    if (!props.modelValue) {
-      await markLoadedAnnouncementsRead()
+    if (activeItem.value) {
+      await markAnnouncementRead(activeItem.value.announcement.id)
     }
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '加载公告失败'))
@@ -91,16 +81,13 @@ async function loadAnnouncements() {
   }
 }
 
-async function markLoadedAnnouncementsRead() {
-  const unreadIds = announcements.value
-    .filter((announcement) => !announcement.isRead)
-    .map((announcement) => announcement.id)
-  if (!unreadIds.length || markingRead.value) {
+async function markAnnouncementRead(announcementId: number) {
+  const announcement = announcements.value.find((item) => item.id === announcementId)
+  if (!announcement || announcement.isRead) {
     return
   }
-  markingRead.value = true
   try {
-    const readIds = new Set(await api.markAnnouncementsRead(unreadIds))
+    const readIds = new Set(await api.markAnnouncementsRead([announcementId]))
     announcements.value = announcements.value.map((announcement) => (
       readIds.has(announcement.id)
         ? { ...announcement, isRead: true }
@@ -112,13 +99,12 @@ async function markLoadedAnnouncementsRead() {
     )
   } catch (error) {
     ElMessage.error(toApiErrorMessage(error, '公告已读状态保存失败'))
-  } finally {
-    markingRead.value = false
   }
 }
 
 function selectItem(item: AnnouncementItem) {
   activeKey.value = item.key
+  void markAnnouncementRead(item.announcement.id)
 }
 
 async function openAnnouncementLink(linkUrl: string) {

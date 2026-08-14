@@ -50,9 +50,7 @@ async function confirmLogout() {
             </el-icon>
           </span>
           <div class="profile-identity-copy">
-            <span class="profile-kicker">当前账号</span>
             <h2>{{ props.session?.displayName || '未设置名称' }}</h2>
-            <span class="profile-username">@{{ props.session?.username || '未记录' }}</span>
           </div>
         </div>
         <el-button
@@ -125,27 +123,11 @@ async function confirmLogout() {
   min-width: 0;
 }
 
-.profile-kicker {
-  display: block;
-  color: var(--text-faint);
-  font-size: 12px;
-  line-height: 1.3;
-}
-
 .profile-identity h2 {
-  margin: 3px 0 2px;
+  margin: 0;
   color: var(--text-strong);
   font-size: 20px;
   line-height: 1.3;
-}
-
-.profile-username {
-  display: block;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .profile-divider {

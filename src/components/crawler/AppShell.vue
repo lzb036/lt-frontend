@@ -308,7 +308,8 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
       <footer class="shell-sidebar-footer">
         <button
           type="button"
-          class="sidebar-action-button"
+          class="sidebar-action-button sidebar-announcement-button"
+          :class="{ 'is-unread': hasUnreadAnnouncements }"
           :aria-label="sidebarCollapsed ? '公告' : undefined"
           @click="openAnnouncementCenter"
         >
@@ -636,12 +637,45 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   background: var(--sidebar-hover-bg);
   color: var(--sidebar-text);
   outline: none;
+  transform: translateX(2px);
 }
 
 .sidebar-action-button.is-active {
   border-color: var(--accent-border);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.shell-sidebar-footer .sidebar-action-button {
+  box-shadow: 0 0 0 1px transparent;
+}
+
+.shell-sidebar-footer .sidebar-action-button:hover,
+.shell-sidebar-footer .sidebar-action-button:focus-visible {
+  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--accent-soft), var(--sidebar-bg) 28%);
+  color: var(--accent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent), transparent 88%);
+}
+
+.sidebar-announcement-button.is-unread {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent), transparent 82%);
+}
+
+.sidebar-announcement-button.is-unread:hover,
+.sidebar-announcement-button.is-unread:focus-visible {
+  background: color-mix(in srgb, var(--accent-soft), white 18%);
+}
+
+.sidebar-announcement-button .announcement-badge :deep(.el-badge__content.is-fixed.is-dot) {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--sidebar-bg);
+  background: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger), transparent 78%);
 }
 
 .sidebar-action-icon {
