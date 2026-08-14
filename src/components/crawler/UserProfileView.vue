@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import { SwitchButton } from '@element-plus/icons-vue'
+import { SwitchButton, UserFilled } from '@element-plus/icons-vue'
 
 import type { AuthSession } from '../../types/crawler'
 
@@ -13,32 +12,7 @@ const emit = defineEmits<{
   logout: []
 }>()
 
-const roleLabel = computed(() => {
-  if (props.session?.role === 'superadmin') {
-    return '超级管理员'
-  }
-  return '普通操作员'
-})
-
-const statusLabel = computed(() => (props.session?.enabled ? '正常' : '已停用'))
-const permissionLabels = computed(() => {
-  const permissions = props.session?.permissions
-  if (!permissions) {
-    return []
-  }
-
-  const labels: string[] = []
-  if (permissions.manageOwnSecrets) labels.push('个人配置')
-  if (permissions.manageCrawler) labels.push('商品采集')
-  if (permissions.manageProducts) labels.push('商品管理')
-  if (permissions.manageStores) labels.push('店铺管理')
-  if (permissions.manageSettings) labels.push('系统设置')
-  if (permissions.manageAi) labels.push('AI 功能')
-  if (permissions.manageUsers) labels.push('用户管理')
-  return labels
-})
-
-const formatDate = (value?: string | null) => {
+function formatDate(value?: string | null) {
   if (!value) {
     return '未记录'
   }
@@ -65,65 +39,177 @@ async function confirmLogout() {
         <p class="eyebrow">Account Center</p>
         <h1>个人中心</h1>
       </div>
-      <el-button
-        type="danger"
-        plain
-        :icon="SwitchButton"
-        @click="confirmLogout"
-      >
-        退出登录
-      </el-button>
     </div>
 
-    <section class="work-panel profile-panel">
-      <div class="panel-head">
-        <div>
-          <h2>身份信息</h2>
-          <p>以下信息来自当前登录会话。</p>
+    <section class="profile-card">
+      <div class="profile-card-head">
+        <div class="profile-identity">
+          <span class="profile-avatar" aria-hidden="true">
+            <el-icon :size="26">
+              <UserFilled />
+            </el-icon>
+          </span>
+          <div class="profile-identity-copy">
+            <span class="profile-kicker">当前账号</span>
+            <h2>{{ props.session?.displayName || '未设置名称' }}</h2>
+            <span class="profile-username">@{{ props.session?.username || '未记录' }}</span>
+          </div>
         </div>
-        <el-tag :type="props.session?.enabled ? 'success' : 'danger'">
-          {{ statusLabel }}
-        </el-tag>
+        <el-button
+          type="danger"
+          plain
+          :icon="SwitchButton"
+          @click="confirmLogout"
+        >
+          退出登录
+        </el-button>
       </div>
 
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="显示名称">
-          {{ props.session?.displayName || '未设置' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="用户名">
-          {{ props.session?.username || '未记录' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="身份">
-          {{ roleLabel }}
-        </el-descriptions-item>
-        <el-descriptions-item label="账号状态">
-          {{ statusLabel }}
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">
-          {{ formatDate(props.session?.createdAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="更新时间">
-          {{ formatDate(props.session?.updatedAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="可用权限" :span="2">
-          <el-space v-if="permissionLabels.length" wrap>
-            <el-tag
-              v-for="permission in permissionLabels"
-              :key="permission"
-              effect="plain"
-            >
-              {{ permission }}
-            </el-tag>
-          </el-space>
-          <span v-else>暂无权限信息</span>
-        </el-descriptions-item>
-      </el-descriptions>
+      <div class="profile-divider" />
+
+      <dl class="profile-details">
+        <div class="profile-detail">
+          <dt>用户名</dt>
+          <dd>{{ props.session?.username || '未记录' }}</dd>
+        </div>
+        <div class="profile-detail">
+          <dt>名称</dt>
+          <dd>{{ props.session?.displayName || '未设置' }}</dd>
+        </div>
+        <div class="profile-detail">
+          <dt>注册时间</dt>
+          <dd>{{ formatDate(props.session?.createdAt) }}</dd>
+        </div>
+      </dl>
     </section>
   </section>
 </template>
 
 <style scoped>
-.profile-panel {
-  max-width: 920px;
+.profile-card {
+  width: min(100%, 760px);
+  padding: 28px 30px 24px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-bg), transparent 4%);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.profile-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.profile-avatar {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.profile-identity-copy {
+  min-width: 0;
+}
+
+.profile-kicker {
+  display: block;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.profile-identity h2 {
+  margin: 3px 0 2px;
+  color: var(--text-strong);
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.profile-username {
+  display: block;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-divider {
+  height: 1px;
+  margin: 24px 0 4px;
+  background: var(--panel-border);
+}
+
+.profile-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.profile-detail {
+  min-width: 0;
+  padding: 16px 20px 4px 0;
+}
+
+.profile-detail + .profile-detail {
+  padding-left: 20px;
+  border-left: 1px solid var(--panel-border);
+}
+
+.profile-detail dt {
+  margin-bottom: 7px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.profile-detail dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .profile-card {
+    padding: 22px 20px 18px;
+  }
+
+  .profile-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .profile-details {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-detail,
+  .profile-detail + .profile-detail {
+    padding: 14px 0;
+    border-left: 0;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .profile-detail:last-child {
+    border-bottom: 0;
+  }
 }
 </style>
