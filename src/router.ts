@@ -23,6 +23,7 @@ const SystemMaintenanceManagementView = () => import('./components/crawler/Syste
 const ThemeSettingsView = () => import('./components/crawler/ThemeSettingsView.vue')
 const TimeManagementView = () => import('./components/crawler/TimeManagementView.vue')
 const UserManagement = () => import('./components/crawler/UserManagement.vue')
+const UserProfileView = () => import('./components/crawler/UserProfileView.vue')
 
 const routes: RouteRecordRaw[] = [
   {
@@ -56,6 +57,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'automation/auto-listing', name: 'auto-listing-management', component: AutoListingScheduleView, meta: { title: '自动上架管理', permission: 'products.manage' } },
       { path: 'automation/auto-deletion', name: 'auto-deletion-management', component: AutoDeletionManagementView, meta: { title: '自动删除管理', permission: 'products.manage' } },
       { path: 'system/theme', name: 'system-theme', component: ThemeSettingsView, meta: { title: '主题设置' } },
+      { path: 'system/profile', name: 'system-profile', component: UserProfileView, meta: { title: '个人中心' } },
       { path: 'system/time', name: 'system-time', component: TimeManagementView, meta: { title: '其他定时管理' } },
       { path: 'system/deleted-product-images', name: 'system-deleted-product-images', component: DeletedProductImageCleanupView, meta: { title: '待清理图片' } },
       { path: 'system/collection-genres', name: 'system-collection-genres', component: CollectionGenreManagementView, meta: { title: '采集品类', permission: 'crawler.manage' } },
@@ -63,7 +65,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
       { path: 'system/maintenance', name: 'system-maintenance', component: SystemMaintenanceManagementView, meta: { title: '系统维护管理', superadminOnly: true } },
       { path: 'help/operator-manual', name: 'operator-manual', component: OperatorManualView, meta: { title: '使用手册' } },
-      { path: 'user/profile', redirect: '/ltHj/wjMerchant' },
+      { path: 'user/profile', redirect: '/system/profile' },
     ],
   },
   {

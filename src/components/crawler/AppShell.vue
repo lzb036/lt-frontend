@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
 import {
   AlarmClock,
   Brush,
@@ -32,8 +31,8 @@ import {
   SetUp,
   Shop,
   SoldOut,
-  SwitchButton,
   Tools,
+  User,
   Upload,
   UserFilled,
 } from '@element-plus/icons-vue'
@@ -78,8 +77,6 @@ const activePath = computed(() => {
 const sidebarCollapsed = shallowRef(false)
 const announcementDialogOpen = shallowRef(false)
 const hasUnreadAnnouncements = shallowRef(false)
-const sessionDisplayName = computed(() => props.session?.displayName || props.session?.username || '')
-
 const menuGroups = computed(() => {
   const groups: Array<MenuEntry | MenuGroup> = []
   const collectionChildren: MenuEntry[] = []
@@ -199,6 +196,11 @@ const menuGroups = computed(() => {
     label: '主题设置',
     icon: Brush,
   })
+  groups.push({
+    path: '/system/profile',
+    label: '个人中心',
+    icon: User,
+  })
   return groups
 })
 
@@ -235,18 +237,6 @@ function updateUnreadStatus(value: boolean) {
   hasUnreadAnnouncements.value = value
 }
 
-async function confirmLogout() {
-  try {
-    await ElMessageBox.confirm('确认退出当前账号？', '退出登录', {
-      confirmButtonText: '退出登录',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-    emit('logout')
-  } catch {
-  }
-}
-
 function forwardLogout() {
   emit('logout')
 }
@@ -274,9 +264,6 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
             <strong>乐天商品采集系统</strong>
             <em>Product Collector</em>
           </span>
-        </div>
-        <div v-if="sessionDisplayName" class="shell-user-name">
-          {{ sessionDisplayName }}
         </div>
       </div>
 
@@ -335,17 +322,6 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
             </el-icon>
           </el-badge>
           <span class="sidebar-action-label">公告</span>
-        </button>
-        <button
-          type="button"
-          class="sidebar-action-button sidebar-logout-button"
-          :aria-label="sidebarCollapsed ? '退出登录' : undefined"
-          @click="confirmLogout"
-        >
-          <el-icon class="sidebar-action-icon">
-            <SwitchButton />
-          </el-icon>
-          <span class="sidebar-action-label">退出登录</span>
         </button>
         <button
           type="button"
@@ -473,25 +449,6 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   font-style: normal;
 }
 
-.shell-user-name {
-  margin: 7px 0 0 46px;
-  overflow: hidden;
-  color: var(--sidebar-text);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.3;
-  max-width: 118px;
-  opacity: 0.88;
-  text-overflow: ellipsis;
-  transform: translateX(0);
-  transition:
-    opacity var(--motion-fast) ease,
-    max-width var(--motion-normal) ease,
-    margin var(--motion-normal) ease,
-    transform var(--motion-normal) ease;
-  white-space: nowrap;
-}
-
 .shell-sidebar-collapsed .shell-brand-block {
   padding: 12px 10px 10px;
 }
@@ -503,13 +460,6 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
 .shell-sidebar-collapsed .brand-copy {
   opacity: 0;
   max-width: 0;
-  transform: translateX(-6px);
-}
-
-.shell-sidebar-collapsed .shell-user-name {
-  margin-left: 0;
-  max-width: 0;
-  opacity: 0;
   transform: translateX(-6px);
 }
 
@@ -694,17 +644,6 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
   color: var(--accent);
 }
 
-.sidebar-logout-button {
-  color: var(--danger);
-}
-
-.sidebar-logout-button:hover,
-.sidebar-logout-button:focus-visible {
-  border-color: color-mix(in srgb, var(--danger), transparent 58%);
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-
 .sidebar-action-icon {
   flex: 0 0 auto;
   font-size: 18px;
@@ -791,8 +730,7 @@ function menuItemKey(item: MenuEntry | MenuGroup) {
     justify-content: center;
   }
 
-  .brand-copy,
-  .shell-user-name {
+  .brand-copy {
     display: none;
   }
 
