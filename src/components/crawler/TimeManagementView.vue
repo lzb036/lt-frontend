@@ -410,7 +410,7 @@ function formatCountdown(remainingMs: number) {
       <div class="time-panel-head">
         <div>
           <h2>定时采集记录清理</h2>
-          <p>每周自动清理超过 {{ settings?.retentionDays ?? 7 }} 天的已完成记录</p>
+          <p>每周只清理当前账号超过 {{ settings?.retentionDays ?? 7 }} 天的已完成记录</p>
         </div>
         <div class="head-actions">
           <el-switch
@@ -545,7 +545,7 @@ function formatCountdown(remainingMs: number) {
       <div class="time-panel-head">
         <div>
           <h2>未上架商品月度删除</h2>
-          <p>为启用店铺创建商品删除同步任务</p>
+          <p>只为当前账号的启用店铺创建商品删除同步任务</p>
         </div>
         <div class="panel-head-actions">
           <el-switch
@@ -593,7 +593,7 @@ function formatCountdown(remainingMs: number) {
       <div class="time-panel-head">
         <div>
           <h2>已删除商品图片清理</h2>
-          <p>商品删除时保留图片，每周按商品数量创建同步任务清理 R-Cabinet 和本地/OSS 图片</p>
+          <p>只清理当前账号删除商品后保留的 R-Cabinet 和本地/OSS 图片</p>
         </div>
         <div class="panel-head-actions">
           <el-switch
@@ -670,7 +670,7 @@ function formatCountdown(remainingMs: number) {
       <div class="time-panel-head">
         <div>
           <h2>订单自动同步</h2>
-          <p>定时获取各店铺订单</p>
+          <p>按当前账号的独立设置，定时获取当前账号各店铺订单</p>
         </div>
         <div class="panel-head-actions">
           <el-switch

@@ -34,7 +34,7 @@ for (const [keyword, sectionId] of [
 
 for (const sectionId of ['order-sync-history', 'order-sync-settings']) {
   const section = operatorManualSections.find((item) => item.id === sectionId)
-  if (section?.permission !== '超级管理员') {
-    throw new Error(`expected ${sectionId} to be superadmin-only`)
+  if (section?.permission !== '店铺管理') {
+    throw new Error(`expected ${sectionId} to require store management`)
   }
 }

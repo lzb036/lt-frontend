@@ -290,7 +290,7 @@ export const operatorManualSections: OperatorManualSection[] = [
     title: '订单获取记录',
     summary: '查看每次自动、手动或重试订单同步的结果。',
     route: '任务日志 > 订单获取记录',
-    permission: '超级管理员',
+    permission: '店铺管理',
     impact: 'local',
     keywords: ['订单获取记录', '订单同步记录', '订单总数', '新增', '自动', '手动', '重试', '店铺别称'],
     steps: [
@@ -314,12 +314,12 @@ export const operatorManualSections: OperatorManualSection[] = [
     title: '订单同步设置',
     summary: '配置自动订单同步开关、执行间隔和成功记录保留天数。',
     route: '自动化管理 > 其他定时管理 > 订单自动同步',
-    permission: '超级管理员',
+    permission: '店铺管理',
     impact: 'local',
     keywords: ['订单同步设置', '自动同步', '同步间隔', '成功记录保留', '其他定时管理', '365天'],
     steps: [
       '在其他定时管理中查看订单自动同步卡片，确认当前为已启用或已停用。',
-      '该卡片保存的是全局统一配置，所有用户和所有店铺共用。',
+      '该卡片只保存当前账号的配置，不影响其他用户。',
       '设置同步间隔，允许范围为5到1440分钟。',
       '设置成功记录保留天数，允许范围为1到365天。',
       '修改后点击“保存”；离开页面或关闭浏览器不会自动保存。',
@@ -330,7 +330,7 @@ export const operatorManualSections: OperatorManualSection[] = [
       '成功记录保留只影响订单获取任务记录，不会删除订单和销量数据。',
     ],
     warnings: [
-      '这是全局设置，会影响所有用户下符合条件的店铺。',
+      '该设置只影响当前账号下符合条件的店铺。',
       '只有点击“保存”按钮才会应用修改。',
     ],
   },

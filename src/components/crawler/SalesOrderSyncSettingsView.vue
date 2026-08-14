@@ -101,7 +101,7 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
       <div class="time-panel-head">
         <div>
           <h2>订单自动同步</h2>
-          <p>所有用户和店铺共用此全局配置，仅超级管理员可以修改</p>
+          <p>只配置当前账号的店铺订单同步，不影响其他用户</p>
         </div>
         <div class="head-actions">
           <el-tag v-if="isDirty" type="warning" effect="plain">
