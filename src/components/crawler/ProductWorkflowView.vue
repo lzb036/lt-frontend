@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { ElImageViewer, ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Download, EditPen, Finished, MagicStick, Refresh, Search, Top, Upload, View, Warning } from '@element-plus/icons-vue'
 import DOMPurify from 'dompurify'
@@ -92,6 +92,8 @@ const imageViewerVisible = shallowRef(false)
 const imageViewerUrls = shallowRef<string[]>([])
 const imageViewerInitialIndex = shallowRef(0)
 const productImageUrlsCache = new WeakMap<ProductItem, string[]>()
+const watchedDeleteTaskIds = new Set<string>()
+const deleteSyncWatchTimers = new Set<number>()
 let refreshRequestId = 0
 const detailForm = reactive({
   productId: null as number | null,
@@ -325,14 +327,25 @@ function collectionSourceLabel(product: ProductItem) {
 }
 
 const visibleProducts = computed(() => {
-  if (!['approved', 'listed', 'listed_master'].includes(props.status) || hiddenProducts.value.size < 1) {
+  if (!['approved', 'listed', 'listed_master'].includes(props.status)) {
     return products.value
   }
-  return products.value.filter((product) => !hiddenProducts.value.has(product.id))
+  return products.value.filter((product) => (
+    !hiddenProducts.value.has(product.id)
+    && !(props.status === 'listed' && product.productDeleteTaskId)
+  ))
 })
 
 onMounted(() => {
   void refreshAll()
+})
+
+onBeforeUnmount(() => {
+  for (const timer of deleteSyncWatchTimers) {
+    window.clearInterval(timer)
+  }
+  deleteSyncWatchTimers.clear()
+  watchedDeleteTaskIds.clear()
 })
 
 watch(
@@ -434,6 +447,7 @@ async function refreshAll(options: { loadStores?: boolean } = {}) {
       return
     }
     products.value = result.items
+    resumeActiveDeleteTaskWatchers(result.items)
     syncPendingInlineDrafts(result.items)
     reconcilePendingImageSelections(result.items)
     reconcileHiddenProducts(result.items)
@@ -914,7 +928,7 @@ function restoreHiddenProducts(productIds: number[]) {
 }
 
 function clearHiddenProducts(productIds: number[]) {
-  if (productIds.length < 1 || hiddenProducts.value.size < 1) {
+  if (productIds.length < 1) {
     return
   }
   restoreHiddenProducts(productIds)
@@ -1174,6 +1188,7 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     }
     if (shouldLockListedSync) {
       setListedSyncProductsBusy(productIds, true)
+      hideProducts(productIds)
       clearSelection()
     }
     operating.value = true
@@ -1201,6 +1216,7 @@ async function removeProducts(productIds: number[], product?: ProductItem) {
     if (error !== 'cancel') {
       if (shouldLockListedSync) {
         clearListedSyncTaskBusy(productIds)
+        restoreHiddenProducts(productIds)
       }
       ElMessage.error(toApiErrorMessage(error, '删除商品失败'))
     }
@@ -1742,26 +1758,62 @@ function watchDeleteSyncTasksCompletion(taskIdsToWatch: string[], productIds: nu
     clearListedSyncTaskBusy(productIds)
     return
   }
-  const idSet = new Set(taskIdsToWatch)
+  const pendingTaskIds = [...new Set(taskIdsToWatch)]
+    .filter((taskId) => taskId && !watchedDeleteTaskIds.has(taskId))
+  if (pendingTaskIds.length < 1) {
+    return
+  }
+  for (const taskId of pendingTaskIds) {
+    watchedDeleteTaskIds.add(taskId)
+  }
+  const idSet = new Set(pendingTaskIds)
   let pollFailures = 0
+  const stopWatching = () => {
+    window.clearInterval(timer)
+    deleteSyncWatchTimers.delete(timer)
+    for (const taskId of pendingTaskIds) {
+      watchedDeleteTaskIds.delete(taskId)
+    }
+  }
   const timer = window.setInterval(async () => {
     try {
-      const tasks = await api.listSyncTasks(taskIdsToWatch)
+      const tasks = await api.listSyncTasks(pendingTaskIds)
       pollFailures = 0
       const matchedTasks = tasks.filter((item) => idSet.has(item.id))
       if (matchedTasks.length < idSet.size || !areTasksFinished(matchedTasks)) {
         return
       }
-      window.clearInterval(timer)
+      stopWatching()
       handleDeleteSyncTasksResult(matchedTasks, productIds)
     } catch {
       pollFailures += 1
       if (pollFailures >= 3) {
-        window.clearInterval(timer)
-        clearListedSyncTaskBusy(productIds)
+        stopWatching()
+        void refreshAll({ loadStores: false })
       }
     }
   }, 2000)
+  deleteSyncWatchTimers.add(timer)
+}
+
+function resumeActiveDeleteTaskWatchers(nextProducts: ProductItem[]) {
+  if (props.status !== 'listed') {
+    return
+  }
+  const productsByTask = new Map<string, number[]>()
+  for (const product of nextProducts) {
+    const taskId = String(product.productDeleteTaskId || '').trim()
+    if (!taskId) {
+      continue
+    }
+    const productIds = productsByTask.get(taskId) || []
+    productIds.push(product.id)
+    productsByTask.set(taskId, productIds)
+  }
+  for (const [taskId, productIds] of productsByTask) {
+    setListedSyncProductsBusy(productIds, true)
+    watchDeleteSyncTasksCompletion([taskId], productIds)
+  }
 }
 
 function watchListingStatusSyncTasksCompletion(taskIdsToWatch: string[], productIds: number[], listingStatus: RakutenListingStatus) {
@@ -1875,25 +1927,30 @@ function handleListingStatusSyncTasksResult(tasks: SyncTask[], productIds: numbe
 function handleDeleteSyncTaskResult(task: SyncTask, productIds: number[]) {
   clearListedSyncTaskBusy(productIds)
   if (task.status === 'success') {
-    removeVisibleProducts(task.successIds?.length ? task.successIds : productIds)
+    clearHiddenProducts(task.successIds?.length ? task.successIds : productIds)
     ElMessage.success(task.message || '批量删除已完成')
     maybeRefreshAfterOptimisticAction()
     return
   }
   if (task.status === 'partial') {
-    const { successIds } = taskOutcomeIds(task, productIds)
-    removeVisibleProducts(successIds)
+    const { successIds, failedIds } = taskOutcomeIds(task, productIds)
+    clearHiddenProducts(successIds)
+    restoreDeleteFailedProducts(failedIds)
     ElMessage.warning(task.errorDetail || task.message || '批量删除部分成功，请到同步任务中查看异常信息')
     maybeRefreshAfterOptimisticAction()
     return
   }
   if (task.status === 'cancelled') {
     const successIds = task.successIds?.length ? task.successIds : []
-    removeVisibleProducts(successIds)
+    const successIdSet = new Set(successIds)
+    const pendingIds = productIds.filter((productId) => !successIdSet.has(productId))
+    clearHiddenProducts(successIds)
+    restoreDeleteFailedProducts(pendingIds)
     ElMessage.warning(task.errorDetail || task.message || '批量删除已终止，请到同步任务中查看详情')
     maybeRefreshAfterOptimisticAction()
     return
   }
+  restoreDeleteFailedProducts(productIds)
   ElMessage.error(task.errorDetail || task.message || '批量删除失败，请到同步任务中查看错误信息')
 }
 
@@ -1903,17 +1960,29 @@ function handleDeleteSyncTasksResult(tasks: SyncTask[], productIds: number[]) {
     return
   }
   clearListedSyncTaskBusy(productIds)
-  const { successIds } = aggregateTaskOutcomeIds(tasks, productIds)
+  const { successIds, failedIds } = aggregateTaskOutcomeIds(tasks, productIds)
   const allSuccess = tasks.every((task) => task.status === 'success')
-  if (successIds.length > 0) {
-    removeVisibleProducts(successIds)
-    maybeRefreshAfterOptimisticAction()
-  }
+  clearHiddenProducts(successIds)
+  restoreDeleteFailedProducts(failedIds)
+  maybeRefreshAfterOptimisticAction()
   if (allSuccess) {
     ElMessage.success('批量删除已完成')
     return
   }
   ElMessage.warning('批量删除部分任务未成功，请到同步任务中查看异常信息')
+}
+
+function restoreDeleteFailedProducts(productIds: number[]) {
+  if (productIds.length < 1) {
+    return
+  }
+  const ids = new Set(productIds)
+  products.value = products.value.map((product) => (
+    ids.has(product.id)
+      ? { ...product, productDeleteTaskId: null }
+      : product
+  ))
+  restoreHiddenProducts(productIds)
 }
 
 function maybeRefreshAfterOptimisticAction() {

@@ -249,6 +249,7 @@ export interface ProductItem {
   collectionSource?: ProductCollectionSource
   parentProductId?: number | null
   listingTaskId?: string | null
+  productDeleteTaskId?: string | null
   storeId?: number | null
   rakutenManageNumber?: string | null
   storeProductStatus: StoreProductStatus
@@ -474,12 +475,12 @@ export interface SalesOrderSyncState {
 }
 
 export interface SalesOrderSyncGlobalSettingsPayload {
-  enabled: boolean
   intervalMinutes: number
   successRetentionDays: number
 }
 
 export interface SalesOrderSyncGlobalSettings extends SalesOrderSyncGlobalSettingsPayload {
+  enabled: true
   updatedAt?: string | null
 }
 

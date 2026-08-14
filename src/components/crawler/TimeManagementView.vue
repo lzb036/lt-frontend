@@ -42,7 +42,6 @@ const form = reactive<TimeSettingsPayload>({
   deletedImageCleanupTime: '09:00',
 })
 const DEFAULT_ORDER_SETTINGS: SalesOrderSyncGlobalSettingsPayload = {
-  enabled: true,
   intervalMinutes: 30,
   successRetentionDays: 30,
 }
@@ -59,8 +58,7 @@ const orderSettingsDirty = computed(() => {
     return false
   }
   return (
-    orderDraft.enabled !== savedSnapshot.enabled
-    || orderDraft.intervalMinutes !== savedSnapshot.intervalMinutes
+    orderDraft.intervalMinutes !== savedSnapshot.intervalMinutes
     || orderDraft.successRetentionDays !== savedSnapshot.successRetentionDays
   )
 })
@@ -293,7 +291,6 @@ function restoreOrderDefaults() {
 }
 
 function applyOrderSettings(result: SalesOrderSyncGlobalSettings) {
-  orderDraft.enabled = result.enabled
   orderDraft.intervalMinutes = result.intervalMinutes
   orderDraft.successRetentionDays = result.successRetentionDays
   orderState.savedSnapshot = { ...result }
@@ -673,12 +670,6 @@ function formatCountdown(remainingMs: number) {
           <p>按当前账号的独立设置，定时获取当前账号各店铺订单</p>
         </div>
         <div class="panel-head-actions">
-          <el-switch
-            v-model="orderDraft.enabled"
-            inline-prompt
-            active-text="开启"
-            inactive-text="关闭"
-          />
           <el-button
             :icon="RefreshLeft"
             :disabled="orderState.loading || orderState.saving || !orderState.savedSnapshot"
@@ -716,7 +707,6 @@ function formatCountdown(remainingMs: number) {
             <el-form-item label="同步间隔（分钟）">
               <el-input-number
                 v-model="orderDraft.intervalMinutes"
-                :disabled="!orderDraft.enabled"
                 :min="5"
                 :max="1440"
                 :step="5"
@@ -735,7 +725,7 @@ function formatCountdown(remainingMs: number) {
         <div class="status-grid">
           <div class="status-item status-item-primary">
             <span>当前状态</span>
-            <strong>{{ orderDraft.enabled ? '已开启' : '已关闭' }}</strong>
+            <strong>已开启</strong>
           </div>
           <div class="status-item">
             <span>同步频率</span>

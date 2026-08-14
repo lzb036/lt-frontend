@@ -9,7 +9,6 @@ import type { SalesOrderSyncGlobalSettingsPayload } from '../../types/crawler'
 import { toApiErrorMessage } from '../../utils/api'
 
 const DEFAULT_SETTINGS: SalesOrderSyncGlobalSettingsPayload = {
-  enabled: true,
   intervalMinutes: 30,
   successRetentionDays: 30,
 }
@@ -58,8 +57,11 @@ async function loadSettings() {
   state.error = ''
   try {
     const settings = await api.getSalesOrderSyncGlobalSettings()
-    Object.assign(draft, settings)
-    state.savedSnapshot = { ...settings }
+    Object.assign(draft, {
+      intervalMinutes: settings.intervalMinutes,
+      successRetentionDays: settings.successRetentionDays,
+    })
+    state.savedSnapshot = { ...draft }
   } catch (error) {
     state.error = toApiErrorMessage(error, '加载订单同步设置失败')
     ElMessage.error(state.error)
@@ -73,8 +75,11 @@ async function saveSettings() {
   state.error = ''
   try {
     const settings = await api.updateSalesOrderSyncGlobalSettings({ ...draft })
-    Object.assign(draft, settings)
-    state.savedSnapshot = { ...settings }
+    Object.assign(draft, {
+      intervalMinutes: settings.intervalMinutes,
+      successRetentionDays: settings.successRetentionDays,
+    })
+    state.savedSnapshot = { ...draft }
     ElMessage.success('订单同步设置已保存')
   } catch (error) {
     state.error = toApiErrorMessage(error, '保存订单同步设置失败')
@@ -147,10 +152,9 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
           <section class="setting-card setting-card-primary">
             <div class="setting-card-copy">
               <span>自动同步</span>
-              <strong>{{ draft.enabled ? '已启用' : '已停用' }}</strong>
-              <small>关闭后停止自动获取订单，手动立即更新仍可使用。</small>
+              <strong>已启用</strong>
+              <small>系统强制保持开启，所有启用店铺都会按设置自动获取订单。</small>
             </div>
-            <el-switch v-model="draft.enabled" />
           </section>
 
           <section class="setting-card">
