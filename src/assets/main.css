@@ -1551,10 +1551,40 @@ a {
     0 0 0 3px rgba(139, 124, 255, 0.2) !important;
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button {
+:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button:not(.is-link):not(.is-text) {
   border-radius: 999px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* link/text 按钮保持纯文字 + 颜色,不出现磨砂胶囊/边框 */
+:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button.is-link,
+:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button.is-text,
+:root[data-theme-mode="light"][data-theme-preset="glass"] .el-button.is-link,
+:root[data-theme-mode="light"][data-theme-preset="glass"] .el-button.is-text {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 表格右侧固定的「操作」列:底色改为不透明,避免横向内容透出 */
+:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-table-fixed-column--right {
+  background-color: #221d49 !important;
+}
+
+:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-table__body tr.hover-row .el-table-fixed-column--right {
+  background-color: #2d2757 !important;
+}
+
+:root[data-theme-mode="light"][data-theme-preset="glass"] .el-table-fixed-column--right {
+  background-color: #f7f5ff !important;
+}
+
+:root[data-theme-mode="light"][data-theme-preset="glass"] .el-table__body tr.hover-row .el-table-fixed-column--right {
+  background-color: #efeaff !important;
 }
 
 :root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button--default {
