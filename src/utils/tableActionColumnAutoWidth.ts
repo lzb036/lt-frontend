@@ -1,10 +1,9 @@
-interface ActionColumnBinding {
-  table: HTMLElement
-  fittedWidth: number
-  mutationObserver: MutationObserver
-}
+import type { App } from 'vue'
 
-const bindings = new Map<HTMLElement, ActionColumnBinding>()
+const bindings = new Map<
+  HTMLElement,
+  { refit: () => void; observer: MutationObserver }
+>()
 let documentObserver: MutationObserver | null = null
 let refreshFrame = 0
 
@@ -13,12 +12,10 @@ const MAX_WIDTH = 240
 const CONTENT_PADDING = 24
 
 interface TableColumnConfig {
-  id?: string
   label?: string
   className?: string
   width?: number | string
   realWidth?: number | string
-  minWidth?: number | string
 }
 
 interface TableStoreLike {
@@ -26,40 +23,25 @@ interface TableStoreLike {
   updateColumns?: () => void
 }
 
-interface TableInstanceLike {
+interface TableInternalInstance {
+  type?: { name?: string }
   exposed?: {
     store?: TableStoreLike
     doLayout?: () => void
   }
-  proxy?: {
-    store?: TableStoreLike
-  }
 }
 
-function tableInstance(table: HTMLElement): TableInstanceLike | null {
-  const instance = (table as unknown as { __vueParentComponent?: TableInstanceLike }).__vueParentComponent
-  return instance || null
-}
-
-function actionColumnConfig(table: HTMLElement): {
-  store: TableStoreLike
-  column: TableColumnConfig
-} | null {
-  const instance = tableInstance(table)
-  const exposed = instance?.exposed || instance?.proxy
-  const store = exposed?.store
-  const columns = store?.states?.columns
+function findActionColumn(store: TableStoreLike): TableColumnConfig | null {
+  const columns = store.states?.columns
   if (!columns) {
     return null
   }
-  const column = columns.find((item) => (
-    (item.className || '').includes('table-action-column')
-    || (item.label || '').trim() === '操作'
-  ))
-  if (!column) {
-    return null
-  }
-  return { store, column }
+  return (
+    columns.find((item) => (
+      (item.className || '').includes('table-action-column')
+      || (item.label || '').trim() === '操作'
+    )) || null
+  )
 }
 
 function measureDeepestLeafWidths(element: HTMLElement): number {
@@ -111,103 +93,105 @@ function measureColumnContentWidth(table: HTMLElement): number {
   return max
 }
 
-function fitBinding(binding: ActionColumnBinding) {
-  const config = actionColumnConfig(binding.table)
-  if (!config) {
+function fitTable(el: HTMLElement, store: TableStoreLike, doLayout?: () => void) {
+  const column = findActionColumn(store)
+  if (!column) {
     return
   }
-  // 隐藏中的表格(未激活的标签页)测量结果为 0,跳过,等显示后再量
-  if (binding.table.getClientRects().length === 0) {
+  // 隐藏中的表格(未激活标签页)测量失真,等显示后再量
+  if (el.getClientRects().length === 0) {
     return
   }
-  const contentWidth = measureColumnContentWidth(binding.table)
+  const contentWidth = measureColumnContentWidth(el)
   const next = Math.min(
     MAX_WIDTH,
     Math.max(MIN_WIDTH, contentWidth + CONTENT_PADDING),
   )
-  const current = Number(config.column.width || 0)
-  if (Math.abs(current - next) <= 1 && Number(config.column.realWidth || 0) === next) {
+  const current = Number(column.width || 0)
+  if (Math.abs(current - next) <= 1 && Number(column.realWidth || 0) === next) {
     return
   }
   // 直接改列配置(width/realWidth 是 Element Plus 布局的真实来源),
-  // 再让 store 重算并重排;LayoutObserver 会按新配置写回 <col>,不会被回滚。
-  config.column.width = next
-  config.column.realWidth = next
-  if (typeof config.store.updateColumns === 'function') {
-    config.store.updateColumns()
+  // 再让 store 重算并重排,LayoutObserver 按新配置写回 <col>,不会被回滚。
+  column.width = next
+  column.realWidth = next
+  if (typeof store.updateColumns === 'function') {
+    store.updateColumns()
   }
-  const doLayout = tableInstance(binding.table)?.exposed?.doLayout
   if (typeof doLayout === 'function') {
     doLayout()
   }
-  binding.fittedWidth = next
 }
 
-function unbindTable(table: HTMLElement, binding: ActionColumnBinding) {
-  binding.mutationObserver.disconnect()
-  bindings.delete(table)
-}
-
-function bindTable(table: HTMLElement) {
-  const existing = bindings.get(table)
-  if (existing) {
-    fitBinding(existing)
-    return
-  }
-  if (!actionColumnConfig(table)) {
-    return
-  }
-  const binding: ActionColumnBinding = {
-    table,
-    fittedWidth: 0,
-    mutationObserver: new MutationObserver(() => {
-      const current = bindings.get(table)
-      if (current) {
-        fitBinding(current)
+export function installTableActionColumnAutoWidth(app: App) {
+  app.mixin({
+    mounted(this: unknown) {
+      const internal = (this as { $?: TableInternalInstance }).$
+      if (internal?.type?.name !== 'ElTable') {
+        return
       }
-    }),
-  }
-  binding.mutationObserver.observe(table, {
-    childList: true,
-    subtree: true,
+      const exposed = internal.exposed
+      const store = exposed?.store
+      if (!store || !(this as { $el?: HTMLElement }).$el) {
+        return
+      }
+      const el = (this as { $el: HTMLElement }).$el
+      const doLayout = exposed?.doLayout
+      const refit = () => {
+        const binding = bindings.get(el)
+        if (!binding) {
+          return
+        }
+        fitTable(el, store, doLayout)
+      }
+      const observer = new MutationObserver(refit)
+      observer.observe(el, {
+        childList: true,
+        subtree: true,
+      })
+      bindings.set(el, { refit, observer })
+      window.requestAnimationFrame(refit)
+    },
+    unmounted(this: unknown) {
+      const el = (this as { $el?: HTMLElement }).$el
+      if (!el) {
+        return
+      }
+      const binding = bindings.get(el)
+      if (binding) {
+        binding.observer.disconnect()
+        bindings.delete(el)
+      }
+    },
   })
-  bindings.set(table, binding)
-  fitBinding(binding)
-}
 
-function cleanupRemovedTables() {
-  for (const [table, binding] of bindings) {
-    if (table.isConnected) {
-      continue
-    }
-    unbindTable(table, binding)
-  }
-}
-
-function refreshTables() {
-  refreshFrame = 0
-  cleanupRemovedTables()
-  document.querySelectorAll<HTMLElement>('.el-table').forEach(bindTable)
-}
-
-function scheduleRefresh() {
-  if (refreshFrame) {
-    return
-  }
-  refreshFrame = window.requestAnimationFrame(refreshTables)
-}
-
-export function initializeTableActionColumnAutoWidth() {
   if (documentObserver) {
     return
   }
-  scheduleRefresh()
-  documentObserver = new MutationObserver(scheduleRefresh)
+  const refreshAll = () => {
+    refreshFrame = 0
+    for (const [el, binding] of bindings) {
+      if (el.isConnected) {
+        binding.refit()
+      } else {
+        binding.observer.disconnect()
+        bindings.delete(el)
+      }
+    }
+  }
+  const scheduleRefreshAll = () => {
+    if (refreshFrame) {
+      return
+    }
+    refreshFrame = window.requestAnimationFrame(refreshAll)
+  }
+  // 标签页切换(display/class 变化)等场景下重新测量
+  documentObserver = new MutationObserver(scheduleRefreshAll)
   documentObserver.observe(document.body, {
     childList: true,
     subtree: true,
     attributes: true,
     attributeFilter: ['style', 'class'],
   })
-  window.addEventListener('resize', scheduleRefresh, { passive: true })
+  window.addEventListener('resize', scheduleRefreshAll, { passive: true })
 }

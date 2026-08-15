@@ -7,7 +7,7 @@ import 'element-plus/dist/index.css'
 import App from './App.vue'
 import { initializeTheme } from './composables/useTheme'
 import router from './router'
-import { initializeTableActionColumnAutoWidth } from './utils/tableActionColumnAutoWidth'
+import { installTableActionColumnAutoWidth } from './utils/tableActionColumnAutoWidth'
 import { initializeTableHorizontalScroll } from './utils/tableHorizontalScroll'
 import './assets/main.css'
 
@@ -18,6 +18,6 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
+installTableActionColumnAutoWidth(app)
 app.mount('#app')
 initializeTableHorizontalScroll()
-initializeTableActionColumnAutoWidth()
