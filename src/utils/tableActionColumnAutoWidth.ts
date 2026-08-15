@@ -1,3 +1,4 @@
+import { getCurrentInstance } from 'vue'
 import type { App } from 'vue'
 
 const bindings = new Map<
@@ -19,21 +20,18 @@ interface TableColumnConfig {
 }
 
 interface TableStoreLike {
-  states?: { columns?: TableColumnConfig[] }
+  states?: {
+    columns?: TableColumnConfig[] | { value?: TableColumnConfig[] }
+  }
   updateColumns?: () => void
 }
 
-interface TableInternalInstance {
-  type?: { name?: string }
-  exposed?: {
-    store?: TableStoreLike
-    doLayout?: () => void
-  }
-}
-
 function findActionColumn(store: TableStoreLike): TableColumnConfig | null {
-  const columns = store.states?.columns
-  if (!columns) {
+  const rawColumns = store.states?.columns
+  const columns = Array.isArray(rawColumns)
+    ? rawColumns
+    : (rawColumns?.value as TableColumnConfig[] | undefined)
+  if (!Array.isArray(columns)) {
     return null
   }
   return (
@@ -125,24 +123,26 @@ function fitTable(el: HTMLElement, store: TableStoreLike, doLayout?: () => void)
 
 export function installTableActionColumnAutoWidth(app: App) {
   app.mixin({
-    mounted(this: unknown) {
-      const internal = (this as { $?: TableInternalInstance }).$
-      if (internal?.type?.name !== 'ElTable') {
+    mounted() {
+      const instance = getCurrentInstance()
+      if (instance?.type?.name !== 'ElTable') {
         return
       }
-      const exposed = internal.exposed
+      const el = instance.vnode.el as HTMLElement | undefined
+      const exposed = instance.exposed as
+        | { store?: TableStoreLike; doLayout?: () => void }
+        | undefined
       const store = exposed?.store
-      if (!store || !(this as { $el?: HTMLElement }).$el) {
+      if (!el || !store) {
         return
       }
-      const el = (this as { $el: HTMLElement }).$el
       const doLayout = exposed?.doLayout
       const refit = () => {
-        const binding = bindings.get(el)
-        if (!binding) {
-          return
+        try {
+          fitTable(el, store, doLayout)
+        } catch {
+          // 表格结构变化等边缘情况,静默跳过,等下次刷新重试
         }
-        fitTable(el, store, doLayout)
       }
       const observer = new MutationObserver(refit)
       observer.observe(el, {
@@ -152,8 +152,9 @@ export function installTableActionColumnAutoWidth(app: App) {
       bindings.set(el, { refit, observer })
       window.requestAnimationFrame(refit)
     },
-    unmounted(this: unknown) {
-      const el = (this as { $el?: HTMLElement }).$el
+    unmounted() {
+      const instance = getCurrentInstance()
+      const el = instance?.vnode.el as HTMLElement | undefined
       if (!el) {
         return
       }
