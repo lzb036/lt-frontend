@@ -2,6 +2,7 @@ import { computed, reactive, ref, watch } from 'vue'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ThemePresetKey = 'default' | 'anthropic' | 'large-simple' | 'night' | 'rose-garden' | 'lagoon' | 'sunset' | 'forest' | 'sea-breeze' | 'wisteria' | 'glass'
+export type ThemeMaterialKey = 'standard' | 'glassmorphism' | 'dark-saas' | 'apple-minimal' | 'neo-neumorphism' | 'brutalism' | 'japanese-minimal' | 'bento-grid' | 'cyberpunk' | 'vaporwave' | 'art-deco'
 export type ThemeFontMode = 'sans' | 'microsoft' | 'serif' | 'mono'
 export type ThemeRadiusMode = 'auto' | '0' | '0.3' | '0.5' | '0.75' | '1.0'
 export type ThemeDensityMode = 'compact' | 'default' | 'relaxed' | 'large'
@@ -16,6 +17,7 @@ export type ThemeMotionMode = 'full' | 'reduced' | 'none'
 export interface ThemeSettings {
   mode: ThemeMode
   preset: ThemePresetKey
+  material: ThemeMaterialKey
   font: ThemeFontMode
   radius: ThemeRadiusMode
   density: ThemeDensityMode
@@ -39,6 +41,12 @@ interface ThemePresetOption extends ThemeOption<ThemePresetKey> {
   surface: string
 }
 
+interface ThemeMaterialOption extends ThemeOption<ThemeMaterialKey> {
+  primary: string
+  accent: string
+  surface: string
+}
+
 interface ThemeFontOption extends ThemeOption<ThemeFontMode> {
   fontFamily: string
   sample: string
@@ -49,10 +57,11 @@ const THEME_SETTINGS_STORAGE_KEY = 'lt_product_collector_theme_settings_v2'
 export const defaultThemeSettings: ThemeSettings = {
   mode: 'dark',
   preset: 'glass',
+  material: 'glassmorphism',
   font: 'microsoft',
   radius: '0.75',
   density: 'default',
-  surface: 'glass',
+  surface: 'standard',
   navigation: 'blend',
   contentWidth: 'fluid',
   table: 'plain',
@@ -79,6 +88,20 @@ export const themePresetOptions: ThemePresetOption[] = [
   { key: 'sea-breeze', label: '海风', primary: '#4f5df7', accent: '#c5d0ff', surface: '#f1f6ff' },
   { key: 'wisteria', label: '藤紫', primary: '#8b5fd3', accent: '#d6c6f6', surface: '#f7f4fc' },
   { key: 'glass', label: '毛玻璃', primary: '#8b7cff', accent: '#d6ccff', surface: '#191538' },
+]
+
+export const themeMaterialOptions: ThemeMaterialOption[] = [
+  { key: 'standard', label: '标准', primary: '#f4f7fb', accent: '#d8e2ef', surface: '#ffffff' },
+  { key: 'glassmorphism', label: '毛玻璃', primary: '#302b63', accent: '#8b7cff', surface: 'rgba(255,255,255,0.12)' },
+  { key: 'dark-saas', label: '深色 SaaS', primary: '#010102', accent: '#5e6ad2', surface: '#0f1011' },
+  { key: 'apple-minimal', label: '极简白', primary: '#ffffff', accent: '#0066cc', surface: '#f5f5f7' },
+  { key: 'neo-neumorphism', label: '新拟态', primary: '#e0e5ec', accent: '#6c9bd1', surface: '#e0e5ec' },
+  { key: 'brutalism', label: '粗野主义', primary: '#ffffff', accent: '#ffde00', surface: '#000000' },
+  { key: 'japanese-minimal', label: '日式极简', primary: '#fafaf7', accent: '#c3272b', surface: '#ffffff' },
+  { key: 'bento-grid', label: '便当盒', primary: '#f5f5f7', accent: '#0071e3', surface: '#ffffff' },
+  { key: 'cyberpunk', label: '赛博朋克', primary: '#0a0a12', accent: '#00f0ff', surface: '#12121f' },
+  { key: 'vaporwave', label: '蒸汽波', primary: '#ff71ce', accent: '#00f0ff', surface: '#5c3d99' },
+  { key: 'art-deco', label: '装饰艺术', primary: '#0e1f14', accent: '#c9a24b', surface: '#132619' },
 ]
 
 export const themeFontOptions: ThemeFontOption[] = [
@@ -191,6 +214,7 @@ export function useTheme() {
     themeSettings,
     themeModeSegmentOptions,
     themePresetOptions,
+    themeMaterialOptions,
     themeFontOptions,
     themeRadiusOptions,
     themeDensityOptions,
@@ -256,6 +280,7 @@ function readStoredThemeSettings(): ThemeSettings {
     return {
       mode: optionExists(themeModeOptions, stored.mode) ? stored.mode : defaultThemeSettings.mode,
       preset: presetExists(stored.preset) ? stored.preset : defaultThemeSettings.preset,
+      material: optionExists(themeMaterialOptions, stored.material) ? stored.material : defaultThemeSettings.material,
       font: optionExists(themeFontOptions, stored.font) ? stored.font : defaultThemeSettings.font,
       radius: optionExists(themeRadiusOptions, stored.radius) ? stored.radius : defaultThemeSettings.radius,
       density: optionExists(themeDensityOptions, stored.density) ? stored.density : defaultThemeSettings.density,
@@ -286,6 +311,7 @@ function applyThemeSettings() {
   const root = document.documentElement
   root.dataset.themeMode = effectiveThemeMode.value
   root.dataset.themePreset = themeSettings.preset
+  root.dataset.themeMaterial = themeSettings.material
   root.dataset.themeFont = themeSettings.font
   root.dataset.themeRadius = themeSettings.radius
   root.dataset.themeDensity = themeSettings.density

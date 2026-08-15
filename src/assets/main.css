@@ -1355,9 +1355,10 @@ a {
   }
 }
 
-/* ============ 毛玻璃预设(Glassmorphism) ============ */
+/* ============ 材质(Material)与配色(Preset)分离的主题系统 ============ */
+/* 主题色彩(预设)只负责颜色;外观材质负责表面处理(渐变/模糊/边框/阴影)。 */
 
-/* 模式无关的共用 token:强调色、Element Plus 变量映射 */
+/* ── 毛玻璃配色预设(仅颜色;结构见下方 glassmorphism 材质) ── */
 :root[data-theme-preset="glass"] {
   --accent: #8b7cff;
   --accent-hover: #a394ff;
@@ -1371,7 +1372,14 @@ a {
   --danger: #f87171;
   --danger-soft: rgba(248, 113, 113, 0.18);
   --on-accent: #ffffff;
-  --surface-backdrop-filter: blur(20px) saturate(1.25);
+  --chart-blue: #9d8cff;
+  --chart-rose: #fb7fb1;
+  --chart-cyan: #22d3ee;
+  --chart-green: #4ade80;
+  --chart-amber: #f59e0b;
+  --chart-gold: #facc15;
+  --chart-red: #f87171;
+  --chart-teal: #2dd4bf;
   --el-color-primary: var(--accent);
   --el-color-primary-light-3: #a394ff;
   --el-color-primary-light-5: #beb2ff;
@@ -1382,66 +1390,95 @@ a {
   --el-color-success: var(--success);
   --el-color-warning: var(--warning);
   --el-color-danger: var(--danger);
-  --el-color-info: var(--text-faint);
-  --el-border-radius-base: 12px;
-  --el-border-radius-small: 10px;
-  --el-fill-color: var(--panel-muted);
-  --el-fill-color-blank: var(--panel-bg);
-  --el-fill-color-light: var(--panel-muted);
-  --el-fill-color-lighter: var(--panel-subtle);
-  --el-disabled-bg-color: rgba(255, 255, 255, 0.06);
-  --el-menu-bg-color: transparent;
-  --el-menu-hover-bg-color: var(--sidebar-hover-bg);
-  --el-menu-active-color: var(--accent);
 }
 
-/* 深色(默认):深蓝紫渐变 + 漂浮光斑 + 半透明白玻璃 */
 :root[data-theme-mode="dark"][data-theme-preset="glass"] {
   color: #ffffff;
   --page-bg: #14102b;
   --page-bg-strong: #1d1740;
+  --text-main: #ffffff;
+  --text-soft: rgba(255, 255, 255, 0.78);
+  --text-faint: rgba(255, 255, 255, 0.52);
+  --sidebar-text: rgba(255, 255, 255, 0.72);
+  --sidebar-active-text: #ffffff;
+  --el-text-color-primary: #ffffff;
+  --el-text-color-regular: var(--text-soft);
+  --el-text-color-secondary: var(--text-faint);
+  --el-text-color-placeholder: rgba(255, 255, 255, 0.42);
+  --el-text-color-disabled: rgba(255, 255, 255, 0.32);
+}
+
+:root[data-theme-mode="light"][data-theme-preset="glass"] {
+  color: #221d47;
+  --page-bg: #eceafd;
+  --page-bg-strong: #dfdcfa;
+  --text-main: #221d47;
+  --text-soft: #4b4476;
+  --text-faint: #7d76a3;
+  --sidebar-text: #57517f;
+  --sidebar-active-text: #4b3ad6;
+  --el-text-color-primary: #221d47;
+  --el-text-color-regular: #4b4476;
+  --el-text-color-secondary: #7d76a3;
+  --el-text-color-placeholder: rgba(34, 29, 71, 0.4);
+}
+
+/* 材质通用:侧边栏模糊随材质、固定列不透明底色 */
+[data-theme-material] .shell-sidebar {
+  backdrop-filter: var(--surface-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--surface-backdrop-filter, none);
+}
+
+[data-theme-material] .el-table-fixed-column--right {
+  background-color: var(--panel-fixed-bg, var(--panel-bg-elevated)) !important;
+}
+
+[data-theme-material] .el-table__body tr.hover-row .el-table-fixed-column--right {
+  background-color: var(--panel-fixed-bg-hover, var(--panel-fixed-bg, var(--panel-bg-elevated))) !important;
+}
+
+/* ───────────────────────── 材质:毛玻璃 glassmorphism ───────────────────────── */
+:root[data-theme-material="glassmorphism"] {
+  --surface-backdrop-filter: blur(20px) saturate(1.25);
+  --el-bg-color: var(--panel-bg);
+  --el-bg-color-page: transparent;
+  --el-fill-color: var(--panel-muted);
+  --el-fill-color-blank: var(--panel-bg);
+  --el-fill-color-light: var(--panel-muted);
+  --el-fill-color-lighter: var(--panel-subtle);
+  --el-border-radius-base: 12px;
+  --el-border-radius-small: 10px;
+  --el-menu-bg-color: transparent;
+  --el-menu-hover-bg-color: var(--sidebar-hover-bg);
+  --el-menu-active-color: var(--accent);
+  --el-disabled-bg-color: rgba(127, 127, 127, 0.14);
+}
+
+:root[data-theme-mode="dark"][data-theme-material="glassmorphism"] {
   --panel-bg: rgba(255, 255, 255, 0.12);
   --panel-bg-elevated: rgba(32, 27, 72, 0.92);
   --panel-muted: rgba(255, 255, 255, 0.06);
   --panel-subtle: rgba(255, 255, 255, 0.09);
   --panel-border: rgba(255, 255, 255, 0.22);
   --panel-border-strong: rgba(255, 255, 255, 0.38);
-  --text-main: #ffffff;
-  --text-soft: rgba(255, 255, 255, 0.78);
-  --text-faint: rgba(255, 255, 255, 0.52);
+  --panel-fixed-bg: #221d49;
+  --panel-fixed-bg-hover: #2d2757;
   --sidebar-bg: rgba(18, 14, 44, 0.55);
-  --sidebar-text: rgba(255, 255, 255, 0.72);
   --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
   --sidebar-active-bg: rgba(139, 124, 255, 0.22);
-  --sidebar-active-text: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.14);
   --header-bg: rgba(20, 16, 43, 0.6);
   --table-header-bg: rgba(255, 255, 255, 0.07);
   --table-row-hover-bg: rgba(255, 255, 255, 0.06);
-  --chart-blue: #9d8cff;
-  --chart-rose: #fb7fb1;
-  --chart-cyan: #22d3ee;
-  --chart-green: #4ade80;
-  --chart-amber: #f59e0b;
-  --chart-gold: #facc15;
-  --chart-red: #f87171;
-  --chart-teal: #2dd4bf;
   --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 20px 48px rgba(0, 0, 0, 0.38);
   --shadow-lg: 0 30px 76px rgba(0, 0, 0, 0.46);
   --surface-page-image:
-    radial-gradient(circle at 84% 10%, rgba(139, 124, 255, 0.34), transparent 36%),
-    radial-gradient(circle at 10% 88%, rgba(34, 211, 238, 0.22), transparent 32%),
-    radial-gradient(circle at 55% 42%, rgba(251, 127, 177, 0.12), transparent 46%),
-    linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-  --el-bg-color: var(--panel-bg);
-  --el-bg-color-page: transparent;
+    radial-gradient(circle at 84% 10%, color-mix(in srgb, var(--accent), transparent 66%), transparent 36%),
+    radial-gradient(circle at 10% 88%, color-mix(in srgb, var(--chart-cyan), transparent 78%), transparent 32%),
+    radial-gradient(circle at 55% 42%, color-mix(in srgb, var(--chart-rose), transparent 88%), transparent 46%),
+    linear-gradient(135deg, var(--page-bg) 0%, color-mix(in srgb, var(--page-bg-strong), var(--accent) 24%) 52%, var(--page-bg-strong) 100%);
   --el-bg-color-overlay: var(--panel-bg-elevated);
-  --el-text-color-primary: #ffffff;
-  --el-text-color-regular: var(--text-soft);
-  --el-text-color-secondary: var(--text-faint);
-  --el-text-color-placeholder: rgba(255, 255, 255, 0.42);
-  --el-text-color-disabled: rgba(255, 255, 255, 0.32);
   --el-border-color: var(--panel-border);
   --el-border-color-light: rgba(255, 255, 255, 0.16);
   --el-border-color-lighter: rgba(255, 255, 255, 0.12);
@@ -1449,119 +1486,94 @@ a {
   --el-mask-color: rgba(8, 6, 24, 0.55);
 }
 
-/* 浅色:淡紫渐变 + 高透明白玻璃 + 深色文字 */
-:root[data-theme-mode="light"][data-theme-preset="glass"] {
-  color: #221d47;
-  --page-bg: #eceafd;
-  --page-bg-strong: #dfdcfa;
+:root[data-theme-mode="light"][data-theme-material="glassmorphism"] {
   --panel-bg: rgba(255, 255, 255, 0.62);
   --panel-bg-elevated: rgba(255, 255, 255, 0.92);
-  --panel-muted: rgba(139, 124, 255, 0.08);
-  --panel-subtle: rgba(139, 124, 255, 0.12);
-  --panel-border: rgba(120, 100, 220, 0.28);
-  --panel-border-strong: rgba(120, 100, 220, 0.5);
-  --text-main: #221d47;
-  --text-soft: #4b4476;
-  --text-faint: #7d76a3;
+  --panel-muted: color-mix(in srgb, var(--accent), transparent 92%);
+  --panel-subtle: color-mix(in srgb, var(--accent), transparent 88%);
+  --panel-border: color-mix(in srgb, var(--accent), transparent 72%);
+  --panel-border-strong: color-mix(in srgb, var(--accent), transparent 50%);
+  --panel-fixed-bg: #f7f5ff;
+  --panel-fixed-bg-hover: #efeaff;
   --sidebar-bg: rgba(255, 255, 255, 0.55);
-  --sidebar-text: #57517f;
-  --sidebar-hover-bg: rgba(139, 124, 255, 0.1);
-  --sidebar-active-bg: rgba(139, 124, 255, 0.18);
-  --sidebar-active-text: #4b3ad6;
-  --sidebar-border: rgba(120, 100, 220, 0.22);
+  --sidebar-hover-bg: color-mix(in srgb, var(--accent), transparent 90%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 82%);
+  --sidebar-border: color-mix(in srgb, var(--accent), transparent 78%);
   --header-bg: rgba(255, 255, 255, 0.6);
-  --table-header-bg: rgba(139, 124, 255, 0.1);
-  --table-row-hover-bg: rgba(139, 124, 255, 0.08);
+  --table-header-bg: color-mix(in srgb, var(--accent), transparent 90%);
+  --table-row-hover-bg: color-mix(in srgb, var(--accent), transparent 92%);
   --shadow-sm: 0 8px 24px rgba(64, 48, 150, 0.12);
   --shadow-md: 0 20px 48px rgba(64, 48, 150, 0.16);
   --shadow-lg: 0 30px 76px rgba(64, 48, 150, 0.22);
   --surface-page-image:
-    radial-gradient(circle at 84% 10%, rgba(139, 124, 255, 0.4), transparent 36%),
-    radial-gradient(circle at 10% 88%, rgba(34, 211, 238, 0.32), transparent 32%),
-    radial-gradient(circle at 55% 42%, rgba(251, 127, 177, 0.16), transparent 46%),
-    linear-gradient(135deg, #e9e6ff 0%, #d8d4ff 45%, #f3e9ff 100%);
-  --el-text-color-primary: #221d47;
-  --el-text-color-regular: #4b4476;
-  --el-text-color-secondary: #7d76a3;
-  --el-text-color-placeholder: rgba(34, 29, 71, 0.4);
+    radial-gradient(circle at 84% 10%, color-mix(in srgb, var(--accent), transparent 60%), transparent 36%),
+    radial-gradient(circle at 10% 88%, color-mix(in srgb, var(--chart-cyan), transparent 68%), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--page-bg), white 26%) 0%, var(--page-bg) 45%, var(--page-bg-strong) 100%);
   --el-mask-color: rgba(34, 26, 82, 0.28);
 }
 
-/* ── 组件层:深色毛玻璃 ── */
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .shell-sidebar {
-  backdrop-filter: var(--surface-backdrop-filter);
-  -webkit-backdrop-filter: var(--surface-backdrop-filter);
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .work-panel,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-card {
-  border: 1px solid rgba(255, 255, 255, 0.16);
+[data-theme-material="glassmorphism"] .work-panel,
+[data-theme-material="glassmorphism"] .el-card {
+  border: 1px solid var(--panel-border);
   transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .work-panel:hover {
-  border-color: rgba(255, 255, 255, 0.32);
-  background-color: rgba(255, 255, 255, 0.14);
+[data-theme-material="glassmorphism"] .work-panel:hover {
+  border-color: var(--panel-border-strong);
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-popper,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-select-dropdown,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-picker-panel,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-dropdown-menu,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-message-box {
-  background: rgba(30, 26, 66, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+[data-theme-material="glassmorphism"] .el-popper,
+[data-theme-material="glassmorphism"] .el-select-dropdown,
+[data-theme-material="glassmorphism"] .el-picker-panel,
+[data-theme-material="glassmorphism"] .el-dropdown-menu,
+[data-theme-material="glassmorphism"] .el-message-box {
+  background: var(--panel-bg-elevated);
+  border: 1px solid var(--panel-border-strong);
   backdrop-filter: blur(24px) saturate(1.25);
   -webkit-backdrop-filter: blur(24px) saturate(1.25);
   color: var(--text-main);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-lg);
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-dialog {
-  background: rgba(30, 26, 66, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+[data-theme-material="glassmorphism"] .el-dialog {
+  background: var(--panel-bg-elevated);
+  border: 1px solid var(--panel-border-strong);
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-dialog__header,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-dialog__body,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-dialog__footer {
+[data-theme-material="glassmorphism"] .el-dialog__header,
+[data-theme-material="glassmorphism"] .el-dialog__body,
+[data-theme-material="glassmorphism"] .el-dialog__footer {
   background: transparent;
   color: var(--text-main);
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-drawer {
-  background: rgba(26, 22, 58, 0.92);
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
+[data-theme-material="glassmorphism"] .el-drawer {
+  background: var(--panel-bg-elevated);
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-input__wrapper,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-textarea__inner,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-select__wrapper,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-input-number .el-input__wrapper {
-  background: rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset !important;
+[data-theme-material="glassmorphism"] .el-input__wrapper,
+[data-theme-material="glassmorphism"] .el-textarea__inner,
+[data-theme-material="glassmorphism"] .el-select__wrapper {
+  background: var(--panel-bg) !important;
+  box-shadow: 0 0 0 1px var(--panel-border) inset !important;
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-input__wrapper.is-focus,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-select__wrapper.is-focused,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-textarea__inner:focus {
+[data-theme-material="glassmorphism"] .el-input__wrapper.is-focus,
+[data-theme-material="glassmorphism"] .el-select__wrapper.is-focused,
+[data-theme-material="glassmorphism"] .el-textarea__inner:focus {
   box-shadow:
     0 0 0 1px var(--accent) inset,
-    0 0 0 3px rgba(139, 124, 255, 0.2) !important;
+    0 0 0 3px color-mix(in srgb, var(--accent), transparent 80%) !important;
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button:not(.is-link):not(.is-text) {
+[data-theme-material="glassmorphism"] .el-button:not(.is-link):not(.is-text) {
   border-radius: 999px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
-/* link/text 按钮保持纯文字 + 颜色,不出现磨砂胶囊/边框 */
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button.is-link,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button.is-text,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-button.is-link,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-button.is-text {
+[data-theme-material="glassmorphism"] .el-button.is-link,
+[data-theme-material="glassmorphism"] .el-button.is-text {
   border: none;
   background: transparent;
   border-radius: 0;
@@ -1570,116 +1582,613 @@ a {
   -webkit-backdrop-filter: none;
 }
 
-/* 表格右侧固定的「操作」列:底色改为不透明,避免横向内容透出 */
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-table-fixed-column--right {
-  background-color: #221d49 !important;
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-table__body tr.hover-row .el-table-fixed-column--right {
-  background-color: #2d2757 !important;
-}
-
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-table-fixed-column--right {
-  background-color: #f7f5ff !important;
-}
-
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-table__body tr.hover-row .el-table-fixed-column--right {
-  background-color: #efeaff !important;
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button--default {
-  border-color: rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button--default:hover,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button--default:focus-visible {
-  border-color: rgba(255, 255, 255, 0.42);
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button--primary {
+[data-theme-material="glassmorphism"] .el-button--primary {
   border: 0;
-  background: linear-gradient(135deg, #9d8cff 0%, #6f5ce8 100%);
-  box-shadow: 0 10px 26px rgba(111, 92, 232, 0.4);
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-active) 100%);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent), transparent 60%);
+  color: var(--on-accent);
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button--primary:hover,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-button--primary:focus-visible {
-  background: linear-gradient(135deg, #b0a2ff 0%, #8068f5 100%);
-  color: #ffffff;
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-table {
+[data-theme-material="glassmorphism"] .el-table {
   --el-table-bg-color: transparent;
   --el-table-tr-bg-color: transparent;
   --el-table-expanded-cell-bg-color: transparent;
-  --el-table-border-color: rgba(255, 255, 255, 0.12);
+  --el-table-border-color: var(--panel-border);
   --el-table-header-bg-color: var(--table-header-bg);
   --el-table-row-hover-bg-color: var(--table-row-hover-bg);
   --el-table-current-row-bg-color: var(--accent-soft);
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .pagination-row {
-  border-top-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-pagination .btn-prev,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-pagination .btn-next,
-:root[data-theme-mode="dark"][data-theme-preset="glass"] .el-pagination .el-pager li {
-  border-color: rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.28);
+[data-theme-material="glassmorphism"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-faint), transparent 30%);
   background-clip: padding-box;
 }
 
-:root[data-theme-mode="dark"][data-theme-preset="glass"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.42);
+[data-theme-material="glassmorphism"] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-faint), transparent 8%);
   background-clip: padding-box;
 }
 
-/* ── 组件层:浅色毛玻璃 ── */
-
-:root[data-theme-mode="light"][data-theme-preset="glass"] .shell-sidebar {
-  backdrop-filter: var(--surface-backdrop-filter);
-  -webkit-backdrop-filter: var(--surface-backdrop-filter);
+/* ───────────────────────── 材质:深色 SaaS dark-saas ───────────────────────── */
+:root[data-theme-mode="dark"][data-theme-material="dark-saas"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #ffffff 4%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 9%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 24%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 6%);
+  --panel-border: color-mix(in srgb, var(--text-main), transparent 84%);
+  --panel-border-strong: color-mix(in srgb, var(--text-main), transparent 68%);
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #ffffff 5%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #ffffff 8%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #000000 20%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--text-main), transparent 92%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 82%);
+  --sidebar-active-text: var(--text-main);
+  --sidebar-border: color-mix(in srgb, var(--text-main), transparent 88%);
+  --header-bg: color-mix(in srgb, var(--page-bg), transparent 4%);
+  --table-header-bg: color-mix(in srgb, var(--text-main), transparent 94%);
+  --table-row-hover-bg: color-mix(in srgb, var(--text-main), transparent 95%);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.55);
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+  --el-mask-color: rgba(0, 0, 0, 0.72);
 }
 
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-popper,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-select-dropdown,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-picker-panel,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-dropdown-menu,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-message-box {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(120, 100, 220, 0.28);
-  backdrop-filter: blur(24px) saturate(1.25);
-  -webkit-backdrop-filter: blur(24px) saturate(1.25);
-  color: var(--text-main);
-  box-shadow: 0 24px 64px rgba(64, 48, 150, 0.2);
+:root[data-theme-mode="light"][data-theme-material="dark-saas"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #000000 2%);
+  --panel-bg-elevated: #ffffff;
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 4%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #000000 3%);
+  --panel-border: color-mix(in srgb, var(--text-main), transparent 84%);
+  --panel-border-strong: color-mix(in srgb, var(--text-main), transparent 66%);
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #000000 2%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #000000 5%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #ffffff 40%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--text-main), transparent 94%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 88%);
+  --sidebar-border: color-mix(in srgb, var(--text-main), transparent 88%);
+  --header-bg: color-mix(in srgb, var(--page-bg), #ffffff 40%);
+  --table-header-bg: color-mix(in srgb, var(--text-main), transparent 94%);
+  --table-row-hover-bg: color-mix(in srgb, var(--text-main), transparent 95%);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 28px rgba(15, 23, 42, 0.12);
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
 }
 
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-input__wrapper,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-textarea__inner,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-select__wrapper {
-  background: rgba(255, 255, 255, 0.66) !important;
-  box-shadow: 0 0 0 1px rgba(120, 100, 220, 0.3) inset !important;
+[data-theme-material="dark-saas"] .el-button:not(.is-link):not(.is-text) {
+  border-radius: 8px;
 }
 
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-button--primary {
+[data-theme-mode="dark"][data-theme-material="dark-saas"] .el-button--default {
+  background: transparent;
+}
+
+[data-theme-material="dark-saas"] .el-input__wrapper.is-focus,
+[data-theme-material="dark-saas"] .el-select__wrapper.is-focused {
+  box-shadow:
+    0 0 0 1px var(--accent) inset,
+    0 0 0 3px color-mix(in srgb, var(--accent), transparent 82%) !important;
+}
+
+/* ───────────────────────── 材质:极简白 apple-minimal ───────────────────────── */
+:root[data-theme-mode="light"][data-theme-material="apple-minimal"] {
+  --panel-bg: #ffffff;
+  --panel-bg-elevated: #ffffff;
+  --panel-muted: #f5f5f7;
+  --panel-subtle: #f5f5f7;
+  --panel-border: #d2d2d7;
+  --panel-border-strong: #a8a8ad;
+  --panel-fixed-bg: #ffffff;
+  --panel-fixed-bg-hover: #f5f5f7;
+  --sidebar-bg: rgba(255, 255, 255, 0.9);
+  --sidebar-hover-bg: #f5f5f7;
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 92%);
+  --sidebar-border: #e3e3e7;
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --table-header-bg: #f5f5f7;
+  --table-row-hover-bg: #fafafc;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+}
+
+:root[data-theme-mode="dark"][data-theme-material="apple-minimal"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #ffffff 5%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 10%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 20%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 6%);
+  --panel-border: color-mix(in srgb, var(--text-main), transparent 86%);
+  --panel-border-strong: color-mix(in srgb, var(--text-main), transparent 70%);
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #ffffff 5%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #ffffff 9%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #000000 18%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--text-main), transparent 93%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 84%);
+  --sidebar-border: color-mix(in srgb, var(--text-main), transparent 90%);
+  --header-bg: color-mix(in srgb, var(--page-bg), transparent 6%);
+  --table-header-bg: color-mix(in srgb, var(--text-main), transparent 95%);
+  --table-row-hover-bg: color-mix(in srgb, var(--text-main), transparent 96%);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+}
+
+[data-theme-material="apple-minimal"] .el-button:not(.is-link):not(.is-text) {
+  border-radius: 980px;
+}
+
+/* ───────────────────────── 材质:新拟态 neo-neumorphism ───────────────────────── */
+:root[data-theme-mode="light"][data-theme-material="neo-neumorphism"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #ffffff 3%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 5%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 3%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 2%);
+  --panel-border: transparent;
+  --panel-border-strong: transparent;
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #ffffff 3%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #000000 2%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #ffffff 3%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--page-bg), #000000 4%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 78%);
+  --sidebar-border: transparent;
+  --header-bg: color-mix(in srgb, var(--page-bg), #ffffff 3%);
+  --table-header-bg: color-mix(in srgb, var(--page-bg), #000000 4%);
+  --table-row-hover-bg: color-mix(in srgb, var(--page-bg), #000000 3%);
+  --shadow-sm: -4px -4px 8px rgba(255, 255, 255, 0.7), 4px 4px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: -6px -6px 12px rgba(255, 255, 255, 0.8), 6px 6px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: -8px -8px 16px rgba(255, 255, 255, 0.85), 8px 8px 16px rgba(0, 0, 0, 0.14);
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+}
+
+:root[data-theme-mode="dark"][data-theme-material="neo-neumorphism"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #ffffff 4%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 7%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 8%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 3%);
+  --panel-border: transparent;
+  --panel-border-strong: transparent;
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #ffffff 4%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #ffffff 8%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #ffffff 3%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--page-bg), #000000 6%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 72%);
+  --sidebar-border: transparent;
+  --header-bg: color-mix(in srgb, var(--page-bg), #ffffff 3%);
+  --table-header-bg: color-mix(in srgb, var(--page-bg), #000000 6%);
+  --table-row-hover-bg: color-mix(in srgb, var(--page-bg), #ffffff 5%);
+  --shadow-sm: -3px -3px 6px rgba(255, 255, 255, 0.05), 3px 3px 6px rgba(0, 0, 0, 0.55);
+  --shadow-md: -6px -6px 12px rgba(255, 255, 255, 0.06), 6px 6px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: -8px -8px 16px rgba(255, 255, 255, 0.08), 8px 8px 16px rgba(0, 0, 0, 0.65);
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+}
+
+[data-theme-material="neo-neumorphism"] .work-panel,
+[data-theme-material="neo-neumorphism"] .theme-section,
+[data-theme-material="neo-neumorphism"] .el-card {
+  border: 1px solid transparent;
+}
+
+[data-theme-material="neo-neumorphism"] .el-input__wrapper,
+[data-theme-material="neo-neumorphism"] .el-textarea__inner,
+[data-theme-material="neo-neumorphism"] .el-select__wrapper {
+  background: var(--panel-bg) !important;
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.12), inset -3px -3px 6px rgba(255, 255, 255, 0.55) !important;
+}
+
+[data-theme-material="neo-neumorphism"] .el-button--default {
   border: 0;
-  background: linear-gradient(135deg, #9d8cff 0%, #6f5ce8 100%);
-  box-shadow: 0 10px 26px rgba(111, 92, 232, 0.32);
-  color: #ffffff;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-sm);
 }
 
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-button--primary:hover,
-:root[data-theme-mode="light"][data-theme-preset="glass"] .el-button--primary:focus-visible {
-  background: linear-gradient(135deg, #b0a2ff 0%, #8068f5 100%);
-  color: #ffffff;
+/* ───────────────────────── 材质:粗野主义 brutalism ───────────────────────── */
+:root[data-theme-mode="light"][data-theme-material="brutalism"] {
+  --panel-bg: #ffffff;
+  --panel-bg-elevated: #ffffff;
+  --panel-muted: #f2f2f2;
+  --panel-subtle: #f7f7f7;
+  --panel-border: #000000;
+  --panel-border-strong: #000000;
+  --panel-fixed-bg: #ffffff;
+  --panel-fixed-bg-hover: #f2f2f2;
+  --sidebar-bg: #ffffff;
+  --sidebar-hover-bg: #f2f2f2;
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #000000;
+  --sidebar-border: #000000;
+  --header-bg: #ffffff;
+  --table-header-bg: #f2f2f2;
+  --table-row-hover-bg: #f7f7f7;
+  --shadow-sm: 2px 2px 0 #000000;
+  --shadow-md: 4px 4px 0 #000000;
+  --shadow-lg: 8px 8px 0 #000000;
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+  --el-mask-color: rgba(0, 0, 0, 0.4);
 }
+
+:root[data-theme-mode="dark"][data-theme-material="brutalism"] {
+  --panel-bg: #0a0a0a;
+  --panel-bg-elevated: #111111;
+  --panel-muted: #141414;
+  --panel-subtle: #171717;
+  --panel-border: #ffffff;
+  --panel-border-strong: #ffffff;
+  --panel-fixed-bg: #0a0a0a;
+  --panel-fixed-bg-hover: #161616;
+  --sidebar-bg: #0a0a0a;
+  --sidebar-hover-bg: #1a1a1a;
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #000000;
+  --sidebar-border: #ffffff;
+  --header-bg: #0a0a0a;
+  --table-header-bg: #141414;
+  --table-row-hover-bg: #181818;
+  --shadow-sm: 2px 2px 0 #ffffff;
+  --shadow-md: 4px 4px 0 #ffffff;
+  --shadow-lg: 8px 8px 0 #ffffff;
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+  --el-mask-color: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme-material="brutalism"] .work-panel,
+[data-theme-material="brutalism"] .theme-section,
+[data-theme-material="brutalism"] .el-card {
+  border: 3px solid var(--panel-border) !important;
+  border-radius: 0 !important;
+}
+
+[data-theme-material="brutalism"] .el-button:not(.is-link):not(.is-text) {
+  border: 3px solid var(--panel-border);
+  border-radius: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme-material="brutalism"] .el-button--primary {
+  border: 3px solid var(--panel-border);
+  background: var(--accent);
+  color: #000000;
+}
+
+[data-theme-material="brutalism"] .el-input__wrapper,
+[data-theme-material="brutalism"] .el-textarea__inner,
+[data-theme-material="brutalism"] .el-select__wrapper {
+  border-radius: 0 !important;
+  box-shadow: 0 0 0 3px var(--panel-border) inset !important;
+}
+
+[data-theme-material="brutalism"] .el-dialog,
+[data-theme-material="brutalism"] .el-popper,
+[data-theme-material="brutalism"] .el-select-dropdown,
+[data-theme-material="brutalism"] .el-message-box {
+  border-radius: 0 !important;
+  border: 3px solid var(--panel-border);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ───────────────────────── 材质:日式极简 japanese-minimal ───────────────────────── */
+:root[data-theme-mode="light"][data-theme-material="japanese-minimal"] {
+  --panel-bg: #ffffff;
+  --panel-bg-elevated: #ffffff;
+  --panel-muted: #fafaf7;
+  --panel-subtle: #f5f3ee;
+  --panel-border: #d8d5cd;
+  --panel-border-strong: #b9b4a6;
+  --panel-fixed-bg: #ffffff;
+  --panel-fixed-bg-hover: #fafaf7;
+  --sidebar-bg: #fafaf7;
+  --sidebar-hover-bg: #f2efe8;
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 90%);
+  --sidebar-active-text: var(--accent);
+  --sidebar-border: #e4e0d6;
+  --header-bg: rgba(250, 250, 247, 0.92);
+  --table-header-bg: #fafaf7;
+  --table-row-hover-bg: #f7f5f0;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+}
+
+:root[data-theme-mode="dark"][data-theme-material="japanese-minimal"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #ffffff 4%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 8%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 16%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 5%);
+  --panel-border: color-mix(in srgb, var(--text-main), transparent 82%);
+  --panel-border-strong: color-mix(in srgb, var(--text-main), transparent 68%);
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #ffffff 4%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #ffffff 7%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #000000 14%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--text-main), transparent 94%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 86%);
+  --sidebar-border: color-mix(in srgb, var(--text-main), transparent 88%);
+  --header-bg: color-mix(in srgb, var(--page-bg), transparent 4%);
+  --table-header-bg: color-mix(in srgb, var(--text-main), transparent 95%);
+  --table-row-hover-bg: color-mix(in srgb, var(--text-main), transparent 96%);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --surface-page-image: none;
+  --surface-backdrop-filter: none;
+}
+
+[data-theme-material="japanese-minimal"] .work-panel,
+[data-theme-material="japanese-minimal"] .theme-section {
+  box-shadow: none;
+}
+
+/* ───────────────────────── 材质:便当盒 bento-grid ───────────────────────── */
+:root[data-theme-mode="light"][data-theme-material="bento-grid"] {
+  --panel-bg: #ffffff;
+  --panel-bg-elevated: #ffffff;
+  --panel-muted: color-mix(in srgb, var(--accent), transparent 96%);
+  --panel-subtle: color-mix(in srgb, var(--accent), transparent 93%);
+  --panel-border: #e5e7eb;
+  --panel-border-strong: color-mix(in srgb, var(--accent), transparent 55%);
+  --panel-fixed-bg: #ffffff;
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--accent), transparent 96%);
+  --sidebar-bg: #ffffff;
+  --sidebar-hover-bg: color-mix(in srgb, var(--accent), transparent 94%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 88%);
+  --sidebar-border: #eef0f3;
+  --header-bg: rgba(255, 255, 255, 0.9);
+  --table-header-bg: #fafbfc;
+  --table-row-hover-bg: color-mix(in srgb, var(--accent), transparent 96%);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
+  --surface-page-image:
+    radial-gradient(circle at 80% 6%, color-mix(in srgb, var(--accent), transparent 90%), transparent 34%),
+    radial-gradient(circle at 8% 92%, color-mix(in srgb, var(--accent), transparent 92%), transparent 30%);
+  --surface-backdrop-filter: none;
+}
+
+:root[data-theme-mode="dark"][data-theme-material="bento-grid"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #ffffff 6%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 11%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 18%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 7%);
+  --panel-border: color-mix(in srgb, var(--text-main), transparent 88%);
+  --panel-border-strong: color-mix(in srgb, var(--accent), transparent 55%);
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #ffffff 6%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #ffffff 10%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #000000 16%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--text-main), transparent 93%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 84%);
+  --sidebar-border: color-mix(in srgb, var(--text-main), transparent 90%);
+  --header-bg: color-mix(in srgb, var(--page-bg), transparent 4%);
+  --table-header-bg: color-mix(in srgb, var(--text-main), transparent 95%);
+  --table-row-hover-bg: color-mix(in srgb, var(--text-main), transparent 95%);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.36);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --surface-page-image:
+    radial-gradient(circle at 80% 6%, color-mix(in srgb, var(--accent), transparent 84%), transparent 34%);
+  --surface-backdrop-filter: none;
+}
+
+[data-theme-material="bento-grid"] .work-panel,
+[data-theme-material="bento-grid"] .theme-section {
+  border-radius: 20px !important;
+  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+[data-theme-material="bento-grid"] .work-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ───────────────────────── 材质:赛博朋克 cyberpunk ───────────────────────── */
+:root[data-theme-mode="dark"][data-theme-material="cyberpunk"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #000000 20%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 8%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 12%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 4%);
+  --panel-border: color-mix(in srgb, var(--accent), transparent 45%);
+  --panel-border-strong: color-mix(in srgb, var(--accent), transparent 12%);
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #000000 14%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #ffffff 6%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #000000 26%);
+  --sidebar-hover-bg: color-mix(in srgb, var(--accent), transparent 88%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 72%);
+  --sidebar-border: color-mix(in srgb, var(--accent), transparent 62%);
+  --header-bg: color-mix(in srgb, var(--page-bg), transparent 8%);
+  --table-header-bg: color-mix(in srgb, var(--accent), transparent 92%);
+  --table-row-hover-bg: color-mix(in srgb, var(--accent), transparent 93%);
+  --shadow-sm: 0 0 8px color-mix(in srgb, var(--accent), transparent 80%);
+  --shadow-md: 0 0 12px color-mix(in srgb, var(--accent), transparent 72%), 0 0 30px color-mix(in srgb, var(--accent), transparent 88%);
+  --shadow-lg: 0 0 16px color-mix(in srgb, var(--accent), transparent 62%), 0 0 44px color-mix(in srgb, var(--accent), transparent 84%);
+  --surface-page-image:
+    linear-gradient(color-mix(in srgb, var(--accent), transparent 94%) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent), transparent 94%) 1px, transparent 1px),
+    linear-gradient(180deg, var(--page-bg) 0%, color-mix(in srgb, var(--page-bg), #000000 30%) 100%);
+  --surface-page-size: 28px 28px, 28px 28px, auto;
+  --surface-backdrop-filter: none;
+  --el-mask-color: rgba(0, 0, 0, 0.75);
+}
+
+:root[data-theme-mode="light"][data-theme-material="cyberpunk"] {
+  --panel-bg: rgba(255, 255, 255, 0.86);
+  --panel-bg-elevated: #ffffff;
+  --panel-muted: color-mix(in srgb, var(--accent), transparent 93%);
+  --panel-subtle: color-mix(in srgb, var(--accent), transparent 90%);
+  --panel-border: color-mix(in srgb, var(--accent), transparent 40%);
+  --panel-border-strong: color-mix(in srgb, var(--accent), transparent 10%);
+  --panel-fixed-bg: #ffffff;
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--accent), transparent 92%);
+  --sidebar-bg: rgba(255, 255, 255, 0.9);
+  --sidebar-hover-bg: color-mix(in srgb, var(--accent), transparent 90%);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 82%);
+  --sidebar-border: color-mix(in srgb, var(--accent), transparent 60%);
+  --header-bg: rgba(255, 255, 255, 0.88);
+  --table-header-bg: color-mix(in srgb, var(--accent), transparent 92%);
+  --table-row-hover-bg: color-mix(in srgb, var(--accent), transparent 94%);
+  --shadow-sm: 0 0 8px color-mix(in srgb, var(--accent), transparent 82%);
+  --shadow-md: 0 0 12px color-mix(in srgb, var(--accent), transparent 74%);
+  --shadow-lg: 0 0 16px color-mix(in srgb, var(--accent), transparent 64%);
+  --surface-page-image:
+    linear-gradient(color-mix(in srgb, var(--accent), transparent 92%) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent), transparent 92%) 1px, transparent 1px);
+  --surface-page-size: 28px 28px, 28px 28px, auto;
+  --surface-backdrop-filter: none;
+}
+
+[data-theme-material="cyberpunk"] .work-panel,
+[data-theme-material="cyberpunk"] .theme-section,
+[data-theme-material="cyberpunk"] .el-card {
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme-material="cyberpunk"] .page-head h1 {
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent), transparent 40%), 0 0 24px color-mix(in srgb, var(--accent), transparent 70%);
+}
+
+[data-theme-material="cyberpunk"] .el-button--primary {
+  box-shadow: var(--shadow-md);
+}
+
+/* ───────────────────────── 材质:蒸汽波 vaporwave ───────────────────────── */
+:root[data-theme-mode="dark"][data-theme-material="vaporwave"] {
+  --panel-bg: rgba(30, 20, 60, 0.55);
+  --panel-bg-elevated: rgba(34, 22, 66, 0.92);
+  --panel-muted: rgba(255, 255, 255, 0.06);
+  --panel-subtle: rgba(255, 255, 255, 0.1);
+  --panel-border: color-mix(in srgb, var(--accent), transparent 40%);
+  --panel-border-strong: color-mix(in srgb, var(--accent), transparent 8%);
+  --panel-fixed-bg: #261c4e;
+  --panel-fixed-bg-hover: #332663;
+  --sidebar-bg: rgba(24, 16, 52, 0.6);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: color-mix(in srgb, var(--accent), transparent 76%);
+  --sidebar-border: color-mix(in srgb, var(--accent), transparent 56%);
+  --header-bg: rgba(24, 16, 52, 0.55);
+  --table-header-bg: rgba(255, 255, 255, 0.07);
+  --table-row-hover-bg: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 0 8px color-mix(in srgb, var(--accent), transparent 82%);
+  --shadow-md: 0 0 14px color-mix(in srgb, var(--accent), transparent 76%), 0 0 32px color-mix(in srgb, var(--chart-rose), transparent 88%);
+  --shadow-lg: 0 0 20px color-mix(in srgb, var(--accent), transparent 66%), 0 0 48px color-mix(in srgb, var(--chart-rose), transparent 84%);
+  --surface-page-image:
+    linear-gradient(180deg, #ff71ce 0%, #b967ff 34%, #5c3d99 62%, var(--page-bg) 78%, var(--page-bg-strong) 100%),
+    linear-gradient(color-mix(in srgb, #ff71ce, white 40%) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, #ff71ce, white 40%) 1px, transparent 1px);
+  --surface-page-size: auto, 26px 26px, 26px 26px;
+  --surface-backdrop-filter: blur(14px) saturate(1.3);
+  --el-mask-color: rgba(12, 8, 34, 0.6);
+}
+
+:root[data-theme-mode="light"][data-theme-material="vaporwave"] {
+  --panel-bg: rgba(255, 255, 255, 0.72);
+  --panel-bg-elevated: rgba(255, 255, 255, 0.94);
+  --panel-muted: color-mix(in srgb, #b967ff, transparent 92%);
+  --panel-subtle: color-mix(in srgb, #ff71ce, transparent 92%);
+  --panel-border: color-mix(in srgb, #b967ff, transparent 40%);
+  --panel-border-strong: color-mix(in srgb, #b967ff, transparent 12%);
+  --panel-fixed-bg: #ffffff;
+  --panel-fixed-bg-hover: color-mix(in srgb, #ff71ce, transparent 94%);
+  --sidebar-bg: rgba(255, 255, 255, 0.75);
+  --sidebar-hover-bg: color-mix(in srgb, #ff71ce, transparent 92%);
+  --sidebar-active-bg: color-mix(in srgb, #b967ff, transparent 84%);
+  --sidebar-border: color-mix(in srgb, #b967ff, transparent 50%);
+  --header-bg: rgba(255, 255, 255, 0.7);
+  --table-header-bg: color-mix(in srgb, #ff71ce, transparent 92%);
+  --table-row-hover-bg: color-mix(in srgb, #ff71ce, transparent 94%);
+  --shadow-sm: 0 0 8px color-mix(in srgb, #ff71ce, transparent 84%);
+  --shadow-md: 0 0 14px color-mix(in srgb, #b967ff, transparent 78%);
+  --shadow-lg: 0 0 20px color-mix(in srgb, #b967ff, transparent 68%);
+  --surface-page-image:
+    linear-gradient(180deg, color-mix(in srgb, #ff71ce, white 55%) 0%, color-mix(in srgb, #b967ff, white 48%) 38%, var(--page-bg) 72%, var(--page-bg-strong) 100%);
+  --surface-backdrop-filter: blur(14px) saturate(1.25);
+}
+
+[data-theme-material="vaporwave"] .work-panel,
+[data-theme-material="vaporwave"] .theme-section {
+  border: 1px solid var(--panel-border);
+}
+
+/* ───────────────────────── 材质:装饰艺术 art-deco ───────────────────────── */
+:root[data-theme-mode="dark"][data-theme-material="art-deco"] {
+  --panel-bg: color-mix(in srgb, var(--page-bg), #000000 12%);
+  --panel-bg-elevated: color-mix(in srgb, var(--page-bg), #ffffff 6%);
+  --panel-muted: color-mix(in srgb, var(--page-bg), #000000 22%);
+  --panel-subtle: color-mix(in srgb, var(--page-bg), #ffffff 4%);
+  --panel-border: rgba(201, 162, 75, 0.55);
+  --panel-border-strong: rgba(232, 200, 106, 0.85);
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #000000 12%);
+  --panel-fixed-bg-hover: color-mix(in srgb, var(--page-bg), #ffffff 5%);
+  --sidebar-bg: color-mix(in srgb, var(--page-bg), #000000 22%);
+  --sidebar-hover-bg: rgba(201, 162, 75, 0.1);
+  --sidebar-active-bg: rgba(201, 162, 75, 0.2);
+  --sidebar-active-text: #e8c86a;
+  --sidebar-border: rgba(201, 162, 75, 0.4);
+  --header-bg: color-mix(in srgb, var(--page-bg), transparent 4%);
+  --table-header-bg: rgba(201, 162, 75, 0.08);
+  --table-row-hover-bg: rgba(201, 162, 75, 0.06);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --surface-page-image:
+    radial-gradient(circle at 50% 108%, transparent 52%, rgba(201, 162, 75, 0.1) 53%, transparent 56%),
+    repeating-linear-gradient(0deg, transparent 0 46px, rgba(201, 162, 75, 0.05) 46px 47px);
+  --surface-backdrop-filter: none;
+  --el-mask-color: rgba(0, 0, 0, 0.75);
+}
+
+:root[data-theme-mode="light"][data-theme-material="art-deco"] {
+  --panel-bg: #fdfbf4;
+  --panel-bg-elevated: #ffffff;
+  --panel-muted: #f6f1e2;
+  --panel-subtle: #faf5e8;
+  --panel-border: rgba(163, 124, 39, 0.45);
+  --panel-border-strong: rgba(163, 124, 39, 0.8);
+  --panel-fixed-bg: #fdfbf4;
+  --panel-fixed-bg-hover: #f6f1e2;
+  --sidebar-bg: #faf5e8;
+  --sidebar-hover-bg: rgba(163, 124, 39, 0.08);
+  --sidebar-active-bg: rgba(163, 124, 39, 0.16);
+  --sidebar-active-text: #8c6a1f;
+  --sidebar-border: rgba(163, 124, 39, 0.35);
+  --header-bg: rgba(253, 251, 244, 0.9);
+  --table-header-bg: rgba(163, 124, 39, 0.08);
+  --table-row-hover-bg: rgba(163, 124, 39, 0.06);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --surface-page-image:
+    radial-gradient(circle at 50% 108%, transparent 52%, rgba(163, 124, 39, 0.12) 53%, transparent 56%),
+    repeating-linear-gradient(0deg, transparent 0 46px, rgba(163, 124, 39, 0.05) 46px 47px);
+  --surface-backdrop-filter: none;
+}
+
+[data-theme-material="art-deco"] .work-panel,
+[data-theme-material="art-deco"] .theme-section {
+  border: 1px solid var(--panel-border);
+  border-radius: 2px !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--panel-border), transparent 45%);
+}
+
+[data-theme-material="art-deco"] .el-button--primary {
+  border: 1px solid var(--panel-border-strong);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--panel-border-strong);
+}
+
+[data-theme-material="art-deco"] .el-button--primary:hover,
+[data-theme-material="art-deco"] .el-button--primary:focus-visible {
+  background: var(--panel-border-strong);
+  color: #141414;
+}
+

@@ -7,6 +7,7 @@ const {
   themeSettings,
   themeModeSegmentOptions,
   themePresetOptions,
+  themeMaterialOptions,
   themeFontOptions,
   themeRadiusOptions,
   themeDensityOptions,
@@ -61,6 +62,33 @@ const advancedGroups = [
             :class="{ 'theme-choice-active': themeSettings.preset === option.key }"
             type="button"
             @click="updateThemeSetting('preset', option.key)"
+          >
+            <span
+              class="theme-preset-swatch"
+              :style="{
+                '--preset-primary': option.primary,
+                '--preset-accent': option.accent,
+                '--preset-surface': option.surface,
+              }"
+            />
+            <span>{{ option.label }}</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="theme-section theme-section-wide">
+        <div class="theme-section-head">
+          <h2>外观材质</h2>
+          <p class="theme-section-desc">质感与配色独立组合:材质负责表面处理(渐变/模糊/边框/阴影),主题色彩负责颜色。</p>
+        </div>
+        <div class="theme-preset-grid">
+          <button
+            v-for="option in themeMaterialOptions"
+            :key="option.key"
+            class="theme-choice theme-preset-choice"
+            :class="{ 'theme-choice-active': themeSettings.material === option.key }"
+            type="button"
+            @click="updateThemeSetting('material', option.key)"
           >
             <span
               class="theme-preset-swatch"
@@ -216,6 +244,13 @@ const advancedGroups = [
   color: var(--text-main);
   font-size: 15px;
   font-weight: 800;
+}
+
+.theme-section-desc {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .theme-mode-switch {
