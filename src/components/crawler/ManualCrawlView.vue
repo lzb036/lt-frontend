@@ -674,20 +674,20 @@ function normalizeRakutenProductTarget(value: string) {
 async function restartTask(row: CrawlTask) {
   try {
     await ElMessageBox.confirm(
-      `确认重新采集「${row.target || '该任务'}」？`,
+      `确认复制「${row.target || '该任务'}」创建一条新的采集任务？原任务记录保持不变。`,
       '重新采集',
       {
-        confirmButtonText: '重新采集',
+        confirmButtonText: '创建并采集',
         cancelButtonText: '取消',
         type: 'warning',
       },
     )
     const result = await api.restartTask(row.id)
-    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.task : task))
-    ElMessage.success('重新采集任务已加入队列')
+    tasks.value = [result.task, ...tasks.value.filter((task) => task.id !== result.task.id)]
+    ElMessage.success('已创建新的采集任务并加入队列')
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(toApiErrorMessage(error, '重启任务失败'))
+      ElMessage.error(toApiErrorMessage(error, '重新采集失败'))
     }
   }
 }
