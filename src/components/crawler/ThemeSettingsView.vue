@@ -79,7 +79,6 @@ const advancedGroups = [
       <section class="theme-section theme-section-wide">
         <div class="theme-section-head">
           <h2>外观材质</h2>
-          <p class="theme-section-desc">质感与配色独立组合:材质负责表面处理(渐变/模糊/边框/阴影),主题色彩负责颜色。</p>
         </div>
         <div class="theme-preset-grid">
           <button
@@ -244,13 +243,6 @@ const advancedGroups = [
   color: var(--text-main);
   font-size: 15px;
   font-weight: 800;
-}
-
-.theme-section-desc {
-  margin: 0;
-  color: var(--text-faint);
-  font-size: 12px;
-  line-height: 1.6;
 }
 
 .theme-mode-switch {

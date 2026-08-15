@@ -1,7 +1,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
-export type ThemePresetKey = 'default' | 'anthropic' | 'large-simple' | 'night' | 'rose-garden' | 'lagoon' | 'sunset' | 'forest' | 'sea-breeze' | 'wisteria' | 'glass'
+export type ThemePresetKey = 'default' | 'anthropic' | 'large-simple' | 'night' | 'rose-garden' | 'lagoon' | 'sunset' | 'forest' | 'sea-breeze' | 'wisteria'
 export type ThemeMaterialKey = 'standard' | 'glassmorphism' | 'dark-saas' | 'apple-minimal' | 'neo-neumorphism' | 'brutalism' | 'japanese-minimal' | 'bento-grid' | 'cyberpunk' | 'vaporwave' | 'art-deco'
 export type ThemeFontMode = 'sans' | 'microsoft' | 'serif' | 'mono'
 export type ThemeRadiusMode = 'auto' | '0' | '0.3' | '0.5' | '0.75' | '1.0'
@@ -56,7 +56,7 @@ const THEME_SETTINGS_STORAGE_KEY = 'lt_product_collector_theme_settings_v2'
 
 export const defaultThemeSettings: ThemeSettings = {
   mode: 'dark',
-  preset: 'glass',
+  preset: 'wisteria',
   material: 'glassmorphism',
   font: 'microsoft',
   radius: '0.75',
@@ -87,7 +87,6 @@ export const themePresetOptions: ThemePresetOption[] = [
   { key: 'forest', label: '森林', primary: '#2f7a67', accent: '#b5dcd0', surface: '#f2f8f5' },
   { key: 'sea-breeze', label: '海风', primary: '#4f5df7', accent: '#c5d0ff', surface: '#f1f6ff' },
   { key: 'wisteria', label: '藤紫', primary: '#8b5fd3', accent: '#d6c6f6', surface: '#f7f4fc' },
-  { key: 'glass', label: '毛玻璃', primary: '#8b7cff', accent: '#d6ccff', surface: '#191538' },
 ]
 
 export const themeMaterialOptions: ThemeMaterialOption[] = [

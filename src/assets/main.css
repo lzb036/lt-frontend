@@ -1358,83 +1358,17 @@ a {
 /* ============ 材质(Material)与配色(Preset)分离的主题系统 ============ */
 /* 主题色彩(预设)只负责颜色;外观材质负责表面处理(渐变/模糊/边框/阴影)。 */
 
-/* ── 毛玻璃配色预设(仅颜色;结构见下方 glassmorphism 材质) ── */
-:root[data-theme-preset="glass"] {
-  --accent: #8b7cff;
-  --accent-hover: #a394ff;
-  --accent-active: #6f5ce8;
-  --accent-soft: rgba(139, 124, 255, 0.18);
-  --accent-border: rgba(139, 124, 255, 0.55);
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.16);
-  --warning: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.16);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.18);
-  --on-accent: #ffffff;
-  --chart-blue: #9d8cff;
-  --chart-rose: #fb7fb1;
-  --chart-cyan: #22d3ee;
-  --chart-green: #4ade80;
-  --chart-amber: #f59e0b;
-  --chart-gold: #facc15;
-  --chart-red: #f87171;
-  --chart-teal: #2dd4bf;
-  --el-color-primary: var(--accent);
-  --el-color-primary-light-3: #a394ff;
-  --el-color-primary-light-5: #beb2ff;
-  --el-color-primary-light-7: #d6ceff;
-  --el-color-primary-light-8: #e3ddff;
-  --el-color-primary-light-9: rgba(139, 124, 255, 0.16);
-  --el-color-primary-dark-2: #6f5ce8;
-  --el-color-success: var(--success);
-  --el-color-warning: var(--warning);
-  --el-color-danger: var(--danger);
-}
-
-:root[data-theme-mode="dark"][data-theme-preset="glass"] {
-  color: #ffffff;
-  --page-bg: #14102b;
-  --page-bg-strong: #1d1740;
-  --text-main: #ffffff;
-  --text-soft: rgba(255, 255, 255, 0.78);
-  --text-faint: rgba(255, 255, 255, 0.52);
-  --sidebar-text: rgba(255, 255, 255, 0.72);
-  --sidebar-active-text: #ffffff;
-  --el-text-color-primary: #ffffff;
-  --el-text-color-regular: var(--text-soft);
-  --el-text-color-secondary: var(--text-faint);
-  --el-text-color-placeholder: rgba(255, 255, 255, 0.42);
-  --el-text-color-disabled: rgba(255, 255, 255, 0.32);
-}
-
-:root[data-theme-mode="light"][data-theme-preset="glass"] {
-  color: #221d47;
-  --page-bg: #eceafd;
-  --page-bg-strong: #dfdcfa;
-  --text-main: #221d47;
-  --text-soft: #4b4476;
-  --text-faint: #7d76a3;
-  --sidebar-text: #57517f;
-  --sidebar-active-text: #4b3ad6;
-  --el-text-color-primary: #221d47;
-  --el-text-color-regular: #4b4476;
-  --el-text-color-secondary: #7d76a3;
-  --el-text-color-placeholder: rgba(34, 29, 71, 0.4);
-}
-
 /* 材质通用:侧边栏模糊随材质、固定列不透明底色 */
 [data-theme-material] .shell-sidebar {
   backdrop-filter: var(--surface-backdrop-filter, none);
   -webkit-backdrop-filter: var(--surface-backdrop-filter, none);
 }
 
-[data-theme-material] .el-table-fixed-column--right {
+[data-theme-material] .el-table-fixed-column--right,
+[data-theme-material] .el-table__body tr.hover-row .el-table-fixed-column--right,
+[data-theme-material] .el-table__body tr:hover .el-table-fixed-column--right,
+[data-theme-material] .el-table__body tr.current-row .el-table-fixed-column--right {
   background-color: var(--panel-fixed-bg, var(--panel-bg-elevated)) !important;
-}
-
-[data-theme-material] .el-table__body tr.hover-row .el-table-fixed-column--right {
-  background-color: var(--panel-fixed-bg-hover, var(--panel-fixed-bg, var(--panel-bg-elevated))) !important;
 }
 
 /* ───────────────────────── 材质:毛玻璃 glassmorphism ───────────────────────── */
@@ -2190,5 +2124,52 @@ a {
 [data-theme-material="art-deco"] .el-button--primary:focus-visible {
   background: var(--panel-border-strong);
   color: #141414;
+}
+
+/* ============ 全材质通用保障层(追加在最后,优先级最高) ============ */
+/* 操作列底色跟随配色(从页面色派生),任何材质/配色/悬停状态下都不透明 */
+
+/* 深色:由页面深色调派生 */
+:root[data-theme-mode="dark"][data-theme-material][data-theme-material] {
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg-strong), #ffffff 6%);
+}
+
+/* 浅色:由页面浅色调派生 */
+:root[data-theme-mode="light"][data-theme-material][data-theme-material] {
+  --panel-fixed-bg: color-mix(in srgb, var(--page-bg), #ffffff 22%);
+}
+
+/* 粗野主义保留黑白本色 */
+:root[data-theme-mode="dark"][data-theme-material="brutalism"][data-theme-material] {
+  --panel-fixed-bg: #0a0a0a;
+}
+
+:root[data-theme-mode="light"][data-theme-material="brutalism"][data-theme-material] {
+  --panel-fixed-bg: #ffffff;
+}
+
+/* 操作栏按钮恒定文字样式(无边框/无底色/无圆角/无磨砂),悬停亦同 */
+[data-theme-material][data-theme-material] .table-action-column .el-button {
+  min-height: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+[data-theme-material][data-theme-material] .table-action-column .el-button:hover,
+[data-theme-material][data-theme-material] .table-action-column .el-button:focus-visible,
+[data-theme-material][data-theme-material] .table-action-column .el-button.is-disabled {
+  min-height: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
