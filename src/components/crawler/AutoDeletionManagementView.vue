@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
 import { Delete, Edit, Plus, Refresh, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -19,6 +19,7 @@ const operatingId = shallowRef<number | null>(null)
 const createMode = shallowRef<AutoListingTaskType>('automatic')
 const tasks = shallowRef<AutoDeletionTask[]>([])
 const stores = shallowRef<StoreAccount[]>([])
+let progressTimer: number | undefined
 const filters = reactive({ storeId: null as number | null, taskType: '' as '' | AutoListingTaskType })
 const form = reactive({
   storeId: 0,
@@ -42,8 +43,8 @@ const deletionTaskHint = computed(() => (
     ? '任务会在设定时间执行，只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。选择每月执行时，如果当月没有所选日期，则在当月最后一天执行。'
     : (
       form.executionMode === 'scheduled'
-        ? '任务仍归类为手动任务，将在选择的日期和时间到达后执行一次。执行时只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。'
-        : '任务仍归类为手动任务，创建后立即执行。执行时只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。'
+        ? '任务仍归类为手动任务，将在选择的日期和时间到达后执行一次。执行时只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。同一店铺同一时间只执行一个手动删除任务，多个任务自动排队，前一个完成后自动开始下一个。'
+        : '任务仍归类为手动任务，创建后立即执行。执行时只选择目标店铺中已上架、近一年有效销量为 0 的商品，并按上架时间从早到晚处理；符合条件的商品不足时按实际数量创建同步商品删除任务。同一店铺同一时间只执行一个手动删除任务，多个任务自动排队，前一个完成后自动开始下一个。'
     )
 ))
 const submitButtonText = computed(() => {
@@ -52,9 +53,13 @@ const submitButtonText = computed(() => {
 })
 
 onMounted(() => void loadData())
+onBeforeUnmount(() => stopProgressPolling())
+watch(tasks, syncProgressPolling)
 
-async function loadData() {
-  loading.value = true
+async function loadData(options: { silent?: boolean } = {}) {
+  if (!options.silent) {
+    loading.value = true
+  }
   try {
     const [taskRows, storeRows] = await Promise.all([
       api.listAutoDeletionTasks(filters),
@@ -63,10 +68,47 @@ async function loadData() {
     tasks.value = taskRows
     stores.value = storeRows
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载自动删除任务失败'))
+    if (!options.silent) {
+      ElMessage.error(toApiErrorMessage(error, '加载自动删除任务失败'))
+    }
   } finally {
-    loading.value = false
+    if (!options.silent) {
+      loading.value = false
+    }
   }
+}
+
+// 有正在创建/排队中的任务时,每 2 秒静默刷新列表,任务完成后自动停止
+function hasActiveTask() {
+  return tasks.value.some((row) => (
+    row.status === 'running'
+    || (row.taskType === 'manual' && (row.status === 'idle' || row.status === 'queued'))
+  ))
+}
+
+function syncProgressPolling() {
+  if (hasActiveTask()) {
+    startProgressPolling()
+  } else {
+    stopProgressPolling()
+  }
+}
+
+function startProgressPolling() {
+  if (progressTimer) {
+    return
+  }
+  progressTimer = window.setInterval(() => {
+    void loadData({ silent: true })
+  }, 2000)
+}
+
+function stopProgressPolling() {
+  if (!progressTimer) {
+    return
+  }
+  window.clearInterval(progressTimer)
+  progressTimer = undefined
 }
 
 function openCreate(mode: AutoListingTaskType) {
@@ -125,7 +167,7 @@ async function submit() {
   saving.value = true
   if (mode === 'manual' && executionMode === 'immediate') {
     dialogVisible.value = false
-    ElMessage.info('删除任务已提交，后台正在准备')
+    ElMessage.info('删除任务已提交，后台正在准备；同店铺任务将按顺序排队执行')
   }
   try {
     if (mode === 'automatic') {
@@ -209,7 +251,13 @@ async function toggleTask(task: AutoDeletionTask) {
 }
 
 function statusLabel(task: AutoDeletionTask) {
-  if (task.taskType === 'manual' && task.status === 'completed') return '已完成'
+  if (task.taskType === 'manual') {
+    if (task.status === 'completed') return '已完成'
+    if (task.status === 'queued') return task.scheduleType === 'once' ? '等待执行' : '排队中'
+    if (task.status === 'idle' || task.status === 'running') return '创建中'
+    if (task.status === 'failed') return '上次失败'
+    return '等待执行'
+  }
   if (task.status === 'running') return '创建中'
   if (task.status === 'failed') return '上次失败'
   if (task.taskType === 'automatic' && !task.enabled) return '已关闭'
@@ -219,6 +267,7 @@ function statusLabel(task: AutoDeletionTask) {
 function statusType(task: AutoDeletionTask) {
   if (task.status === 'completed') return 'success'
   if (task.status === 'running') return 'warning'
+  if (task.status === 'queued') return 'primary'
   if (task.status === 'failed') return 'danger'
   if (task.taskType === 'automatic' && !task.enabled) return 'info'
   return 'success'
@@ -237,6 +286,7 @@ function statusType(task: AutoDeletionTask) {
           创建任务
         </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadData">刷新</el-button>
+        <span v-if="hasActiveTask()" class="polling-status">进行中的任务每 2 秒自动刷新</span>
       </div>
     </div>
     <section class="work-panel">
@@ -327,7 +377,7 @@ function statusType(task: AutoDeletionTask) {
       v-model="editVisible"
       :task="editingTask"
       task-kind="deletion"
-      @updated="loadData"
+      @updated="() => loadData()"
     />
   </section>
 </template>
@@ -380,6 +430,11 @@ function statusType(task: AutoDeletionTask) {
 
 .filters {
   margin-bottom: 14px;
+}
+
+.polling-status {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .filters :deep(.el-select) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Refresh, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 
@@ -23,6 +23,7 @@ const editVisible = shallowRef(false)
 const editingSchedule = shallowRef<AutoListingSchedule | null>(null)
 const schedules = shallowRef<AutoListingSchedule[]>([])
 const stores = shallowRef<StoreAccount[]>([])
+let progressTimer: number | undefined
 const filters = reactive({
   storeId: null as number | null,
   taskType: '' as '' | AutoListingTaskType,
@@ -32,8 +33,16 @@ onMounted(() => {
   void loadData()
 })
 
-async function loadData() {
-  loading.value = true
+onBeforeUnmount(() => {
+  stopProgressPolling()
+})
+
+watch(schedules, syncProgressPolling)
+
+async function loadData(options: { silent?: boolean } = {}) {
+  if (!options.silent) {
+    loading.value = true
+  }
   try {
     const [scheduleRows, storeRows] = await Promise.all([
       api.listAutoListingSchedules({
@@ -45,10 +54,47 @@ async function loadData() {
     schedules.value = scheduleRows
     stores.value = storeRows
   } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '加载自动上架任务失败'))
+    if (!options.silent) {
+      ElMessage.error(toApiErrorMessage(error, '加载自动上架任务失败'))
+    }
   } finally {
-    loading.value = false
+    if (!options.silent) {
+      loading.value = false
+    }
   }
+}
+
+// 有正在创建/排队中的任务时,每 2 秒静默刷新列表,任务完成后自动停止
+function hasActiveSchedule() {
+  return schedules.value.some((row) => (
+    row.status === 'running'
+    || (row.taskType === 'manual' && (row.status === 'idle' || row.status === 'queued'))
+  ))
+}
+
+function syncProgressPolling() {
+  if (hasActiveSchedule()) {
+    startProgressPolling()
+  } else {
+    stopProgressPolling()
+  }
+}
+
+function startProgressPolling() {
+  if (progressTimer) {
+    return
+  }
+  progressTimer = window.setInterval(() => {
+    void loadData({ silent: true })
+  }, 2000)
+}
+
+function stopProgressPolling() {
+  if (!progressTimer) {
+    return
+  }
+  window.clearInterval(progressTimer)
+  progressTimer = undefined
 }
 
 function frequencyLabel(schedule: AutoListingSchedule) {
@@ -91,11 +137,24 @@ function resultText(schedule: AutoListingSchedule) {
 }
 
 function statusLabel(schedule: AutoListingSchedule) {
-  if (schedule.taskType === 'manual' && schedule.status === 'completed') {
-    return '已完成'
+  if (schedule.taskType === 'manual') {
+    if (schedule.status === 'completed') {
+      return '已完成'
+    }
+    if (schedule.status === 'queued') {
+      return schedule.scheduleType === 'once' ? '等待执行' : '排队中'
+    }
+    if (schedule.status === 'idle' || schedule.status === 'running') {
+      return '创建中'
+    }
+    if (schedule.status === 'failed') {
+      return '上次失败'
+    }
+    return '等待执行'
   }
   const statusText = {
     idle: '等待执行',
+    queued: '排队中',
     running: '创建中',
     failed: '上次失败',
     disabled: '已停用',
@@ -119,6 +178,9 @@ function statusType(schedule: AutoListingSchedule) {
   }
   if (schedule.status === 'running') {
     return 'warning'
+  }
+  if (schedule.status === 'queued') {
+    return 'primary'
   }
   if (schedule.status === 'failed') {
     return 'danger'
@@ -201,6 +263,9 @@ async function handleCreated() {
         <el-button :icon="Refresh" :loading="loading" @click="loadData">
           刷新
         </el-button>
+        <span v-if="hasActiveSchedule()" class="polling-status">
+          进行中的任务每 2 秒自动刷新
+        </span>
       </div>
     </div>
 
@@ -391,6 +456,11 @@ async function handleCreated() {
 
 .result-error {
   color: var(--el-color-danger);
+}
+
+.polling-status {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 @media (max-width: 760px) {

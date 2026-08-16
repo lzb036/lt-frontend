@@ -48,8 +48,8 @@ const availableStores = computed(
 )
 const taskHelpText = computed(() => (
   form.executionMode === 'scheduled'
-    ? '任务仍归类为手动任务，将在选择的日期和时间到达后执行一次。执行时按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。'
-    : '任务仍归类为手动任务，创建后立即执行。执行时按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。'
+    ? '任务仍归类为手动任务，将在选择的日期和时间到达后执行一次。执行时按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。同一店铺同一时间只执行一个手动上架任务，多个任务自动排队，前一个完成后自动开始下一个。'
+    : '任务仍归类为手动任务，创建后立即执行。执行时按创建时间从早到晚选择已审核、尚未在目标店铺上架且通过上架检查的商品；可用商品不足时按实际数量上架。同一店铺同一时间只执行一个手动上架任务，多个任务自动排队，前一个完成后自动开始下一个。'
 ))
 const submitButtonText = computed(() => (
   form.executionMode === 'scheduled' ? '创建任务' : '创建并执行'
@@ -107,7 +107,7 @@ async function submit() {
   submitting.value = true
   if (executionMode === 'immediate') {
     visible.value = false
-    ElMessage.info('任务已提交，后台正在准备上架任务')
+    ElMessage.info('任务已提交，后台正在准备上架任务；同店铺任务将按顺序排队执行')
   }
   try {
     const task = await api.createManualListingTask(payload)
