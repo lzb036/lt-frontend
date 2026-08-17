@@ -1351,7 +1351,18 @@ async function confirmAndCreateListingTask(productIds: number[]) {
       taskName: listingForm.taskName.trim(),
     })
     listingDialogVisible.value = false
-    handleListingTasksResult(listingTasksFromResult(result), productIds, result.summary?.message)
+    const acceptedProductIds = Array.isArray(result.summary?.acceptedProductIds)
+      ? result.summary.acceptedProductIds
+      : productIds
+    const deletedProductIds = Array.isArray(result.summary?.deletedProductIds)
+      ? result.summary.deletedProductIds
+      : []
+    clearHiddenProducts(deletedProductIds)
+    handleListingTasksResult(
+      listingTasksFromResult(result),
+      acceptedProductIds,
+      result.summary?.message,
+    )
     maybeRefreshAfterOptimisticAction()
   } catch (error) {
     setListingProductsBusy(productIds, false)
@@ -1510,7 +1521,7 @@ function aggregateTaskOutcomeIds(tasks: Array<ListingTask | SyncTask>, productId
   return { successIds: success, failedIds: failed }
 }
 
-function listingTasksFromResult(result: { listingTask?: ListingTask; listingTasks?: ListingTask[] }) {
+function listingTasksFromResult(result: { listingTask?: ListingTask | null; listingTasks?: ListingTask[] }) {
   return result.listingTasks?.length ? result.listingTasks : result.listingTask ? [result.listingTask] : []
 }
 
@@ -1545,7 +1556,7 @@ function taskControlStoppedMessage(tasks: ListingTask[]) {
     : `${stoppedCount} 个上架任务已由全局任务管控暂停，恢复本次停止任务后将继续执行未完成商品。`
 }
 
-function handleListingTaskResult(task: ListingTask, productIds: number[]) {
+function handleListingTaskResult(task: ListingTask, productIds: number[], message?: string) {
   if (task.status === 'success') {
     clearListingTaskBusy(productIds)
     if (shouldHideAfterListingTask()) {
@@ -1553,7 +1564,7 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
     } else {
       void refreshAll({ loadStores: false })
     }
-    ElMessage.success(task.message || '上架任务已完成')
+    ElMessage.success(message || task.message || '上架任务已完成')
     maybeRefreshAfterOptimisticAction()
     return
   }
@@ -1604,7 +1615,7 @@ function handleListingTaskResult(task: ListingTask, productIds: number[]) {
     hideProducts(productIds)
   }
   watchListingTaskCompletion(task.id, productIds)
-  ElMessage.success('上架任务已创建，请到上架任务中查看进度')
+  ElMessage.success(message || '上架任务已创建，请到上架任务中查看进度')
 }
 
 function handleListingTasksResult(tasks: ListingTask[], productIds: number[], message?: string) {
@@ -1613,11 +1624,16 @@ function handleListingTasksResult(tasks: ListingTask[], productIds: number[], me
     if (shouldHideAfterListingTask()) {
       restoreHiddenProducts(productIds)
     }
-    ElMessage.error('上架任务创建失败')
+    if (message) {
+      ElMessage.warning(message)
+      maybeRefreshAfterOptimisticAction()
+    } else {
+      ElMessage.error('上架任务创建失败')
+    }
     return
   }
   if (tasks.length === 1) {
-    handleListingTaskResult(tasks[0], productIds)
+    handleListingTaskResult(tasks[0], productIds, message)
     return
   }
   if (!areTasksFinished(tasks)) {

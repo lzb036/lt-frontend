@@ -1150,11 +1150,17 @@ export function useCollectorApi() {
 
   async function createListingTask(payload: ListingTaskPayload) {
     const response = await apiClient.post<{
-      listingTask: ListingTask
+      listingTask: ListingTask | null
       listingTasks?: ListingTask[]
       summary?: {
         total: number
+        requestedTotal?: number
         taskCount: number
+        acceptedProductIds?: number[]
+        deletedCount?: number
+        deletedProductIds?: number[]
+        deletedProductCodes?: string[]
+        cleanupFailedProductIds?: number[]
         message: string
       }
     }>('/crawler/listing-tasks', payload, {
