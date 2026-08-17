@@ -62,7 +62,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'system/deleted-product-images', name: 'system-deleted-product-images', component: DeletedProductImageCleanupView, meta: { title: '待清理图片' } },
       { path: 'system/collection-genres', name: 'system-collection-genres', component: CollectionGenreManagementView, meta: { title: '采集品类', permission: 'crawler.manage' } },
       { path: 'system/order-sync', name: 'system-order-sync', redirect: '/system/time', meta: { title: '订单同步设置', superadminOnly: true } },
-      { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理', superadminOnly: true } },
+      { path: 'system/sensitive-words', name: 'system-sensitive-words', component: SensitiveWordManagementView, meta: { title: '敏感词管理' } },
       { path: 'system/maintenance', name: 'system-maintenance', component: SystemMaintenanceManagementView, meta: { title: '系统维护管理', superadminOnly: true } },
       { path: 'help/operator-manual', name: 'operator-manual', component: OperatorManualView, meta: { title: '使用手册' } },
       { path: 'user/profile', redirect: '/system/profile' },

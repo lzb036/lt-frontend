@@ -88,7 +88,7 @@ const menuGroups = computed(() => {
       { path: '/system/collection-genres', label: '采集品类', icon: CollectionTag },
     )
   }
-  if (isSuperadmin.value) {
+  if (props.session) {
     collectionChildren.push(
       { path: '/system/sensitive-words', label: '敏感词管理', icon: NoSmoking },
     )
