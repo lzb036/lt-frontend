@@ -1179,6 +1179,18 @@ export function useCollectorApi() {
     return response.data
   }
 
+  async function retryListingTaskGroup(taskIds: string[]) {
+    const response = await apiClient.post<{
+      listingTaskGroup: {
+        taskIds: string[]
+        retryTaskIds: string[]
+        retryTaskCount: number
+        retryProductCount: number
+      }
+    }>('/crawler/listing-tasks/retry-group', { taskIds })
+    return response.data
+  }
+
   async function cancelListingTask(taskId: string) {
     const response = await apiClient.post<{ listingTask: ListingTask }>(`/crawler/listing-tasks/${taskId}/cancel`)
     return response.data
@@ -1380,6 +1392,7 @@ export function useCollectorApi() {
     preflightListingTask,
     createListingTask,
     retryListingTask,
+    retryListingTaskGroup,
     cancelListingTask,
     deleteListingTasks,
     listSyncTasks,

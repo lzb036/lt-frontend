@@ -9,7 +9,7 @@ const listingTaskSource = readFileSync(
 )
 
 const retryableFunction = listingTaskSource.match(
-  /function taskRetryable\(row: ListingTask\) \{([\s\S]*?)\n\}/,
+  /function taskRetryable\(row: ListingTask\)(?:: boolean)? \{([\s\S]*?)\n\}/,
 )?.[1] || ''
 
 for (const retryableStatus of ["'failed'", "'partial'", "'cancelled'"]) {

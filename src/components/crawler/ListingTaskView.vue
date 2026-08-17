@@ -16,6 +16,7 @@ const loading = shallowRef(false)
 const refreshing = shallowRef(false)
 const tasks = shallowRef<ListingTask[]>([])
 const selectedTasks = shallowRef<ListingTask[]>([])
+const retryingTaskId = shallowRef<string | null>(null)
 let progressTimer: number | undefined
 const {
   currentPage,
@@ -95,23 +96,42 @@ async function refreshTasks() {
 }
 
 async function retryTask(row: ListingTask) {
+  const isGroup = Boolean(row.isGroup)
+  const retryProductCount = retryableProductCount(row)
+  const retryLabel = isGroup
+    ? `总任务「${row.taskName || row.id}」中的 ${retryProductCount || '全部'} 个异常商品`
+    : `上架任务「${row.taskName || row.id}」`
   try {
     await ElMessageBox.confirm(
-      `确认重试上架任务「${row.taskName || row.id}」？`,
-      '重试上架任务',
+      isGroup
+        ? `确认重试${retryLabel}？已成功商品不会重复上架。`
+        : `确认重试${retryLabel}？`,
+      isGroup ? '重试总任务异常商品' : '重试上架任务',
       {
         confirmButtonText: '重试',
         cancelButtonText: '取消',
         type: 'warning',
       },
     )
-    const result = await api.retryListingTask(row.id)
-    tasks.value = tasks.value.map((task) => (task.id === row.id ? result.listingTask : task))
-    ElMessage.success('上架任务已加入队列等待重试')
+    retryingTaskId.value = row.id
+    if (isGroup) {
+      const taskIds = row.childTaskIds || []
+      const result = await api.retryListingTaskGroup(taskIds)
+      await loadTasks({ silent: true })
+      ElMessage.success(
+        `已提交 ${result.listingTaskGroup.retryTaskCount} 个分任务，共 ${result.listingTaskGroup.retryProductCount} 个商品等待重试`,
+      )
+    } else {
+      await api.retryListingTask(row.id)
+      await loadTasks({ silent: true })
+      ElMessage.success('上架任务已加入队列等待重试')
+    }
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(toApiErrorMessage(error, '重试上架任务失败'))
     }
+  } finally {
+    retryingTaskId.value = null
   }
 }
 
@@ -206,8 +226,27 @@ function statusType(row: ListingTask) {
   return 'info'
 }
 
-function taskRetryable(row: ListingTask) {
-  return !row.isGroup && (row.status === 'failed' || row.status === 'partial' || row.status === 'cancelled')
+function groupTaskRetryable(row: ListingTask): boolean {
+  return Boolean(row.children?.some((child) => taskRetryable(child)))
+}
+
+function taskRetryable(row: ListingTask): boolean {
+  return row.isGroup
+    ? groupTaskRetryable(row)
+    : (row.status === 'failed' || row.status === 'partial' || row.status === 'cancelled')
+}
+
+function retryableProductCount(row: ListingTask): number {
+  if (row.isGroup) {
+    return row.children?.reduce((total, child) => total + retryableProductCount(child), 0) || 0
+  }
+  if (row.status === 'partial' || row.status === 'failed') {
+    return row.failedIds?.length || row.failedCount
+  }
+  if (row.status === 'cancelled') {
+    return row.productIds?.length || row.totalCount
+  }
+  return 0
 }
 
 function taskCancelable(row: ListingTask) {
@@ -322,7 +361,7 @@ function handlePageSizeChange() {
         <el-table-column prop="createdAt" label="创建时间" min-width="170" />
         <el-table-column prop="startedAt" label="开始执行时间" min-width="170" />
         <el-table-column prop="finishedAt" label="完成时间" min-width="170" />
-        <el-table-column class-name="table-action-column" label="操作" width="88" fixed="right">
+        <el-table-column class-name="table-action-column" label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="taskCancelable(row) || taskWaitingCancel(row)"
@@ -334,8 +373,16 @@ function handlePageSizeChange() {
             >
               {{ taskWaitingCancel(row) ? '终止中' : '终止' }}
             </el-button>
-            <el-button v-if="taskRetryable(row)" :icon="VideoPlay" link type="primary" @click="retryTask(row)">
-              重试
+            <el-button
+              v-if="taskRetryable(row)"
+              :icon="VideoPlay"
+              :loading="retryingTaskId === row.id"
+              :disabled="Boolean(retryingTaskId)"
+              link
+              type="primary"
+              @click="retryTask(row)"
+            >
+              {{ row.isGroup ? '重试异常' : '重试' }}
             </el-button>
           </template>
         </el-table-column>
