@@ -221,6 +221,13 @@ function formatDateTime(value?: string | null) {
   })
 }
 
+function nextExecutionText(task: AutoDeletionTask) {
+  if (task.taskType === 'manual' && task.executionMode === 'immediate') {
+    return '-'
+  }
+  return formatDateTime(task.nextRunAt)
+}
+
 async function removeTask(task: AutoDeletionTask) {
   try {
     await ElMessageBox.confirm('确认删除该自动删除任务记录？', '删除任务', { type: 'warning' })
@@ -305,7 +312,7 @@ function statusType(task: AutoDeletionTask) {
         <el-table-column prop="quantity" label="删除数量" width="100" />
         <el-table-column label="状态" width="100"><template #default="{ row }"><el-tag :type="statusType(row)" effect="plain">{{ statusLabel(row) }}</el-tag></template></el-table-column>
         <el-table-column label="下次执行" min-width="160">
-          <template #default="{ row }">{{ formatDateTime(row.nextRunAt) }}</template>
+          <template #default="{ row }">{{ nextExecutionText(row) }}</template>
         </el-table-column>
         <el-table-column label="上次执行" min-width="160">
           <template #default="{ row }">{{ formatDateTime(row.lastRunAt) }}</template>

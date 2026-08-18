@@ -182,3 +182,16 @@ for (const contract of [
     throw new Error(`missing automatic task operation contract: ${contract}`)
   }
 }
+
+for (const source of [listingSource, deletionSource]) {
+  for (const contract of [
+    'function nextExecutionText',
+    "taskType === 'manual' &&",
+    "return '-'",
+    'nextExecutionText(row)',
+  ]) {
+    if (!source.includes(contract)) {
+      throw new Error(`missing immediate-task next execution display contract: ${contract}`)
+    }
+  }
+}

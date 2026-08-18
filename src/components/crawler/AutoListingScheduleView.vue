@@ -132,6 +132,13 @@ function formatDateTime(value?: string | null) {
   })
 }
 
+function nextExecutionText(schedule: AutoListingSchedule) {
+  if (schedule.taskType === 'manual' && schedule.executionMode === 'immediate') {
+    return '-'
+  }
+  return formatDateTime(schedule.nextRunAt)
+}
+
 function resultText(schedule: AutoListingSchedule) {
   return schedule.lastError || schedule.lastMessage || '尚未执行'
 }
@@ -327,7 +334,7 @@ async function handleCreated() {
           </template>
         </el-table-column>
         <el-table-column label="下次执行" min-width="160">
-          <template #default="{ row }">{{ formatDateTime(row.nextRunAt) }}</template>
+          <template #default="{ row }">{{ nextExecutionText(row) }}</template>
         </el-table-column>
         <el-table-column label="上次执行" min-width="160">
           <template #default="{ row }">{{ formatDateTime(row.lastRunAt) }}</template>
