@@ -18,7 +18,6 @@ import type {
   ListingPreflightResult,
   ListingTask,
   ListingTaskPayload,
-  ManualCrawlImportResult,
   ManualListingTaskPayload,
   PageParams,
   PageResult,
@@ -373,18 +372,6 @@ export function useCollectorApi() {
       deletedCount: number
       deletedProductIds: number[]
     }>(`/crawler/tasks/${taskId}/pending-products`)
-    return response.data
-  }
-
-  async function downloadManualCrawlImportTemplate() {
-    const response = await apiClient.get<Blob>('/crawler/tasks/import-template', { responseType: 'blob' })
-    return response.data
-  }
-
-  async function importManualCrawlTasks(file: File) {
-    const formData = new FormData()
-    formData.append('file', file)
-    const response = await apiClient.post<ManualCrawlImportResult>('/crawler/tasks/import', formData)
     return response.data
   }
 
@@ -1309,8 +1296,6 @@ export function useCollectorApi() {
     cancelTask,
     deleteTasks,
     deleteTaskPendingProducts,
-    downloadManualCrawlImportTemplate,
-    importManualCrawlTasks,
     listProducts,
     listProductsPage,
     updateProductStatus,

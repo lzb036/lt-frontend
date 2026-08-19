@@ -43,9 +43,26 @@ for (const removedText of [
   'form.targets',
   'addProductInput',
   'removeProductInput',
+  'ManualCrawlImportResult',
+  'downloadImportTemplate',
+  'openImportFilePicker',
+  'handleImportFileChange',
+  'manual-import-input',
+  '下载模板',
+  '导入表格',
 ]) {
   if (viewSource.includes(removedText)) {
     throw new Error(`obsolete manual-crawl multi-input contract remains: ${removedText}`)
+  }
+}
+
+for (const removedText of [
+  'ManualCrawlImportResult',
+  'downloadManualCrawlImportTemplate',
+  'importManualCrawlTasks',
+]) {
+  if (apiSource.includes(removedText)) {
+    throw new Error(`obsolete manual-crawl spreadsheet API contract remains: ${removedText}`)
   }
 }
 

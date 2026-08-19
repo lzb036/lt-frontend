@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleClose, Delete, Download, Plus, QuestionFilled, Refresh, Search, Upload, View, VideoPlay } from '@element-plus/icons-vue'
+import { CircleClose, Delete, Plus, QuestionFilled, Refresh, Search, View, VideoPlay } from '@element-plus/icons-vue'
 
 import { useCollectorApi } from '../../composables/useCollectorApi'
 import { useAuth } from '../../composables/useAuth'
@@ -12,7 +12,6 @@ import type {
   CrawlPriceRule,
   CrawlTask,
   CreateTaskPayload,
-  ManualCrawlImportResult,
   SourceType,
   WholeShopFilter,
   WholeShopPreview,
@@ -32,10 +31,7 @@ const refreshing = shallowRef(false)
 const creating = shallowRef(false)
 const previewing = shallowRef(false)
 const wholeShopPreviews = shallowRef<Array<{ target: string; preview: WholeShopPreview }>>([])
-const downloadingTemplate = shallowRef(false)
-const importing = shallowRef(false)
 const deletingProductTaskId = shallowRef('')
-const importInputRef = shallowRef<HTMLInputElement | null>(null)
 const createDialogVisible = shallowRef(false)
 const resultDialogVisible = shallowRef(false)
 const resultDialogTask = shallowRef<CrawlTask | null>(null)
@@ -223,78 +219,6 @@ async function refreshTasks() {
   } finally {
     refreshing.value = false
   }
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
-}
-
-async function downloadImportTemplate() {
-  downloadingTemplate.value = true
-  try {
-    const blob = await api.downloadManualCrawlImportTemplate()
-    downloadBlob(blob, '手动采集导入模板.xlsx')
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '下载手动采集模板失败'))
-  } finally {
-    downloadingTemplate.value = false
-  }
-}
-
-function openImportFilePicker() {
-  importInputRef.value?.click()
-}
-
-async function handleImportFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) {
-    return
-  }
-  if (!/\.xlsx$/i.test(file.name)) {
-    ElMessage.warning('请选择 xlsx 表格文件')
-    return
-  }
-  importing.value = true
-  try {
-    const result = await api.importManualCrawlTasks(file)
-    resetPage()
-    await loadTasks()
-    showImportResult(result)
-  } catch (error) {
-    ElMessage.error(toApiErrorMessage(error, '导入手动采集任务失败'))
-  } finally {
-    importing.value = false
-  }
-}
-
-function showImportResult(result: ManualCrawlImportResult) {
-  const summary = `导入完成：创建 ${result.createdTaskCount} 个任务，失败 ${result.failedCount} 行`
-  const details = [
-    `商品 URL：${result.productUrlCount} 个，${result.productTaskCreated ? '已合并创建 1 个任务' : '未创建任务'}`,
-    `店铺任务：${result.shopTaskCount} 个`,
-  ]
-  if (result.failedRows.length > 0) {
-    details.push(
-      '',
-      ...result.failedRows
-        .slice(0, 30)
-        .map((row) => `${row.sheet} 第 ${row.rowNumber} 行：${row.message}`),
-    )
-  }
-  void ElMessageBox.alert(details.join('\n'), summary, {
-    confirmButtonText: '知道了',
-    type: result.failedCount > 0 ? 'warning' : 'success',
-    customClass: 'manual-import-result-message',
-  })
 }
 
 async function createTask() {
@@ -933,21 +857,8 @@ function statusType(row: CrawlTask) {
 <template>
   <section class="page-stack">
     <div class="head-actions">
-      <input
-        ref="importInputRef"
-        class="manual-import-input"
-        type="file"
-        accept=".xlsx"
-        @change="handleImportFileChange"
-      >
       <el-button type="danger" :icon="Delete" :disabled="selectedTasks.length < 1" :loading="loading" @click="deleteSelectedTasks">
         批量删除
-      </el-button>
-      <el-button :icon="Download" :loading="downloadingTemplate" @click="downloadImportTemplate">
-        下载模板
-      </el-button>
-      <el-button :icon="Upload" :loading="importing" @click="openImportFilePicker">
-        导入表格
       </el-button>
       <el-button :icon="Refresh" :loading="refreshing" @click="refreshTasks">
         刷新
@@ -1274,10 +1185,6 @@ function statusType(row: CrawlTask) {
 .page-stack {
   display: grid;
   gap: 18px;
-}
-
-.manual-import-input {
-  display: none;
 }
 
 .page-head,
