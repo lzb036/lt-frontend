@@ -105,8 +105,10 @@ const detailForm = reactive({
   variants: [] as ProductVariantEditPayload[],
 })
 const replacingImageIndex = shallowRef<number | null>(null)
+const PRODUCT_PAGE_SIZES = [30, 60, 90, 100] as const
 const { currentPage, pageSize, pageSizes, paginationLayout, total, resetPage, setPageResult, reduceTotal } = useServerPagination(
   () => productWorkflowPaginationKey(props.status, props.collectionSource),
+  PRODUCT_PAGE_SIZES,
 )
 
 const filters = reactive({
