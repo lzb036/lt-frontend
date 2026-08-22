@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
+import { onMounted, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleClose, Delete, Refresh, VideoPlay } from '@element-plus/icons-vue'
 
@@ -17,7 +17,6 @@ const refreshing = shallowRef(false)
 const tasks = shallowRef<ListingTask[]>([])
 const selectedTasks = shallowRef<ListingTask[]>([])
 const retryingTaskId = shallowRef<string | null>(null)
-let progressTimer: number | undefined
 const {
   currentPage,
   pageSize,
@@ -31,12 +30,6 @@ const {
 onMounted(() => {
   void loadTasks()
 })
-
-onBeforeUnmount(() => {
-  stopProgressPolling()
-})
-
-watch(tasks, syncProgressPolling)
 
 async function loadTasks(options: { silent?: boolean } = {}) {
   if (!options.silent) {
@@ -55,35 +48,6 @@ async function loadTasks(options: { silent?: boolean } = {}) {
       loading.value = false
     }
   }
-}
-
-function hasRunningTask() {
-  return tasks.value.some((task) => task.status === 'queued' || task.status === 'running')
-}
-
-function syncProgressPolling() {
-  if (hasRunningTask()) {
-    startProgressPolling()
-  } else {
-    stopProgressPolling()
-  }
-}
-
-function startProgressPolling() {
-  if (progressTimer) {
-    return
-  }
-  progressTimer = window.setInterval(() => {
-    void loadTasks({ silent: true })
-  }, 2000)
-}
-
-function stopProgressPolling() {
-  if (!progressTimer) {
-    return
-  }
-  window.clearInterval(progressTimer)
-  progressTimer = undefined
 }
 
 async function refreshTasks() {

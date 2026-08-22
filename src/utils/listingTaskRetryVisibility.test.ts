@@ -43,3 +43,13 @@ if (!groupRetryableFunction.includes('!taskInProgress(child)')) {
 if (listingTaskSource.includes('v-if="taskFinished(row)"')) {
   throw new Error('listing task retry button must not use the generic finished status guard')
 }
+
+for (const pollingPattern of ['progressTimer', 'setInterval', 'syncProgressPolling']) {
+  if (listingTaskSource.includes(pollingPattern)) {
+    throw new Error(`listing task view must not poll automatically: ${pollingPattern}`)
+  }
+}
+
+if (!listingTaskSource.includes('void loadTasks()')) {
+  throw new Error('listing task view must load task data when mounted')
+}
