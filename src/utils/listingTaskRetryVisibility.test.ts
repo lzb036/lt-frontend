@@ -28,6 +28,18 @@ if (!listingTaskSource.includes('v-if="taskRetryable(row)"')) {
   throw new Error('listing task retry button must use the retryable status guard')
 }
 
+const groupRetryableFunction = listingTaskSource.match(
+  /function groupTaskRetryable\(row: ListingTask\)(?:: boolean)? \{([\s\S]*?)\n\}/,
+)?.[1] || ''
+
+if (!groupRetryableFunction.includes('children.every')) {
+  throw new Error('group retry must wait until every child task is finished')
+}
+
+if (!groupRetryableFunction.includes('!taskInProgress(child)')) {
+  throw new Error('group retry must hide while a child task is queued or running')
+}
+
 if (listingTaskSource.includes('v-if="taskFinished(row)"')) {
   throw new Error('listing task retry button must not use the generic finished status guard')
 }

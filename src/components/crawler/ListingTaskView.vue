@@ -227,13 +227,22 @@ function statusType(row: ListingTask) {
 }
 
 function groupTaskRetryable(row: ListingTask): boolean {
-  return Boolean(row.children?.some((child) => taskRetryable(child)))
+  const children = row.children || []
+  return (
+    children.length > 0
+    && children.every((child) => !taskInProgress(child))
+    && children.some((child) => taskRetryable(child))
+  )
 }
 
 function taskRetryable(row: ListingTask): boolean {
   return row.isGroup
     ? groupTaskRetryable(row)
     : (row.status === 'failed' || row.status === 'partial' || row.status === 'cancelled')
+}
+
+function taskInProgress(row: ListingTask): boolean {
+  return row.status === 'queued' || row.status === 'running'
 }
 
 function retryableProductCount(row: ListingTask): number {
