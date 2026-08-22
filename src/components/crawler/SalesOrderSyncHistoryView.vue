@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
+import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 import { Delete, Refresh, RefreshRight, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -7,7 +7,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   canDeleteSalesOrderSyncRun,
   canRetrySalesOrderSyncRun,
-  salesOrderSyncRunNeedsPolling,
   salesOrderSyncStatusLabel,
   salesOrderSyncTaskName,
   salesOrderSyncTriggerLabel,
@@ -27,7 +26,6 @@ import type {
 import { toApiErrorMessage } from '../../utils/api'
 import { PAGINATION_PREFERENCE_KEYS } from '../../utils/paginationPreferenceKeys'
 
-const POLL_INTERVAL_MS = 2_000
 const DEFAULT_SETTINGS: SalesOrderSyncGlobalSettings = {
   enabled: true,
   intervalMinutes: 30,
@@ -61,9 +59,6 @@ const filters = reactive({
   pageSize: persistedPageSize.value,
 })
 
-let pollTimer: number | null = null
-
-const hasActiveRuns = computed(() => runs.value.some(salesOrderSyncRunNeedsPolling))
 const currentSelectedRuns = computed(() => {
   const selectedIds = new Set(selectedRuns.value.map((run) => run.id))
   return runs.value.filter((run) => selectedIds.has(run.id))
@@ -74,17 +69,6 @@ const selectedDeletableRuns = computed(() => (
 
 onMounted(async () => {
   await Promise.all([loadSettings(), loadStores(), loadRuns()])
-  pollTimer = window.setInterval(() => {
-    if (hasActiveRuns.value) {
-      void loadRuns(true)
-    }
-  }, POLL_INTERVAL_MS)
-})
-
-onBeforeUnmount(() => {
-  if (pollTimer !== null) {
-    window.clearInterval(pollTimer)
-  }
 })
 
 function initialStoreId() {
@@ -421,8 +405,7 @@ function formatDateTime(value?: string | null) {
       </el-table>
 
       <footer class="table-footer">
-        <span v-if="hasActiveRuns" class="polling-status">运行中记录每 2 秒自动刷新</span>
-        <span v-else />
+        <span />
         <el-pagination
           background
           layout="total, sizes, prev, pager, next, jumper"
@@ -497,7 +480,6 @@ function formatDateTime(value?: string | null) {
   padding-top: 16px;
 }
 
-.polling-status,
 .operation-placeholder {
   color: var(--text-muted);
   font-size: 12px;
