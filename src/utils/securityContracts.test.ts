@@ -84,20 +84,10 @@ assertMatch(loginBrandSource, /class="brand-name-image"/, 'login brand calligrap
 assertMatch(loginBrandSource, /width: clamp\(176px, 15vw, 230px\)/, 'login brand calligraphy must remain prominent')
 assertNoMatch(loginBrandSource, /transform: rotate\(-2deg\) skewX\(-5deg\)/, 'login brand text must not be tilted')
 assertNoMatch(loginBrandSource, /FZShuTi|STXingkai|华文行楷/, 'hard-to-read calligraphy fonts must not return')
-assertMatch(
+assertNoMatch(
   deletedImageCleanupSource,
-  /record\.status === 'queued'/,
-  'queued image cleanup records must enable automatic progress polling',
-)
-assertMatch(
-  deletedImageCleanupSource,
-  /loadRecords\(\{ silent: true \}\)/,
-  'image cleanup progress polling must refresh without blocking the table',
-)
-assertMatch(
-  deletedImageCleanupSource,
-  /onBeforeUnmount\(\(\) => \{\s*stopProgressPolling\(\)/s,
-  'image cleanup progress polling must stop when leaving the page',
+  /setInterval|progressTimer|syncProgressPolling/,
+  'image cleanup records view must use manual refresh instead of polling',
 )
 assertMatch(
   collectorApiSource,

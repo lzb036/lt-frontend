@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
+import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { Delete, Edit, Plus, Refresh, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -19,7 +19,6 @@ const operatingId = shallowRef<number | null>(null)
 const createMode = shallowRef<AutoListingTaskType>('automatic')
 const tasks = shallowRef<AutoDeletionTask[]>([])
 const stores = shallowRef<StoreAccount[]>([])
-let progressTimer: number | undefined
 const filters = reactive({ storeId: null as number | null, taskType: '' as '' | AutoListingTaskType })
 const form = reactive({
   storeId: 0,
@@ -53,8 +52,6 @@ const submitButtonText = computed(() => {
 })
 
 onMounted(() => void loadData())
-onBeforeUnmount(() => stopProgressPolling())
-watch(tasks, syncProgressPolling)
 
 async function loadData(options: { silent?: boolean } = {}) {
   if (!options.silent) {
@@ -76,39 +73,6 @@ async function loadData(options: { silent?: boolean } = {}) {
       loading.value = false
     }
   }
-}
-
-// 有正在创建/排队中的任务时,每 2 秒静默刷新列表,任务完成后自动停止
-function hasActiveTask() {
-  return tasks.value.some((row) => (
-    row.status === 'running'
-    || (row.taskType === 'manual' && (row.status === 'idle' || row.status === 'queued'))
-  ))
-}
-
-function syncProgressPolling() {
-  if (hasActiveTask()) {
-    startProgressPolling()
-  } else {
-    stopProgressPolling()
-  }
-}
-
-function startProgressPolling() {
-  if (progressTimer) {
-    return
-  }
-  progressTimer = window.setInterval(() => {
-    void loadData({ silent: true })
-  }, 2000)
-}
-
-function stopProgressPolling() {
-  if (!progressTimer) {
-    return
-  }
-  window.clearInterval(progressTimer)
-  progressTimer = undefined
 }
 
 function openCreate(mode: AutoListingTaskType) {
@@ -293,7 +257,6 @@ function statusType(task: AutoDeletionTask) {
           创建任务
         </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadData">刷新</el-button>
-        <span v-if="hasActiveTask()" class="polling-status">进行中的任务每 2 秒自动刷新</span>
       </div>
     </div>
     <section class="work-panel">
@@ -437,11 +400,6 @@ function statusType(task: AutoDeletionTask) {
 
 .filters {
   margin-bottom: 14px;
-}
-
-.polling-status {
-  color: var(--text-secondary);
-  font-size: 12px;
 }
 
 .filters :deep(.el-select) {

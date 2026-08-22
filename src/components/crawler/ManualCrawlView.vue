@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
+import { computed, onMounted, reactive, shallowRef, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleClose, Delete, Plus, QuestionFilled, Refresh, Search, View, VideoPlay } from '@element-plus/icons-vue'
 
@@ -37,7 +37,6 @@ const resultDialogVisible = shallowRef(false)
 const resultDialogTask = shallowRef<CrawlTask | null>(null)
 const tasks = shallowRef<CrawlTask[]>([])
 const selectedTasks = shallowRef<CrawlTask[]>([])
-let progressTimer: number | undefined
 
 const filters = reactive({
   target: '',
@@ -134,11 +133,6 @@ onMounted(() => {
   void loadTasks()
 })
 
-onBeforeUnmount(() => {
-  stopProgressPolling()
-})
-
-watch(tasks, syncProgressPolling)
 watch(
   () => [
     form.sourceType,
@@ -181,35 +175,6 @@ async function loadTasks(options: { silent?: boolean } = {}) {
       loading.value = false
     }
   }
-}
-
-function hasRunningTask() {
-  return tasks.value.some((task) => task.status === 'queued' || task.status === 'running')
-}
-
-function syncProgressPolling() {
-  if (hasRunningTask()) {
-    startProgressPolling()
-  } else {
-    stopProgressPolling()
-  }
-}
-
-function startProgressPolling() {
-  if (progressTimer) {
-    return
-  }
-  progressTimer = window.setInterval(() => {
-    void loadTasks({ silent: true })
-  }, 2000)
-}
-
-function stopProgressPolling() {
-  if (!progressTimer) {
-    return
-  }
-  window.clearInterval(progressTimer)
-  progressTimer = undefined
 }
 
 async function refreshTasks() {

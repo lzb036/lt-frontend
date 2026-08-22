@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
+import { onMounted, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, VideoPlay } from '@element-plus/icons-vue'
 
@@ -14,7 +14,6 @@ const api = useCollectorApi()
 const loading = shallowRef(false)
 const runningCleanup = shallowRef(false)
 const records = shallowRef<DeletedProductImageCleanupRecord[]>([])
-let progressTimer: number | undefined
 const {
   currentPage,
   pageSize,
@@ -28,12 +27,6 @@ const {
 onMounted(() => {
   void loadRecords()
 })
-
-onBeforeUnmount(() => {
-  stopProgressPolling()
-})
-
-watch(records, syncProgressPolling)
 
 async function loadRecords(options: { silent?: boolean } = {}) {
   if (!options.silent) {
@@ -55,31 +48,6 @@ async function loadRecords(options: { silent?: boolean } = {}) {
       loading.value = false
     }
   }
-}
-
-function syncProgressPolling() {
-  if (records.value.some((record) => record.status === 'queued')) {
-    startProgressPolling()
-  } else {
-    stopProgressPolling()
-  }
-}
-
-function startProgressPolling() {
-  if (progressTimer) {
-    return
-  }
-  progressTimer = window.setInterval(() => {
-    void loadRecords({ silent: true })
-  }, 2000)
-}
-
-function stopProgressPolling() {
-  if (!progressTimer) {
-    return
-  }
-  window.clearInterval(progressTimer)
-  progressTimer = undefined
 }
 
 function refreshRecords() {

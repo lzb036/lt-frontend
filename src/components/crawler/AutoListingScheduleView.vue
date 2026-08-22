@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, shallowRef, watch } from 'vue'
+import { onMounted, reactive, shallowRef } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Refresh, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 
@@ -23,7 +23,6 @@ const editVisible = shallowRef(false)
 const editingSchedule = shallowRef<AutoListingSchedule | null>(null)
 const schedules = shallowRef<AutoListingSchedule[]>([])
 const stores = shallowRef<StoreAccount[]>([])
-let progressTimer: number | undefined
 const filters = reactive({
   storeId: null as number | null,
   taskType: '' as '' | AutoListingTaskType,
@@ -32,12 +31,6 @@ const filters = reactive({
 onMounted(() => {
   void loadData()
 })
-
-onBeforeUnmount(() => {
-  stopProgressPolling()
-})
-
-watch(schedules, syncProgressPolling)
 
 async function loadData(options: { silent?: boolean } = {}) {
   if (!options.silent) {
@@ -62,39 +55,6 @@ async function loadData(options: { silent?: boolean } = {}) {
       loading.value = false
     }
   }
-}
-
-// 有正在创建/排队中的任务时,每 2 秒静默刷新列表,任务完成后自动停止
-function hasActiveSchedule() {
-  return schedules.value.some((row) => (
-    row.status === 'running'
-    || (row.taskType === 'manual' && (row.status === 'idle' || row.status === 'queued'))
-  ))
-}
-
-function syncProgressPolling() {
-  if (hasActiveSchedule()) {
-    startProgressPolling()
-  } else {
-    stopProgressPolling()
-  }
-}
-
-function startProgressPolling() {
-  if (progressTimer) {
-    return
-  }
-  progressTimer = window.setInterval(() => {
-    void loadData({ silent: true })
-  }, 2000)
-}
-
-function stopProgressPolling() {
-  if (!progressTimer) {
-    return
-  }
-  window.clearInterval(progressTimer)
-  progressTimer = undefined
 }
 
 function frequencyLabel(schedule: AutoListingSchedule) {
@@ -270,9 +230,6 @@ async function handleCreated() {
         <el-button :icon="Refresh" :loading="loading" @click="loadData">
           刷新
         </el-button>
-        <span v-if="hasActiveSchedule()" class="polling-status">
-          进行中的任务每 2 秒自动刷新
-        </span>
       </div>
     </div>
 
@@ -463,11 +420,6 @@ async function handleCreated() {
 
 .result-error {
   color: var(--el-color-danger);
-}
-
-.polling-status {
-  color: var(--text-secondary);
-  font-size: 12px;
 }
 
 @media (max-width: 760px) {
